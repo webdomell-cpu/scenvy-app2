@@ -839,8 +839,8 @@ export default function Landing(){
                   cta: lang === 'en' ? 'Start for free' : 'Kostenlos starten',
                   act: 'register',
                   feat: lang === 'en' 
-                    ? ['30 days all modules', 'Unlimited locations', 'No automatic subscription', 'Manual activation by support']
-                    : ['30 Tage alle Module testen', 'Unlimitierte Standorte', 'Kein Auto-Abo', 'Manuelle Aktivierung via Support']
+                    ? ['30 days all modules', '1 Location included', 'No automatic subscription', 'Manual activation by support']
+                    : ['30 Tage alle Module testen', '1 Standort inklusive', 'Kein Auto-Abo', 'Manuelle Aktivierung via Support']
                 },
                 {
                   n: 'PRO',
@@ -852,8 +852,8 @@ export default function Landing(){
                   cta: lang === 'en' ? 'Get started' : 'Jetzt starten',
                   act: 'register',
                   feat: lang === 'en'
-                    ? ['Unlimited locations', '1 Module included (e.g. FLOW)', 'Each additional module +€9 / mo*', 'In-App purchases available']
-                    : ['Unlimitierte Standorte', '1 Modul inklusive (z.B. FLOW)', 'Jedes weitere Modul +9 € / Monat*', 'In-App Käufe möglich']
+                    ? ['Up to 5 locations included', '1 Module included (e.g. FLOW)', 'Each additional module +€9 / mo*', 'In-App purchases available']
+                    : ['Bis zu 5 Standorte inklusive', '1 Modul inklusive (z.B. FLOW)', 'Jedes weitere Modul +9 € / Monat*', 'In-App Käufe möglich']
                 },
                 {
                   n: 'ENTERPRISE',
@@ -865,8 +865,8 @@ export default function Landing(){
                   cta: lang === 'en' ? 'Contact us' : 'Kontaktieren',
                   act: 'contact',
                   feat: lang === 'en'
-                    ? ['Custom terms', 'White-Label Branding & Custom Domain', 'API Integration', 'Dedicated Account Manager']
-                    : ['Individuelle Konditionen', 'White-Label Branding & Eigene Domain', 'API-Anbindung an bestehende Systeme', 'Dedizierter Account Manager']
+                    ? ['Custom location slots (5+)', 'White-Label Branding & Custom Domain', 'API Integration', 'Dedicated Account Manager']
+                    : ['Flexible/Individuelle Anzahl Standorte', 'White-Label Branding & Eigene Domain', 'API-Anbindung an bestehende Systeme', 'Dedizierter Account Manager']
                 }
               ].map((p,i)=>(
                 <div key={i} className={p.pop?'pricing-card-pop':''} style={{background:C.card,border:`2px solid ${p.pop?p.color:C.border}`,borderRadius:24,padding:'32px 24px',position:'relative',transform:p.pop?'scale(1.03)':'none',boxShadow:p.pop?`0 0 40px ${p.color}33`:'none'}}>

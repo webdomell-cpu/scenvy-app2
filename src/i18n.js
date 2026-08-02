@@ -148,7 +148,7 @@ export const T = {
       plans: [
         { name: 'Starter', price: '€0',   period: 'forever',  desc: 'Perfect to try SCENVY risk-free.',                          cta: 'Start for free', features: ['1 location', '5 reels', 'Basic analytics', 'QR code generator', 'Email support'] },
         { name: 'Pro',     price: '€79',  period: '/month',   desc: 'For growing venues serious about engagement.',               cta: 'Get started',    features: ['5 locations', 'Unlimited reels', 'AI Reel Generator', 'Full analytics + CTR', 'Social import (IG, TikTok)', 'Priority support'] },
-        { name: 'Enterprise', price: '€299', period: '/month', desc: 'For groups and chains across multiple cities.',             cta: 'Contact us',     features: ['Unlimited locations', 'Unlimited reels', 'AI Generator + scheduling', 'White label branding', 'API access', 'Dedicated account manager'] },
+        { name: 'Enterprise', price: '€299', period: '/month', desc: 'For groups and chains across multiple cities.',             cta: 'Contact us',     features: ['Custom location slots (5+)', 'Unlimited reels', 'AI Generator + scheduling', 'White label branding', 'API access', 'Dedicated account manager'] },
       ]
     },
     testimonials: {

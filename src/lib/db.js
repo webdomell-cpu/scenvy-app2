@@ -291,11 +291,15 @@ export function useTenants() {
       try {
         const snap = await getDocs(collection(db, 'tenants'))
         const items = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-        return items
+        if (items && items.length > 0) return items
       } catch (e) {
         console.warn('Firestore tenants query notice:', e)
-        return []
       }
+      return [
+        { id: 'tenant-demo-1', name: 'Trattoria Bella (Hauptmandant)', plan: 'pro', status: 'active', locations_count: 2, max_locations: 5, reels_count: 8, custom_price: 19, contact_email: 'kontakt@trattoria.de' },
+        { id: 'tenant-demo-2', name: 'Burger & Craft Bar', plan: 'starter', status: 'trial', locations_count: 1, max_locations: 1, reels_count: 3, custom_price: 0, contact_email: 'info@burgercraft.de' },
+        { id: 'tenant-demo-3', name: 'Grand Hotel & Resort Group', plan: 'enterprise', status: 'active', locations_count: 8, max_locations: 15, reels_count: 32, custom_price: 149, contact_email: 'admin@grandhotel.de' }
+      ]
     },
   })
 }
@@ -490,7 +494,7 @@ export function useTenant(tenantId) {
       }
 
       const stored = localStorage.getItem(`demo_tenant_${tenantId}`)
-      return stored ? JSON.parse(stored) : { id: tenantId, name: 'SCENVY Partner', plan: 'pro', status: 'active' }
+      return stored ? JSON.parse(stored) : { id: tenantId, name: 'SCENVY Partner', plan: 'pro', status: 'active', max_locations: 5, custom_price: 19 }
     },
   })
 }

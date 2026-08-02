@@ -1054,7 +1054,9 @@ export default function Admin() {
                       <option value="pro">PRO</option>
                       <option value="enterprise">ENT.</option>
                     </select>
-                    <div style={{fontSize:13,fontWeight:700,color:C.blue}}>{t.locations_count||0}</div>
+                    <div style={{fontSize:13,fontWeight:700,color:C.blue}}>
+                      {t.locations_count||0} / {t.max_locations || (t.plan==='pro'?5:t.plan==='enterprise'?(t.max_locations||5):1)}
+                    </div>
                     <div style={{fontSize:13,fontWeight:700}}>{t.reels_count||0}</div>
                     <div style={{fontSize:13,fontWeight:700,color:C.green}}>€{PLAN_MRR[t.plan||'starter']||0}</div>
                     <div>
@@ -1965,6 +1967,7 @@ function TenantEditDrawer({ tenant, onClose, onSave, onDelete }) {
   const { impersonateTenant } = useAuth()
   const [form, setForm] = useState({
     name: tenant.name||'', plan: tenant.plan||'starter', status: tenant.status||'trial',
+    max_locations: tenant.max_locations ?? (tenant.plan === 'pro' ? 5 : tenant.plan === 'enterprise' ? 10 : 1),
     custom_price: tenant.custom_price||'',
     company_name: tenant.company_name||'', company_address: tenant.company_address||'',
     company_zip: tenant.company_zip||'', company_city: tenant.company_city||'',
@@ -2003,10 +2006,18 @@ function TenantEditDrawer({ tenant, onClose, onSave, onDelete }) {
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
             <div>
               <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:6,fontWeight:600,letterSpacing:1}}>PLAN</label>
-              <select value={form.plan} onChange={e=>setF('plan',e.target.value)} style={{width:'100%',padding:'11px 14px',borderRadius:9,border:`1px solid ${C.border}`,background:C.bg,color:C.white,fontSize:13,outline:'none',fontFamily:'inherit'}}>
-                <option value="starter">Starter</option>
-                <option value="pro">Pro</option>
-                <option value="enterprise">Enterprise</option>
+              <select 
+                value={form.plan} 
+                onChange={e=>{
+                  const newPlan = e.target.value
+                  const defaultLocs = newPlan === 'starter' ? 1 : newPlan === 'pro' ? 5 : 10
+                  setForm(f=>({...f, plan: newPlan, max_locations: defaultLocs}))
+                }} 
+                style={{width:'100%',padding:'11px 14px',borderRadius:9,border:`1px solid ${C.border}`,background:C.bg,color:C.white,fontSize:13,outline:'none',fontFamily:'inherit'}}
+              >
+                <option value="starter">Starter (1 Standort)</option>
+                <option value="pro">Pro (5 Standorte)</option>
+                <option value="enterprise">Enterprise (Individuell)</option>
               </select>
             </div>
             <div>
@@ -2019,7 +2030,27 @@ function TenantEditDrawer({ tenant, onClose, onSave, onDelete }) {
             </div>
           </div>
 
-          <Field label="INDIVIDUELLER PREIS (€ / MONAT)" value={form.custom_price} onChange={v=>setF('custom_price',v)} placeholder="z.B. 49" />
+          <div style={{background:C.bg,padding:14,borderRadius:12,border:`1px solid ${C.purple}33`,display:'grid',gap:12}}>
+            <div>
+              <label style={{fontSize:11,color:C.purple,display:'block',marginBottom:6,fontWeight:700,letterSpacing:1}}>
+                📍 MAX. STANDORTE (SLOTS)
+              </label>
+              <input 
+                type="number" 
+                min="1" 
+                max="999" 
+                value={form.max_locations ?? 5} 
+                onChange={e=>setF('max_locations', parseInt(e.target.value) || 1)} 
+                placeholder="z.B. 5" 
+                style={{width:'100%',padding:'11px 14px',borderRadius:9,border:`1px solid ${C.border}`,background:C.card,color:C.white,fontSize:14,fontWeight:700,outline:'none',fontFamily:'inherit'}}
+              />
+              <div style={{fontSize:11,color:C.muted,marginTop:6,lineHeight:1.4}}>
+                💡 Standard: <strong>1 Standort</strong> (Testbereich), <strong>5 Standorte</strong> (Standard-Paket). Kann hier für das Mandat manuell überschrieben werden.
+              </div>
+            </div>
+
+            <Field label="INDIVIDUELLER PREIS (€ / MONAT)" value={form.custom_price} onChange={v=>setF('custom_price',v)} placeholder="z.B. 49 (leer = Standardpreis)" />
+          </div>
 
           <div>
             <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:6,fontWeight:600,letterSpacing:1}}>GEKAUFTE MODULE</label>

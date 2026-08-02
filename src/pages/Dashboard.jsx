@@ -1364,8 +1364,21 @@ function LocationModal({ location, tenantId, onClose, onSave, notify }) {
 // ── Locations Page ────────────────────────────────────────
 function LocationsPage({ locs, tenantId, notify }) {
   const [editLoc, setEditLoc] = useState(null)
+  const { data: tenant } = useTenant(tenantId)
   const saveLoc = useSaveLocation()
   const deleteLoc = useDeleteLocation()
+
+  const maxLocations = tenant?.max_locations
+    ? Number(tenant.max_locations)
+    : (tenant?.plan === 'pro' ? 5 : tenant?.plan === 'enterprise' ? 10 : 1)
+
+  const handleAddNew = () => {
+    if (locs.length >= maxLocations) {
+      notify(`⚠️ Standort-Limit erreicht (${locs.length}/${maxLocations}). Das Paket erlaubt max. ${maxLocations} Standort${maxLocations > 1 ? 'e' : ''}. Für weitere Standorte wende dich bitte an den Support/Admin.`)
+      return
+    }
+    setEditLoc({})
+  }
 
   const handleSave = async (data) => {
     try {
@@ -1398,23 +1411,46 @@ function LocationsPage({ locs, tenantId, notify }) {
 
   return (
     <div>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,flexWrap:'wrap',gap:16}}>
         <div>
           <div style={{fontSize:11,color:C.pink,fontWeight:800,letterSpacing:2,marginBottom:4}}>STANDORTE</div>
           <div style={{fontSize:24,fontWeight:900}}>Standorte & QR-Venues</div>
           <div style={{fontSize:13,color:C.muted,marginTop:4}}>Verwalte deine Tische, Venues, QR-Punkte und Adressen.</div>
         </div>
-        <button onClick={() => setEditLoc({})} style={{display:'flex',alignItems:'center',gap:8,padding:'10px 20px',borderRadius:12,border:'none',background:grad(C.purple,C.pink),color:C.white,fontWeight:800,fontSize:14,cursor:'pointer'}}>
-          <Plus size={16}/> Neuer Standort
-        </button>
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <div style={{
+            fontSize:12,fontWeight:800,padding:'8px 16px',borderRadius:20,
+            background: locs.length >= maxLocations ? `${C.orange}22` : `${C.purple}22`,
+            color: locs.length >= maxLocations ? C.orange : C.purple,
+            border: `1px solid ${locs.length >= maxLocations ? C.orange : C.purple}44`,
+            display:'flex',alignItems:'center',gap:6
+          }}>
+            <MapPin size={14}/> {locs.length} / {maxLocations} Standorte belegt
+          </div>
+          <button onClick={handleAddNew} style={{display:'flex',alignItems:'center',gap:8,padding:'10px 20px',borderRadius:12,border:'none',background:grad(C.purple,C.pink),color:C.white,fontWeight:800,fontSize:14,cursor:'pointer'}}>
+            <Plus size={16}/> Neuer Standort
+          </button>
+        </div>
       </div>
+
+      {locs.length >= maxLocations && (
+        <div style={{background:`${C.orange}15`,border:`1px solid ${C.orange}44`,borderRadius:14,padding:'14px 18px',marginBottom:20,fontSize:13,color:C.white,display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <span style={{fontSize:18}}>⚠️</span>
+            <div>
+              <strong>Standort-Limit erreicht ({locs.length}/{maxLocations} Slots)</strong>
+              <div style={{fontSize:12,color:C.muted,marginTop:2}}>Das Standard-Paket erlaubt bis zu 5 Standorte (1 im Testbereich). Du benötigst mehr? Ein Platform-Admin kann das Limit in den Mandanten-Einstellungen manuell erweitern.</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {locs.length === 0 ? (
         <div style={{background:C.card,borderRadius:16,padding:48,textAlign:'center',border:`2px dashed ${C.border}`}}>
           <MapPin size={44} color={C.dim} style={{marginBottom:12}}/>
           <div style={{fontSize:16,fontWeight:800,color:C.white}}>Noch keine Standorte hinterlegt</div>
           <div style={{fontSize:13,color:C.muted,marginTop:4,marginBottom:20}}>Erstelle deinen ersten Standort, um QR-Codes zu generieren und Reels zuzuordnen.</div>
-          <button onClick={() => setEditLoc({})} style={{padding:'10px 20px',borderRadius:10,border:'none',background:C.purple,color:C.white,fontWeight:700,fontSize:13,cursor:'pointer'}}>
+          <button onClick={handleAddNew} style={{padding:'10px 20px',borderRadius:10,border:'none',background:C.purple,color:C.white,fontWeight:700,fontSize:13,cursor:'pointer'}}>
             + Standort Hinzufügen
           </button>
         </div>

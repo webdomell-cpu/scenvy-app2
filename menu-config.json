@@ -1,0 +1,16 @@
+{
+  "menuAddonName": "SCENVY SNAP AI Speisekarte",
+  "version": "2.1.0",
+  "icon": "/scenvy_menu.svg",
+  "magicIcon": "/scenvy_magic.svg",
+  "branding": {
+    "primaryColor": "#F97316",
+    "secondaryColor": "#8B5CF6",
+    "logo": "/scenvy_menu.svg"
+  },
+  "defaultSettings": {
+    "autoTranslate": true,
+    "showAllergens": true,
+    "currency": "EUR"
+  }
+}

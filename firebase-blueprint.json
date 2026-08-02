@@ -1,0 +1,54 @@
+{
+  "entities": {
+    "users": {
+      "title": "User",
+      "description": "User profiles for'authentication and role management",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "tenant_id": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["email"]
+    },
+    "tenants": {
+      "title": "Tenant",
+      "description": "Tenant organization accounts",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "plan": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "menus": {
+      "title": "Menu",
+      "description": "Digital restaurant menus with categories, items, branding and3D/Reel views",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "tenant_id": { "type": "string" },
+        "title": { "type": "string" },
+        "data": { "type": "object" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "reels": {
+      "title": "Reel",
+      "description": "Short video reels for marketing & dish highlights",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "tenant_id": { "type": "string" },
+        "title": { "type": "string" },
+        "videoUrl": { "type": "string" },
+        "posterUrl": { "type": "string" },
+        "createdAt": { "type": "string" }
+      }
+    }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "appName": "SCENVY Platform",
+  "version": "2.5.0",
+  "theme": {
+    "primaryColor": "#8B5CF6",
+    "accentColor": "#EC4899",
+    "backgroundColor": "#020617"
+  },
+  "modules": [
+    {
+      "id": "flow",
+      "name": "SCENVY FLOW",
+      "subtitle": "AI Video & Reel Automation",
+      "icon": "/scenvy_flow.svg",
+      "color": "#8B5CF6"
+    },
+    {
+      "id": "menu",
+      "name": "SCENVY MENU",
+      "subtitle": "Smart Digital AI Gastro Menu",
+      "icon": "/scenvy_menu.svg",
+      "color": "#F97316"
+    },
+    {
+      "id": "board",
+      "name": "SCENVY BOARD",
+      "subtitle": "Smart Digital Signage & TV Display Sync",
+      "icon": "/scenvy_board.svg",
+      "color": "#3B82F6"
+    },
+    {
+      "id": "host",
+      "name": "SCENVY HOST",
+      "subtitle": "Guest Concierge & Instant Table Service",
+      "icon": "/scenvy_host.svg",
+      "color": "#10B981"
+    },
+    {
+      "id": "store",
+      "name": "SCENVY STORE",
+      "subtitle": "Hardware & NFC Stand Orders",
+      "icon": "/scenvy_store.svg",
+      "color": "#EC4899"
+    }
+  ]
+}

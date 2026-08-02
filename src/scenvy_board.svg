@@ -1,0 +1,59 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="scenvyTitle scenvyDesc">
+  <title id="scenvyTitle">SCENVY Board</title>
+  <desc id="scenvyDesc">Icon for SCENVY: digital signage and kiosk displays</desc>
+
+  <defs>
+    <linearGradient id="scenvy_bgGrad" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+
+    <linearGradient id="scenvy_accentGrad" x1="60" y1="60" x2="452" y2="452" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="50%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#06B6D4"/>
+    </linearGradient>
+
+    <filter id="scenvy_glow" x="-20%" y="-20%" width="140%" height="140%">
+      <!-- sichtbarer Glow: blur + merge -->
+      <feGaussianBlur in="SourceGraphic" stdDeviation="16" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="96" fill="url(#scenvy_bgGrad)"/>
+  <rect x="2" y="2" width="508" height="508" rx="94" stroke="url(#scenvy_accentGrad)" stroke-width="3" stroke-opacity="0.4" fill="none"/>
+
+  <!-- Ambient Glow -->
+  <circle cx="256" cy="200" r="120" fill="url(#scenvy_accentGrad)" opacity="0.22" filter="url(#scenvy_glow)"/>
+
+  <!-- Icon: Digital Signage Screen -->
+  <g transform="translate(156, 100)">
+    <rect x="0" y="0" width="200" height="200" rx="48" fill="url(#scenvy_accentGrad)"/>
+    <rect x="6" y="6" width="188" height="188" rx="42" fill="#090D16" fill-opacity="0.85"/>
+
+    <!-- Monitor Outer -->
+    <rect x="40" y="45" width="120" height="85" rx="12" fill="none" stroke="url(#scenvy_accentGrad)" stroke-width="8"/>
+    <!-- Stand (geschlossenes Polygon, saubere Ecken) -->
+    <path d="M85 130 L75 155 H125 L115 130 Z" fill="url(#scenvy_accentGrad)" stroke="none" stroke-linejoin="round"/>
+    <line x1="65" y1="155" x2="135" y2="155" stroke="url(#scenvy_accentGrad)" stroke-width="8" stroke-linecap="round"/>
+
+    <!-- Broadcast symbol inside screen -->
+    <circle cx="100" cy="88" r="12" fill="url(#scenvy_accentGrad)"/>
+    <path d="M80 88 A20 20 0 0 1 120 88" stroke="#FFFFFF" stroke-width="4" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- Typography -->
+  <text x="256" y="375" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="40" fill="#FFFFFF" letter-spacing="2">
+    SCENVY
+  </text>
+  <text x="256" y="420" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="800" font-size="28" fill="#3B82F6" letter-spacing="6">
+    BOARD
+  </text>
+  <text x="256" y="455" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="500" font-size="14" fill="#94A3B8" letter-spacing="1">
+    Digital Signage & Kiosk Displays
+  </text>
+</svg>

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { C, grad } from '@/tokens'
 import { ScenvyLogoFull } from '@/components/ScenvyLogo'
 import { useAuth } from '@/lib/AuthContext'
-import { useTenant, useMenuReels, useSaveMenuReel, useDeleteMenuReel, useMedia, uploadMedia } from '@/lib/db'
+import { useTenant, useMenuReels, useSaveMenuReel, useDeleteMenuReel, useMedia, uploadMedia, formatDateTime } from '@/lib/db'
 import GuestMenuReel from '@/pages/GuestMenuReel'
 import { copyToClipboard } from '@/storage'
 import { Sparkles, FileText, Upload, Edit3, Palette, Phone, Instagram, QrCode, Download, Share2, Copy, Trash2, Eye, Plus, ArrowRight, CheckCircle2, Lock, ShieldAlert, ArrowLeft, Maximize2, Minimize2 } from 'lucide-react'
@@ -171,20 +171,27 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
     <div class="title">${data.branding?.name || 'Speisekarte'}</div>
     <div class="subtitle">${data.branding?.address || 'Digitale Speisekarte von SCENVY'}</div>
   </div>
-  ${(data.categories || []).map(cat => `
+  ${(data.categories || []).map(cat => {
+    const catName = typeof cat.name === 'object' ? (cat.name.de || cat.name.en || Object.values(cat.name)[0]) : (cat.name || '')
+    return `
     <div class="category">
-      <div class="cat-title">${cat.emoji || '🍽️'} ${cat.name}</div>
-      ${(cat.items || []).map(item => `
+      <div class="cat-title">${cat.emoji || cat.icon || '🍽️'} ${catName}</div>
+      ${(cat.items || []).map(item => {
+        const itemName = typeof item.name === 'object' ? (item.name.de || item.name.en || Object.values(item.name)[0]) : (item.name || '')
+        const itemDesc = typeof item.description === 'object' ? (item.description.de || item.description.en || Object.values(item.description)[0]) : (item.description || item.desc || '')
+        return `
         <div class="item">
           <div>
-            <div class="item-name">${item.name}</div>
-            <div class="item-desc">${item.desc || ''}</div>
+            <div class="item-name">${itemName}</div>
+            <div class="item-desc">${itemDesc}</div>
           </div>
-          <div class="item-price">${item.price}</div>
+          <div class="item-price">${item.price || ''}</div>
         </div>
-      `).join('')}
+        `
+      }).join('')}
     </div>
-  `).join('')}
+    `
+  }).join('')}
 </body>
 </html>`
 
@@ -798,8 +805,9 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
                           </div>
                         </div>
 
-                        <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>
-                          Erstellt / Aktualisiert: {m.updated_at ? new Date(m.updated_at).toLocaleDateString('de-DE') : 'heute'}
+                        <div style={{ fontSize: 11, color: C.muted, marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <div>📅 Erstellt: {formatDateTime(m.created_at || m.createdAt || m.updated_at)}</div>
+                          <div>⏱️ Aktualisiert: {formatDateTime(m.updated_at || m.updatedAt || m.created_at)}</div>
                         </div>
                       </div>
 

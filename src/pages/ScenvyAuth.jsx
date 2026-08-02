@@ -178,31 +178,6 @@ export default function ScenvyAuth() {
                 {de ? 'Mit Google anmelden' : 'Sign in with Google'}
               </button>
 
-              {/* Quick Admin / Demo Login Button */}
-              <button
-                type="button"
-                onClick={doQuickAdmin}
-                style={{
-                  width: '100%',
-                  padding: '11px 16px',
-                  borderRadius: 12,
-                  border: `1px solid ${C.purple}`,
-                  background: `${C.purple}20`,
-                  color: C.white,
-                  fontWeight: 700,
-                  fontSize: 13,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  marginBottom: 16,
-                  fontFamily: 'inherit'
-                }}
-              >
-                ⚡ {de ? 'Schnell-Login als Admin (web.domell@gmail.com)' : 'Quick Login as Admin'}
-              </button>
-
               <div style={{ display: 'flex', alignItems: 'center', margin: '16px 0', color: C.muted, fontSize: 12 }}>
                 <div style={{ flex: 1, borderBottom: `1px solid ${C.border}` }}></div>
                 <span style={{ padding: '0 10px', textTransform: 'uppercase', letterSpacing: 0.5, fontSize: 10, fontWeight: 700 }}>{de ? 'Oder mit E-Mail' : 'Or with Email'}</span>

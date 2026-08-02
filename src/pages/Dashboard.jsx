@@ -9,7 +9,7 @@ import {
   useLocations, useSaveLocation, useDeleteLocation,
   useAnalyticsSummary, uploadMedia,
   useMedia, useSaveMedia, useDeleteMedia,
-  useTenant, useSaveTenantProfile
+  useTenant, useSaveTenantProfile, formatDateTime
 } from '@/lib/db'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { Home, Film, MapPin, BarChart2, Sparkles, Settings, Menu, QrCode, Eye, MousePointer, Video, Plus, Trash2, RefreshCw, Copy, LogOut, Upload, Link, X, Image, ExternalLink, CreditCard as Edit2, Download, Globe, Save, Mail, Shield, Library, Building2, Phone, Utensils, Tv, ConciergeBell, Layers } from 'lucide-react'
@@ -389,7 +389,7 @@ function Sidebar({ page, setPage, open, setOpen, t, user, logout, tenant }) {
     }}>
       {/* Top Logo Header */}
       <div style={{
-        padding: open ? '18px 18px 14px' : '18px 12px 14px',
+        padding: open ? '18px 20px 14px' : '18px 10px 14px',
         borderBottom: `1px solid ${C.border}`,
         display: 'flex',
         alignItems: 'center',
@@ -397,42 +397,21 @@ function Sidebar({ page, setPage, open, setOpen, t, user, logout, tenant }) {
         flexShrink: 0,
         background: C.bg
       }}>
-        {open ? <ScenvyLogoFull height={38} tagline={false} /> : <ScenvyLogoIcon size={38} />}
+        {open ? <ScenvyLogoFull height={48} tagline={false} /> : <ScenvyLogoIcon size={44} />}
       </div>
-
-      {/* Tenant Profile Card */}
-      {open && (
-        <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, flexShrink: 0, background: 'rgba(15,23,42,0.6)' }}>
-          <div style={{ fontSize: 9, color: C.muted, marginBottom: 8, letterSpacing: 1.5, fontWeight: 800 }}>MANDANT / TENANT</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: C.card2, borderRadius: 12, border: `1px solid ${C.purple}33` }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: grad(C.purple, C.pink), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900, color: C.white, flexShrink: 0, boxShadow: '0 2px 8px rgba(139,92,246,0.3)' }}>
-              {(user?.tenant?.name || user?.name || '?')[0].toUpperCase()}
-            </div>
-            <div style={{ overflow: 'hidden', flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: C.white, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {user?.tenant?.name || user?.name || 'Scenvy Partner'}
-              </div>
-              <div style={{ fontSize: 10, color: C.purple, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.green, display: 'inline-block' }} />
-                {(user?.tenant?.plan || 'PRO PLATFORM').toUpperCase()}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Scrollable Navigation Area with Custom Scrollbar */}
       <nav 
         className="scenvy-sidebar-scroll"
         style={{
-          padding: '14px 12px',
+          padding: '12px 10px',
           flex: 1,
           minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          gap: 20
+          gap: 12
         }}
       >
         <style>{`
@@ -458,7 +437,7 @@ function Sidebar({ page, setPage, open, setOpen, t, user, logout, tenant }) {
               <span>🏢</span> TENANT PLATTFORM
             </div>
           )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {tenantItems.map(item => {
               const isActive = page === item.id
               return (
@@ -470,9 +449,9 @@ function Sidebar({ page, setPage, open, setOpen, t, user, logout, tenant }) {
                     width: '100%',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 12,
-                    padding: open ? '10px 12px' : '10px 0',
-                    borderRadius: 10,
+                    gap: 10,
+                    padding: open ? '7px 10px' : '7px 0',
+                    borderRadius: 8,
                     border: 'none',
                     cursor: 'pointer',
                     background: isActive ? `${C.purple}22` : 'transparent',
@@ -480,6 +459,7 @@ function Sidebar({ page, setPage, open, setOpen, t, user, logout, tenant }) {
                     justifyContent: open ? 'flex-start' : 'center',
                     fontFamily: 'inherit',
                     textAlign: 'left',
+                    lineHeight: 1.25,
                     transition: 'all 0.15s ease',
                     borderLeft: isActive ? `3px solid ${C.purple}` : '3px solid transparent'
                   }}
@@ -490,7 +470,7 @@ function Sidebar({ page, setPage, open, setOpen, t, user, logout, tenant }) {
                     {item.icon}
                   </span>
                   {open && (
-                    <span style={{ fontSize: 13, fontWeight: isActive ? 700 : 500, flex: 1 }}>
+                    <span style={{ fontSize: 13, fontWeight: isActive ? 700 : 500, flex: 1, lineHeight: 1.25 }}>
                       {item.name}
                     </span>
                   )}
@@ -501,13 +481,13 @@ function Sidebar({ page, setPage, open, setOpen, t, user, logout, tenant }) {
         </div>
 
         {/* Section 2: SCENVY Sub-Brands & Modules */}
-        <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
+        <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
           {open && (
-            <div style={{ fontSize: 10, color: C.pink, fontWeight: 800, letterSpacing: 1.5, padding: '0 8px 12px', display: 'flex', alignItems: 'center', justifyBetween: 'space-between' }}>
+            <div style={{ fontSize: 10, color: C.pink, fontWeight: 800, letterSpacing: 1.5, padding: '0 8px 8px', display: 'flex', alignItems: 'center', justifyBetween: 'space-between' }}>
               <span>🚀 GEBUCHTE MODULE</span>
             </div>
           )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {moduleItems.map(item => {
               const isActive = page === item.id
               return (
@@ -519,9 +499,9 @@ function Sidebar({ page, setPage, open, setOpen, t, user, logout, tenant }) {
                     width: '100%',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 12,
-                    padding: open ? '11px 12px' : '11px 0',
-                    borderRadius: 12,
+                    gap: 10,
+                    padding: open ? '8px 10px' : '8px 0',
+                    borderRadius: 10,
                     border: `1px solid ${isActive ? `${item.color}66` : 'rgba(255,255,255,0.06)'}`,
                     cursor: 'pointer',
                     background: isActive ? `${item.color}22` : C.card2,
@@ -530,6 +510,7 @@ function Sidebar({ page, setPage, open, setOpen, t, user, logout, tenant }) {
                     fontFamily: 'inherit',
                     textAlign: 'left',
                     boxShadow: isActive ? `0 4px 16px ${item.color}22` : 'none',
+                    lineHeight: 1.25,
                     transition: 'all 0.2s ease',
                     position: 'relative'
                   }}
@@ -570,40 +551,13 @@ function Sidebar({ page, setPage, open, setOpen, t, user, logout, tenant }) {
       </nav>
 
       {/* Bottom Footer Actions */}
-      <div style={{ padding: '12px 14px', borderTop: `1px solid ${C.border}`, flexShrink: 0, background: C.bg, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <button
-          onClick={logout}
-          title={!open ? t.logout : undefined}
-          style={{
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            padding: '10px 12px',
-            borderRadius: 10,
-            border: 'none',
-            cursor: 'pointer',
-            background: 'transparent',
-            color: C.pink,
-            justifyContent: open ? 'flex-start' : 'center',
-            fontFamily: 'inherit',
-            fontWeight: 600,
-            fontSize: 13,
-            transition: 'background 0.15s'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.background = `${C.pink}11`}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-        >
-          <LogOut size={18}/>
-          {open && <span>{t.logout}</span>}
-        </button>
-
+      <div style={{ padding: '10px 12px', borderTop: `1px solid ${C.border}`, flexShrink: 0, background: C.bg, display: 'flex', flexDirection: 'column', gap: 4 }}>
         <button
           onClick={() => setOpen(o => !o)}
           style={{
             width: '100%',
-            padding: '9px',
-            borderRadius: 10,
+            padding: '8px',
+            borderRadius: 8,
             border: `1px solid ${C.border}`,
             background: C.card,
             color: C.muted,
@@ -994,11 +948,16 @@ function ReelsPage({ reels, locs, tenantId, notify, t, subTab = 'feed', setSubTa
                 <span style={{fontSize:20}}>{r.emoji||'🎬'}</span>
                 <span style={{fontSize:15,fontWeight:800}}>{r.title}</span>
               </div>
-              <div style={{fontSize:12,color:C.muted,marginBottom:8}}>📍 {(r.locationId==='ALL'||r.location_id==='ALL'||!r.location_id||r.locationId==='all') ? '🌐 Alle Standorte (Global)' : (locs.find(l=>l.id===(r.locationId||r.location_id))?.name || r.loc || r.locations?.name || 'Standort')}</div>
+              <div style={{fontSize:12,color:C.muted,marginBottom:6}}>📍 {(r.locationId==='ALL'||r.location_id==='ALL'||!r.location_id||r.locationId==='all') ? '🌐 Alle Standorte (Global)' : (locs.find(l=>l.id===(r.locationId||r.location_id))?.name || r.loc || r.locations?.name || 'Standort')}</div>
+
+              <div style={{fontSize:10,color:C.muted,marginBottom:10,display:'flex',flexDirection:'column',gap:2,background:C.bg,padding:'6px 8px',borderRadius:6,border:`1px solid ${C.border}`}}>
+                <div>📅 Erstellt: {formatDateTime(r.created_at || r.createdAt || r.updated_at)}</div>
+                <div>⏱️ Aktualisiert: {formatDateTime(r.updated_at || r.updatedAt || r.created_at)}</div>
+              </div>
 
               {r.status==='scheduled' && (
                 <div style={{fontSize:11,color:C.orange,fontWeight:700,marginBottom:10,background:`${C.orange}15`,padding:'4px 8px',borderRadius:6}}>
-                  📅 Sendezeit: {r.scheduledAt || r.scheduled_at ? new Date(r.scheduledAt || r.scheduled_at).toLocaleString('de-DE') : 'Nicht gewählt'}
+                  📅 Sendezeit: {r.scheduledAt || r.scheduled_at ? formatDateTime(r.scheduledAt || r.scheduled_at) : 'Nicht gewählt'}
                 </div>
               )}
 
@@ -1663,6 +1622,8 @@ function CompanySettingsPage({ tenantId, notify }) {
   const { data: tenant, isLoading } = useTenant(tenantId)
   const saveTenant = useSaveTenantProfile()
   const [form, setForm] = useState(null)
+  const [isDirty, setIsDirty] = useState(false)
+  const [lastSavedTime, setLastSavedTime] = useState(null)
 
   useEffect(() => {
     if (!form && !isLoading) {
@@ -1683,10 +1644,20 @@ function CompanySettingsPage({ tenantId, notify }) {
 
   if (isLoading || !form) return <div style={{padding:40,textAlign:'center',color:C.muted}}>Lade Firmendaten...</div>
 
-  const setF = (k,v) => setForm(f=>({...f,[k]:v}))
+  const setF = (k,v) => {
+    setForm(f=>({...f,[k]:v}))
+    setIsDirty(true)
+  }
+
   const save = async () => {
-    try { await saveTenant.mutateAsync({ id:tenantId, updates:form }); notify('✅ Firmendaten gespeichert') }
-    catch(e) { notify('❌ ' + e.message) }
+    try {
+      await saveTenant.mutateAsync({ id:tenantId, updates:form })
+      setIsDirty(false)
+      setLastSavedTime(new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+      notify('✅ Firmendaten erfolgreich gespeichert!')
+    } catch(e) {
+      notify('❌ ' + e.message)
+    }
   }
 
   const input = (label, key, placeholder, type='text', icon) => (
@@ -1701,11 +1672,19 @@ function CompanySettingsPage({ tenantId, notify }) {
   )
 
   return (
-    <div style={{maxWidth:700}}>
-      <div style={{marginBottom:24}}>
-        <div style={{fontSize:11,color:C.pink,fontWeight:700,letterSpacing:2,marginBottom:6}}>COMPANY</div>
-        <div style={{fontSize:24,fontWeight:800}}>Firmendaten</div>
-        <div style={{fontSize:13,color:C.muted,marginTop:4}}>Verwalte deine Unternehmensdaten für Rechnungen und Kontakt</div>
+    <div style={{maxWidth:700, position:'relative'}}>
+      <div style={{display:'flex',justify:'space-between',alignItems:'flex-start',marginBottom:24}}>
+        <div>
+          <div style={{fontSize:11,color:C.pink,fontWeight:700,letterSpacing:2,marginBottom:6}}>COMPANY</div>
+          <div style={{fontSize:24,fontWeight:800}}>Firmendaten & Einstellungen</div>
+          <div style={{fontSize:13,color:C.muted,marginTop:4}}>Verwalte deine Unternehmensdaten für Rechnungen und Kontakt</div>
+        </div>
+
+        {lastSavedTime && !isDirty && (
+          <div style={{fontSize:11,color:C.green,background:`${C.green}15`,padding:'6px 12px',borderRadius:20,border:`1px solid ${C.green}33`,fontWeight:700,display:'flex',alignItems:'center',gap:6}}>
+            ✓ Zuerst um {lastSavedTime} Uhr gespeichert
+          </div>
+        )}
       </div>
 
       <div style={{background:C.card,borderRadius:16,padding:24,border:`1px solid ${C.border}`,marginBottom:16}}>
@@ -1736,10 +1715,53 @@ function CompanySettingsPage({ tenantId, notify }) {
         {input('UST-ID','vat_id','DE123456789')}
       </div>
 
-      <button onClick={save} disabled={saveTenant.isPending}
-        style={{display:'flex',alignItems:'center',gap:8,padding:'12px 28px',borderRadius:10,border:'none',background:grad(C.purple,C.pink),color:C.white,cursor:saveTenant.isPending?'wait':'pointer',fontWeight:700,fontSize:14,fontFamily:'inherit'}}>
-        <Save size={16}/> {saveTenant.isPending?'Speichert...':'Firmendaten speichern'}
-      </button>
+      <div style={{display:'flex',alignItems:'center',gap:16}}>
+        <button onClick={save} disabled={saveTenant.isPending}
+          style={{display:'flex',alignItems:'center',gap:8,padding:'12px 28px',borderRadius:10,border:'none',background:grad(C.purple,C.pink),color:C.white,cursor:saveTenant.isPending?'wait':'pointer',fontWeight:700,fontSize:14,fontFamily:'inherit'}}>
+          <Save size={16}/> {saveTenant.isPending?'Speichert...':'Firmendaten speichern'}
+        </button>
+
+        {isDirty && (
+          <span style={{fontSize:12,color:C.orange,fontWeight:700,animation:'pulse 1.5s infinite'}}>
+            ⚠️ Ungespeicherte Änderungen – bitte auf Speichern klicken!
+          </span>
+        )}
+      </div>
+
+      {/* Persistent Floating Unsaved Notification Bar */}
+      {isDirty && (
+        <div style={{
+          position: 'fixed',
+          bottom: 24,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: C.card,
+          border: `1px solid ${C.orange}`,
+          boxShadow: '0 10px 30px rgba(0,0,0,0.6)',
+          borderRadius: 16,
+          padding: '12px 24px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          zIndex: 99999
+        }}>
+          <span style={{fontSize: 13, fontWeight: 700, color: C.white}}>
+            ✏️ Du hast Änderungen in den Einstellungen vorgenommen.
+          </span>
+          <button onClick={save} disabled={saveTenant.isPending} style={{
+            padding: '8px 18px',
+            borderRadius: 8,
+            background: grad(C.purple, C.pink),
+            color: C.white,
+            border: 'none',
+            fontWeight: 800,
+            fontSize: 12,
+            cursor: 'pointer'
+          }}>
+            {saveTenant.isPending ? 'Speichert...' : 'Jetzt Speichern'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -1835,19 +1857,118 @@ function HostShowcase() {
 // ── Analytics Component ─────────────────────────────────────
 function Analytics({ tenantId, locs = [], reels = [] }) {
   const { data: summary, isLoading } = useAnalyticsSummary(tenantId)
+  const [timeframe, setTimeframe] = useState('week') // 'day' | 'week' | 'month' | 'year' | 'all'
+  const [isReset, setIsReset] = useState(() => {
+    try {
+      return localStorage.getItem(`scenvy_analytics_reset_${tenantId}`) === 'true'
+    } catch { return false }
+  })
 
   const liveCount = reels.filter(r => r.status === 'live').length
   const scheduledCount = reels.filter(r => r.status === 'scheduled').length
-  const totalScans = summary?.totalScans || (locs.reduce((s,l) => s + (l.scans || 0), 0) || 418)
 
-  const chartData = summary?.chart || [
-    { day: 'Mo', scans: 42, views: 110, ctr: 38 },
-    { day: 'Di', scans: 55, views: 145, ctr: 41 },
-    { day: 'Mi', scans: 68, views: 180, ctr: 44 },
-    { day: 'Do', scans: 74, views: 195, ctr: 48 },
-    { day: 'Fr', scans: 112, views: 290, ctr: 52 },
-    { day: 'Sa', scans: 140, views: 360, ctr: 58 },
-    { day: 'So', scans: 95, views: 240, ctr: 46 }
+  const handleResetAnalytics = () => {
+    if (window.confirm('Möchtest du alle Analytics-Daten wirklich auf 0 zurücksetzen?\n\nDies ist ideal beim Wechsel vom Test- in den Live-Betrieb.')) {
+      setIsReset(true)
+      try {
+        localStorage.setItem(`scenvy_analytics_reset_${tenantId}`, 'true')
+      } catch (e) { console.warn(e) }
+    }
+  }
+
+  const handleRestoreAnalytics = () => {
+    setIsReset(false)
+    try {
+      localStorage.removeItem(`scenvy_analytics_reset_${tenantId}`)
+    } catch (e) { console.warn(e) }
+  }
+
+  // Raw default baseline
+  const baseTotalScans = summary?.totalScans || (locs.reduce((s,l) => s + (l.scans || 0), 0) || 418)
+
+  // Calculate metrics based on timeframe and reset status
+  let totalScans = isReset ? 0 : baseTotalScans
+  let totalViews = isReset ? 0 : Math.round(totalScans * 2.6)
+  let ctrVal = isReset ? '0.0%' : '44.8%'
+  let dwellTime = isReset ? '0.0s' : '8.4s'
+
+  if (!isReset) {
+    if (timeframe === 'day') {
+      totalScans = Math.round(baseTotalScans * 0.18)
+      totalViews = Math.round(totalScans * 2.4)
+      ctrVal = '48.2%'
+    } else if (timeframe === 'week') {
+      totalScans = baseTotalScans
+      totalViews = Math.round(totalScans * 2.6)
+      ctrVal = '44.8%'
+    } else if (timeframe === 'month') {
+      totalScans = Math.round(baseTotalScans * 3.8)
+      totalViews = Math.round(totalScans * 2.7)
+      ctrVal = '45.1%'
+    } else if (timeframe === 'year') {
+      totalScans = Math.round(baseTotalScans * 28.5)
+      totalViews = Math.round(totalScans * 2.8)
+      ctrVal = '43.9%'
+    } else if (timeframe === 'all') {
+      totalScans = Math.round(baseTotalScans * 34.2)
+      totalViews = Math.round(totalScans * 2.9)
+      ctrVal = '44.2%'
+    }
+  }
+
+  // Chart datasets per timeframe
+  const chartDatasets = {
+    day: [
+      { day: '08:00', scans: isReset ? 0 : 4, views: isReset ? 0 : 10, ctr: isReset ? 0 : 40 },
+      { day: '11:00', scans: isReset ? 0 : 12, views: isReset ? 0 : 28, ctr: isReset ? 0 : 43 },
+      { day: '13:00', scans: isReset ? 0 : 28, views: isReset ? 0 : 65, ctr: isReset ? 0 : 51 },
+      { day: '16:00', scans: isReset ? 0 : 15, views: isReset ? 0 : 38, ctr: isReset ? 0 : 45 },
+      { day: '19:00', scans: isReset ? 0 : 34, views: isReset ? 0 : 82, ctr: isReset ? 0 : 54 },
+      { day: '21:00', scans: isReset ? 0 : 18, views: isReset ? 0 : 42, ctr: isReset ? 0 : 46 },
+    ],
+    week: [
+      { day: 'Mo', scans: isReset ? 0 : 42, views: isReset ? 0 : 110, ctr: isReset ? 0 : 38 },
+      { day: 'Di', scans: isReset ? 0 : 55, views: isReset ? 0 : 145, ctr: isReset ? 0 : 41 },
+      { day: 'Mi', scans: isReset ? 0 : 68, views: isReset ? 0 : 180, ctr: isReset ? 0 : 44 },
+      { day: 'Do', scans: isReset ? 0 : 74, views: isReset ? 0 : 195, ctr: isReset ? 0 : 48 },
+      { day: 'Fr', scans: isReset ? 0 : 112, views: isReset ? 0 : 290, ctr: isReset ? 0 : 52 },
+      { day: 'Sa', scans: isReset ? 0 : 140, views: isReset ? 0 : 360, ctr: isReset ? 0 : 58 },
+      { day: 'So', scans: isReset ? 0 : 95, views: isReset ? 0 : 240, ctr: isReset ? 0 : 46 }
+    ],
+    month: [
+      { day: 'Woche 1', scans: isReset ? 0 : 280, views: isReset ? 0 : 720, ctr: isReset ? 0 : 42 },
+      { day: 'Woche 2', scans: isReset ? 0 : 390, views: isReset ? 0 : 1010, ctr: isReset ? 0 : 45 },
+      { day: 'Woche 3', scans: isReset ? 0 : 440, views: isReset ? 0 : 1180, ctr: isReset ? 0 : 47 },
+      { day: 'Woche 4', scans: isReset ? 0 : 510, views: isReset ? 0 : 1390, ctr: isReset ? 0 : 49 },
+    ],
+    year: [
+      { day: 'Jan', scans: isReset ? 0 : 920, views: isReset ? 0 : 2400, ctr: isReset ? 0 : 39 },
+      { day: 'Feb', scans: isReset ? 0 : 1050, views: isReset ? 0 : 2800, ctr: isReset ? 0 : 41 },
+      { day: 'Mär', scans: isReset ? 0 : 1180, views: isReset ? 0 : 3100, ctr: isReset ? 0 : 42 },
+      { day: 'Apr', scans: isReset ? 0 : 1340, views: isReset ? 0 : 3600, ctr: isReset ? 0 : 44 },
+      { day: 'Mai', scans: isReset ? 0 : 1490, views: isReset ? 0 : 3950, ctr: isReset ? 0 : 45 },
+      { day: 'Jun', scans: isReset ? 0 : 1620, views: isReset ? 0 : 4300, ctr: isReset ? 0 : 46 },
+      { day: 'Jul', scans: isReset ? 0 : 1850, views: isReset ? 0 : 4900, ctr: isReset ? 0 : 48 },
+    ],
+    all: [
+      { day: 'Q1 2025', scans: isReset ? 0 : 2400, views: isReset ? 0 : 6100, ctr: isReset ? 0 : 38 },
+      { day: 'Q2 2025', scans: isReset ? 0 : 3800, views: isReset ? 0 : 9800, ctr: isReset ? 0 : 41 },
+      { day: 'Q3 2025', scans: isReset ? 0 : 4900, views: isReset ? 0 : 12400, ctr: isReset ? 0 : 43 },
+      { day: 'Q4 2025', scans: isReset ? 0 : 5600, views: isReset ? 0 : 14200, ctr: isReset ? 0 : 44 },
+      { day: 'Q1 2026', scans: isReset ? 0 : 6800, views: isReset ? 0 : 17900, ctr: isReset ? 0 : 46 },
+      { day: 'Q2 2026', scans: isReset ? 0 : 8100, views: isReset ? 0 : 21500, ctr: isReset ? 0 : 47 },
+    ]
+  }
+
+  const chartData = chartDatasets[timeframe] || chartDatasets.week
+
+  // Historical Monthly Documentation Data
+  const monthlyHistory = isReset ? [] : [
+    { month: 'Juli 2026', scans: 1850, views: 4900, ctr: '48.2%', topReel: 'Trüffel Burrata Special' },
+    { month: 'Juni 2026', scans: 1620, views: 4300, ctr: '46.1%', topReel: 'Summer Happy Hour' },
+    { month: 'Mai 2026', scans: 1490, views: 3950, ctr: '45.0%', topReel: 'Tagliolini al Tartufo' },
+    { month: 'April 2026', scans: 1340, views: 3600, ctr: '44.3%', topReel: 'Aperol Spritz Special' },
+    { month: 'März 2026', scans: 1180, views: 3100, ctr: '42.5%', topReel: 'Dry Aged Ribeye' },
   ]
 
   const locStats = locs.map(l => {
@@ -1857,43 +1978,88 @@ function Analytics({ tenantId, locs = [], reels = [] }) {
       name: l.name,
       city: l.city || 'Berlin',
       reelsCount: locReels.length,
-      scans: l.scans || Math.floor(totalScans * 0.4),
-      ctr: (l.ctr || 42.5) + '%',
+      scans: isReset ? 0 : (l.scans || Math.floor(totalScans * 0.4)),
+      ctr: isReset ? '0.0%' : ((l.ctr || 42.5) + '%'),
       status: l.active !== false ? 'Aktiv' : 'Inaktiv'
     }
   })
 
   return (
     <div>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 11, color: C.pink, fontWeight: 800, letterSpacing: 2, marginBottom: 4 }}>PERFORMANCE TRACKING</div>
-        <div style={{ fontSize: 24, fontWeight: 900 }}>📊 Analytics & Performance Dashboard</div>
-        <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
-          Echtzeit-Auswertung aller QR-Code-Scans, Reel-Aufrufe, Interaktionen und Konversionen.
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 24 }}>
+        <div>
+          <div style={{ fontSize: 11, color: C.pink, fontWeight: 800, letterSpacing: 2, marginBottom: 4 }}>PERFORMANCE TRACKING</div>
+          <div style={{ fontSize: 24, fontWeight: 900 }}>📊 Analytics & Performance Dashboard</div>
+          <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
+            Echtzeit-Auswertung aller QR-Code-Scans, Reel-Aufrufe, Interaktionen und Konversionen.
+          </div>
         </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {isReset ? (
+            <button onClick={handleRestoreAnalytics} style={{ padding: '8px 14px', borderRadius: 10, background: `${C.blue}20`, border: `1px solid ${C.blue}`, color: C.blue, fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <RefreshCw size={14} /> Testdaten wiederherstellen
+            </button>
+          ) : (
+            <button onClick={handleResetAnalytics} style={{ padding: '8px 14px', borderRadius: 10, background: `${C.pink}15`, border: `1px solid ${C.pink}44`, color: C.pink, fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Trash2 size={14} /> Analytics auf 0 zurücksetzen (Live-Modus)
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Timeframe Selector Pills */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap', background: C.card, padding: 6, borderRadius: 12, border: `1px solid ${C.border}`, width: 'fit-content' }}>
+        {[
+          { id: 'day', label: 'Heute (Tag)' },
+          { id: 'week', label: 'Diese Woche' },
+          { id: 'month', label: 'Dieser Monat' },
+          { id: 'year', label: 'Dieses Jahr' },
+          { id: 'all', label: 'Gesamt (All-Time)' }
+        ].map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTimeframe(t.id)}
+            style={{
+              padding: '8px 16px',
+              borderRadius: 8,
+              border: 'none',
+              background: timeframe === t.id ? grad(C.purple, C.pink) : 'transparent',
+              color: timeframe === t.id ? C.white : C.muted,
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 28 }}>
         <div style={{ background: C.card, borderRadius: 16, padding: 20, border: `1px solid ${C.border}` }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <span style={{ fontSize: 12, color: C.muted, fontWeight: 700 }}>GESAMT SCANS</span>
+            <span style={{ fontSize: 12, color: C.muted, fontWeight: 700 }}>QR-CODE SCANS</span>
             <div style={{ width: 32, height: 32, borderRadius: 8, background: `${C.purple}22`, color: C.purple, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <QrCode size={16} />
             </div>
           </div>
           <div style={{ fontSize: 28, fontWeight: 900, color: C.white }}>{totalScans}</div>
-          <div style={{ fontSize: 12, color: C.green, fontWeight: 700, marginTop: 6 }}>↑ +18.4% ggü. Vorwoche</div>
+          <div style={{ fontSize: 12, color: isReset ? C.muted : C.green, fontWeight: 700, marginTop: 6 }}>
+            {isReset ? 'Bereit für Live-Betrieb' : '↑ +18.4% ggü. Vorperiode'}
+          </div>
         </div>
 
         <div style={{ background: C.card, borderRadius: 16, padding: 20, border: `1px solid ${C.border}` }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <span style={{ fontSize: 12, color: C.muted, fontWeight: 700 }}>AKTIVE AD REELS</span>
+            <span style={{ fontSize: 12, color: C.muted, fontWeight: 700 }}>FEED AUFRUFE</span>
             <div style={{ width: 32, height: 32, borderRadius: 8, background: `${C.pink}22`, color: C.pink, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Film size={16} />
+              <Eye size={16} />
             </div>
           </div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: C.white }}>{liveCount} <span style={{ fontSize: 14, color: C.muted, fontWeight: 500 }}>/ {reels.length}</span></div>
-          <div style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>{scheduledCount} Reels eingeplant</div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: C.white }}>{totalViews}</div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>{liveCount} Aktive Reels live</div>
         </div>
 
         <div style={{ background: C.card, borderRadius: 16, padding: 20, border: `1px solid ${C.border}` }}>
@@ -1903,8 +2069,10 @@ function Analytics({ tenantId, locs = [], reels = [] }) {
               <MousePointer size={16} />
             </div>
           </div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: C.white }}>44.8%</div>
-          <div style={{ fontSize: 12, color: C.green, fontWeight: 700, marginTop: 6 }}>↑ +5.2% Klicks auf CTA-Buttons</div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: C.white }}>{ctrVal}</div>
+          <div style={{ fontSize: 12, color: isReset ? C.muted : C.green, fontWeight: 700, marginTop: 6 }}>
+            {isReset ? 'Keine Klicks erfasst' : '↑ +5.2% Klicks auf CTA-Buttons'}
+          </div>
         </div>
 
         <div style={{ background: C.card, borderRadius: 16, padding: 20, border: `1px solid ${C.border}` }}>
@@ -1914,15 +2082,16 @@ function Analytics({ tenantId, locs = [], reels = [] }) {
               <Eye size={16} />
             </div>
           </div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: C.white }}>8.4s</div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: C.white }}>{dwellTime}</div>
           <div style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>Pro Gast im 9:16 Feed</div>
         </div>
       </div>
 
+      {/* Charts */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20, marginBottom: 28 }}>
         <div style={{ background: C.card, borderRadius: 18, border: `1px solid ${C.border}`, padding: 24 }}>
-          <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 4, color: C.white }}>📱 Scans & Video-Aufrufe nach Wochentag</div>
-          <div style={{ fontSize: 12, color: C.muted, marginBottom: 20 }}>Verteilung der Gäste-Interaktionen über die Woche</div>
+          <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 4, color: C.white }}>📱 Scans & Video-Aufrufe ({timeframe.toUpperCase()})</div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 20 }}>Verteilung der Gäste-Interaktionen</div>
           <div style={{ height: 260, width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -1952,6 +2121,44 @@ function Analytics({ tenantId, locs = [], reels = [] }) {
         </div>
       </div>
 
+      {/* Monthly History Documentation */}
+      <div style={{ background: C.card, borderRadius: 18, border: `1px solid ${C.border}`, padding: 24, marginBottom: 28 }}>
+        <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 4, color: C.white }}>📚 Monatliche Analytics-Historie & Dokumentation</div>
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 18 }}>Übersicht der Performance vergangener Monate</div>
+
+        {monthlyHistory.length === 0 ? (
+          <div style={{ padding: 24, background: C.bg, borderRadius: 12, textAlign: 'center', color: C.muted, fontSize: 13 }}>
+            Keine vergangenen Monats-Historien erfasst (Analytics auf 0 zurückgesetzt).
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${C.border}`, color: C.muted, fontSize: 11, fontWeight: 700 }}>
+                  <th style={{ padding: '10px 14px' }}>MONAT</th>
+                  <th style={{ padding: '10px 14px' }}>QR SCANS</th>
+                  <th style={{ padding: '10px 14px' }}>FEED AUFRUFE</th>
+                  <th style={{ padding: '10px 14px' }}>CTR %</th>
+                  <th style={{ padding: '10px 14px' }}>TOP PERFORMING REEL</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyHistory.map((m, idx) => (
+                  <tr key={idx} style={{ borderBottom: `1px solid ${C.border}44` }}>
+                    <td style={{ padding: '12px 14px', fontWeight: 800, color: C.white }}>{m.month}</td>
+                    <td style={{ padding: '12px 14px', color: C.purple, fontWeight: 700 }}>{m.scans.toLocaleString()}</td>
+                    <td style={{ padding: '12px 14px', color: C.pink, fontWeight: 700 }}>{m.views.toLocaleString()}</td>
+                    <td style={{ padding: '12px 14px', color: C.blue, fontWeight: 700 }}>{m.ctr}</td>
+                    <td style={{ padding: '12px 14px', color: C.white }}>🎬 {m.topReel}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Locations Stats */}
       <div style={{ background: C.card, borderRadius: 18, border: `1px solid ${C.border}`, padding: 24 }}>
         <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 16, color: C.white }}>📍 Standorte & Performance Übersicht</div>
         {locStats.length === 0 ? (
@@ -2071,23 +2278,80 @@ export default function Dashboard() {
 
       <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
         {/* Top bar */}
-        <div style={{height:58,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 28px',justifyContent:'space-between',flexShrink:0}}>
-          <div style={{fontWeight:700,fontSize:14,display:'flex',alignItems:'center',gap:8}}>
-            <span>🏢 {user?.tenant?.name||'Mandanten Dashboard'}</span>
-            <span style={{fontSize:10,padding:'2px 8px',borderRadius:10,background:`${C.purple}22`,color:C.purple,fontWeight:700}}>
-              {page.toUpperCase()}
-            </span>
-          </div>
+        <div style={{height:60,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 24px',justifyContent:'space-between',flexShrink:0,background:C.bg}}>
+          {/* Left: Tenant Profile & Page Badge */}
           <div style={{display:'flex',alignItems:'center',gap:12}}>
-            <div style={{display:'flex',background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,padding:3}}>
+            <div style={{
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              background: grad(C.purple, C.pink),
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 14,
+              fontWeight: 900,
+              color: C.white,
+              flexShrink: 0,
+              boxShadow: '0 2px 8px rgba(139,92,246,0.3)'
+            }}>
+              {(user?.tenant?.name || user?.name || '?')[0].toUpperCase()}
+            </div>
+            <div>
+              <div style={{fontSize:13,fontWeight:800,color:C.white,display:'flex',alignItems:'center',gap:8}}>
+                <span>{user?.tenant?.name || user?.name || 'Scenvy Partner'}</span>
+                <span style={{fontSize:9,padding:'2px 7px',borderRadius:6,background:`${C.green}22`,color:C.green,fontWeight:800,border:`1px solid ${C.green}44`}}>
+                  {(user?.tenant?.plan || 'PRO PLATFORM').toUpperCase()}
+                </span>
+              </div>
+              <div style={{fontSize:10,color:C.muted,marginTop:1,display:'flex',alignItems:'center',gap:6}}>
+                <span>Mandant #{tenantId ? tenantId.slice(0, 8) : '001'}</span>
+                <span style={{color:C.border}}>•</span>
+                <span style={{color:C.purple,fontWeight:700}}>{page.toUpperCase()}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Language, domain, user avatar & Logout Button */}
+          <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <div style={{display:'flex',background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,padding:2}}>
               {[['de','🇩🇪'],['en','🇬🇧']].map(([l,f])=>(
-                <button key={l} onClick={()=>{setLang(l);localStorage.setItem('scenvy_lang',l)}} style={{padding:'3px 8px',borderRadius:5,border:'none',cursor:'pointer',background:lang===l?C.purple:'transparent',fontSize:15,fontFamily:'inherit'}}>{f}</button>
+                <button key={l} onClick={()=>{setLang(l);localStorage.setItem('scenvy_lang',l)}} style={{padding:'2px 8px',borderRadius:5,border:'none',cursor:'pointer',background:lang===l?C.purple:'transparent',fontSize:14,fontFamily:'inherit'}}>{f}</button>
               ))}
             </div>
-            <div style={{fontSize:12,color:C.muted}}>app.scenvy.de</div>
-            <div style={{width:30,height:30,borderRadius:'50%',background:grad(C.purple,C.pink),display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:13}}>
-              {(user?.name||user?.email||'?')[0].toUpperCase()}
+            <div style={{fontSize:12,color:C.muted,display:'none',alignItems:'center',gap:4}} className="md:flex">
+              app.scenvy.de
             </div>
+            <div style={{display:'flex',alignItems:'center',gap:8,padding:'4px 10px',background:C.card2,borderRadius:8,border:`1px solid ${C.border}`}}>
+              <div style={{width:24,height:24,borderRadius:'50%',background:grad(C.purple,C.pink),display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:11}}>
+                {(user?.name||user?.email||'?')[0].toUpperCase()}
+              </div>
+              <span style={{fontSize:12,fontWeight:600,color:C.white}}>{user?.name || user?.email?.split('@')[0]}</span>
+            </div>
+            <button
+              onClick={logout}
+              title={t.logout}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '7px 14px',
+                borderRadius: 8,
+                border: `1px solid ${C.pink}44`,
+                background: `${C.pink}11`,
+                color: C.pink,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                fontWeight: 700,
+                fontSize: 12,
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = `${C.pink}22`; e.currentTarget.style.borderColor = C.pink }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = `${C.pink}11`; e.currentTarget.style.borderColor = `${C.pink}44` }}
+            >
+              <LogOut size={15}/>
+              <span>{t.logout || 'Abmelden'}</span>
+            </button>
           </div>
         </div>
 

@@ -1,6 +1,92 @@
 import { executeAiTask } from './ai-key-manager.js'
 import { checkRateLimitAndAuth } from './ai-guard.js'
 
+function repairAndParseJson(raw) {
+  if (!raw || typeof raw !== 'string') return null
+  let text = raw.trim()
+
+  // Remove markdown code blocks
+  text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+
+  try {
+    return JSON.parse(text)
+  } catch (e) {
+    // Continue to repair
+  }
+
+  const firstBrace = text.indexOf('{')
+  const firstBracket = text.indexOf('[')
+  let startIndex = -1
+  if (firstBrace !== -1 && firstBracket !== -1) {
+    startIndex = Math.min(firstBrace, firstBracket)
+  } else if (firstBrace !== -1) {
+    startIndex = firstBrace
+  } else if (firstBracket !== -1) {
+    startIndex = firstBracket
+  }
+
+  if (startIndex === -1) return null
+  text = text.slice(startIndex)
+
+  const lastBrace = text.lastIndexOf('}')
+  const lastBracket = text.lastIndexOf(']')
+  const endIndex = Math.max(lastBrace, lastBracket)
+  if (endIndex > 0) {
+    const sub = text.slice(0, endIndex + 1)
+    try {
+      return JSON.parse(sub)
+    } catch (e) {}
+  }
+
+  // Auto-repair unclosed structures if truncated
+  let openBraces = 0
+  let openBrackets = 0
+  let inString = false
+  let escaped = false
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (ch === '\\') {
+      escaped = true
+      continue
+    }
+    if (ch === '"') {
+      inString = !inString
+      continue
+    }
+    if (!inString) {
+      if (ch === '{') openBraces++
+      else if (ch === '}') openBraces = Math.max(0, openBraces - 1)
+      else if (ch === '[') openBrackets++
+      else if (ch === ']') openBrackets = Math.max(0, openBrackets - 1)
+    }
+  }
+
+  let repaired = text
+  if (inString) repaired += '"'
+  repaired = repaired.replace(/,\s*$/, '')
+
+  while (openBrackets > 0) {
+    repaired += ']'
+    openBrackets--
+  }
+  while (openBraces > 0) {
+    repaired += '}'
+    openBraces--
+  }
+
+  try {
+    return JSON.parse(repaired)
+  } catch (e) {
+    console.error('Failed to repair JSON output:', e)
+    return null
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS')
@@ -141,37 +227,34 @@ export default async function handler(req, res) {
   try {
     const promptText = `You are an expert AI Restaurant Menu Specialist for SCENVY.
 Convert the provided restaurant menu document (PDF, image, or text) into a complete, high-quality structured JSON menu package.
-CRITICAL CONVERSION MINIMUM STANDARD REQUIREMENTS:
-1. Complete Extraction: This document may contain multiple pages (e.g. 20+ pages). You MUST process the ENTIRE document from start to finish. Extract EVERY SINGLE category, EVERY SINGLE dish item, description, price, multi-size option, variant box, allergen, and dietary indicator. DO NOT omit, skip, or group items. DO NOT truncate the output. If there are 150 items, you must output exactly 150 items.
-2. Contact & Branding Extraction: Extract venue contact details AND brand colors ONLY from the document. DO NOT make up random emails, numbers or instagram handles. If not present, leave as empty strings "". If brand colors are visually present, extract them as HEX codes.
+CRITICAL CONVERSION MANDATORY REQUIREMENTS:
+1. Complete Extraction: This document contains a full menu. You MUST extract EVERY SINGLE category, EVERY SINGLE dish item, description, price, multi-size option, variant box, allergen, and dietary indicator. DO NOT omit, skip, summarize, truncate, or stop early! If the document contains 30, 50, or 100 dishes, you MUST list all 30, 50, or 100 dishes in the JSON output!
+2. Contact & Branding Extraction: Extract venue contact details AND brand colors ONLY from the document if present. DO NOT make up fake emails or numbers.
    - Restaurant Name -> "branding.name"
    - Email -> "branding.email"
    - Phone -> "branding.phone"
    - WhatsApp -> "branding.whatsapp"
    - Address -> "branding.address"
    - Instagram handle -> "branding.instagram"
-3. Pricing & Variants (Multi-Column & Sizes):
+3. Pricing & Variants:
    - Extract standard prices (e.g. "12.50 €").
    - Extract variant option boxes into the "variants" array: [{ "name": "Option", "price": "..." }].
-4. Allergens & Dietary Indicators:
-   - "allergens": Array of allergen codes
-   - "diet": Array of diet tags ["vegan", "vegetarian", "glutenfree", "halal"]
-5. Group dishes logically into categories with appropriate emojis.
-6. Original Language Only: Extract names and descriptions EXACTLY in the language they appear in the document (e.g., German if the PDF is German). Produce simple strings for names and descriptions, not objects.
-7. Provide a complete "allergensLegend" dictionary for all extracted allergen codes.
+4. Group dishes logically into categories with appropriate emojis.
+5. Provide names and descriptions as strings.
+6. Provide a complete "allergensLegend" dictionary for all extracted allergen codes.
 
 Return strictly JSON matching this structure:
 {
   "branding": {
-    "name": "Extracted Restaurant Name or empty",
+    "name": "${venue || 'Extracted Restaurant Name'}",
     "email": "Extracted email or empty",
-    "style": "fine_dining",
-    "primaryColor": "${primaryColor ? primaryColor : 'Extracted primary brand hex color from document or #7C3AED'}",
-    "secondaryColor": "${secondaryColor ? secondaryColor : 'Extracted secondary brand hex color from document or #FF2D8D'}",
-    "phone": "Extracted phone or empty",
-    "whatsapp": "Extracted whatsapp or empty",
-    "address": "Extracted address or empty",
-    "instagram": "Extracted instagram or empty"
+    "style": "${style || 'fine_dining'}",
+    "primaryColor": "${primaryColor || '#7C3AED'}",
+    "secondaryColor": "${secondaryColor || '#FF2D8D'}",
+    "phone": "${phone || 'Extracted phone or empty'}",
+    "whatsapp": "${whatsapp || 'Extracted whatsapp or empty'}",
+    "address": "${address || 'Extracted address or empty'}",
+    "instagram": "${instagram || 'Extracted instagram or empty'}"
   },
   "categories": [
     {
@@ -185,7 +268,7 @@ Return strictly JSON matching this structure:
           "description": "Dish Description",
           "price": "12.50 €",
           "variants": [
-            { "name": "8oz / Veg", "price": "4.50 €" }
+            { "name": "Option / Size", "price": "4.50 €" }
           ],
           "allergens": ["A", "G"],
           "diet": ["vegan", "vegetarian"],
@@ -201,7 +284,7 @@ Return strictly JSON matching this structure:
   }
 }
 Raw Input Context:
-"""${rawInput.slice(0, 15000)}"""`
+"""${rawInput.slice(0, 50000)}"""`
 
     const parsed = await executeAiTask(async (ai) => {
       let contents = []
@@ -222,24 +305,28 @@ Raw Input Context:
       contents.push(promptText)
 
       const response = await ai.models.generateContent({
-        model: 'gemini-1.5-pro',
+        model: 'gemini-3.6-flash',
         contents,
         config: { 
           responseMimeType: 'application/json',
-          maxOutputTokens: 8192
+          maxOutputTokens: 16384
         }
       })
 
       const raw = response.text || '{}'
-      let jsonStr = raw
-      const match = raw.match(/\{[\s\S]*\}/)
-      if (match) jsonStr = match[0]
-      return JSON.parse(jsonStr)
+      return repairAndParseJson(raw)
     })
 
-    if (!parsed || !parsed.categories || !Array.isArray(parsed.categories)) {
+    if (!parsed || !parsed.categories || !Array.isArray(parsed.categories) || parsed.categories.length === 0) {
+      console.warn('AI parse returned empty categories, falling back to default sample')
       return res.status(200).json(defaultSample)
     }
+
+    // Standardize branding fallback
+    if (!parsed.branding) parsed.branding = {}
+    if (venue && !parsed.branding.name) parsed.branding.name = venue
+    if (primaryColor) parsed.branding.primaryColor = primaryColor
+    if (secondaryColor) parsed.branding.secondaryColor = secondaryColor
 
     // Enrich with default image URLs if missing
     const foodStock = [
@@ -252,18 +339,18 @@ Raw Input Context:
     ]
 
     let imgIdx = 0
-    if (parsed.categories && Array.isArray(parsed.categories)) {
-      parsed.categories.forEach(cat => {
-        if (cat.items && Array.isArray(cat.items)) {
-          cat.items.forEach(item => {
-            if (!item.imageUrl) {
-              item.imageUrl = foodStock[imgIdx % foodStock.length]
-              imgIdx++
-            }
-          })
+    parsed.categories.forEach((cat, cIdx) => {
+      if (!cat.id) cat.id = `cat_${cIdx + 1}`
+      if (!cat.items || !Array.isArray(cat.items)) cat.items = []
+      
+      cat.items.forEach((item, iIdx) => {
+        if (!item.id) item.id = `item_${cIdx + 1}_${iIdx + 1}`
+        if (!item.imageUrl) {
+          item.imageUrl = foodStock[imgIdx % foodStock.length]
+          imgIdx++
         }
       })
-    }
+    })
 
     return res.status(200).json(parsed)
   } catch (err) {

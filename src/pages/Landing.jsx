@@ -643,18 +643,21 @@ export default function Landing(){
 
       <section style={{padding:'80px 5%',position:'relative'}}>
         <div style={{maxWidth:1200,margin:'0 auto'}}>
-          {/* ALL 8 APP ICONS & SPLASH SCREENS (MOBILE) SHOWCASE */}
+          {/* ALL 7 APP ICONS & SPLASH SCREENS (MOBILE) SHOWCASE */}
           <div style={{background:C.card,border:`1px solid ${C.purple}44`,borderRadius:28,padding:32,marginBottom:48}}>
             <div style={{textAlign:'center',marginBottom:32}}>
               <div style={{fontSize:11,fontWeight:800,color:C.purple,letterSpacing:2,textTransform:'uppercase',marginBottom:6}}>SPLASH SCREENS & APP ICONS (MOBILE)</div>
-              <h3 style={{fontSize:26,fontWeight:900,color:C.white}}>Die 8 nativen Smartphone-Erlebnisse</h3>
-              <p style={{fontSize:14,color:C.muted,marginTop:6,maxWidth:600,margin:'6px auto 0'}}>Jedes Modul besitzt sein eigenes visuelles Thema, Icon-Branding und mobilen Splash-Screen.</p>
+              <h3 style={{fontSize:26,fontWeight:900,color:C.white}}>
+                {lang === 'de' ? 'Die 7 nativen Smartphone-Erlebnisse' : 'The 7 Native Smartphone Experiences'}
+              </h3>
+              <p style={{fontSize:14,color:C.muted,marginTop:6,maxWidth:600,margin:'6px auto 0'}}>
+                {lang === 'de' ? 'Jedes Modul besitzt sein eigenes visuelles Thema, Icon-Branding und mobilen Splash-Screen.' : 'Each module features its own visual theme, icon branding, and mobile splash screen.'}
+              </p>
             </div>
             
-            {/* 8 Phone Mockups Horizontal Row */}
+            {/* 7 Phone Mockups Horizontal Row */}
             <div style={{display:'flex',gap:16,overflowX:'auto',paddingBottom:20,paddingTop:10,scrollbarWidth:'thin'}}>
               {[
-                'scenvy',
                 'flow',
                 'menu',
                 'board',
@@ -675,7 +678,9 @@ export default function Landing(){
 
             {/* App Icons Grid */}
             <div style={{borderTop:`1px solid ${C.border}`,paddingTop:24,marginTop:12}}>
-              <div style={{fontSize:11,fontWeight:800,color:C.muted,letterSpacing:1.5,textAlign:'center',textTransform:'uppercase',marginBottom:16}}>APP ICONS (SQUIRCLE FORMAT)</div>
+              <div style={{fontSize:11,fontWeight:800,color:C.muted,letterSpacing:1.5,textAlign:'center',textTransform:'uppercase',marginBottom:16}}>
+                {lang === 'de' ? 'APP ICONS' : 'APP ICONS'}
+              </div>
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(110px, 1fr))',gap:16}}>
                 {[
                   { id: 'flow', name: 'Flow' },
@@ -697,27 +702,31 @@ export default function Landing(){
 
           {/* HARDWARE & STORE BANNER */}
           <div id="store" style={{background:`${C.card}88`,border:`1px solid ${C.border}`,borderRadius:20,padding:32,display:'flex',flexDirection:'column',gap:20}}>
-            <div style={{display:'flex',justify:'space-between',alignItems:'center',flexWrap:'wrap',gap:16}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:16}}>
               <div>
                 <div style={{fontSize:11,color:C.white,fontWeight:800,letterSpacing:1.5,marginBottom:6,textTransform:'uppercase',display:'flex',alignItems:'center',gap:8}}>
                   <ShoppingBag size={14} color={C.white}/>
                   <span>SCENVY STORE & TAGS</span>
                   <span style={{background:'rgba(255,255,255,0.1)',fontSize:10,padding:'2px 8px',borderRadius:10}}>store.scenvy.de</span>
                 </div>
-                <h3 style={{fontSize:20,fontWeight:800,color:C.white}}>Physische Trigger & Digital Signage Hardware</h3>
-                <p style={{fontSize:13,color:C.muted,marginTop:4}}>Verbinde deine physischen Tische, Theken & Räume nahtlos mit deinen SCENVY Apps.</p>
+                <h3 style={{fontSize:20,fontWeight:800,color:C.white}}>
+                  {lang === 'de' ? 'Physische Trigger & Digital Signage Hardware' : 'Physical Triggers & Digital Signage Hardware'}
+                </h3>
+                <p style={{fontSize:13,color:C.muted,marginTop:4}}>
+                  {lang === 'de' ? 'Verbinde deine physischen Tische, Theken & Räume nahtlos mit deinen SCENVY Apps.' : 'Seamlessly connect your physical tables, counters & spaces with your SCENVY apps.'}
+                </p>
               </div>
 
               <button onClick={()=>nav('/auth?mode=register')} style={{padding:'12px 24px',borderRadius:12,border:`1px solid ${C.border}`,background:C.card,color:C.white,fontWeight:700,fontSize:13,cursor:'pointer'}}>
-                Hardware Katalog anfragen →
+                {lang === 'de' ? 'Hardware Katalog anfragen →' : 'Request Hardware Catalog →'}
               </button>
             </div>
 
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))',gap:16,marginTop:8}}>
               {[
-                { icon: <Tag size={16} color={C.purple}/>, title: 'SCENVY TAGS (NFC & QR)', desc: 'Hochwertige Acryl Tischaufsteller & Metal-NFC Tags für blitzschnellen Kontakt.' },
-                { icon: <Tv size={16} color={C.blue}/>, title: 'Digital Signage Displays', desc: 'Professionelle 4K Displays für den Dauerbetrieb in Gastronomie & Retail.' },
-                { icon: <Zap size={16} color={C.pink}/>, title: 'Signage Player Hardware', desc: 'Kompakte Plug-and-Play Mediaplayer für SCENVY BOARD.' }
+                { icon: <Tag size={16} color={C.purple}/>, title: lang === 'de' ? 'SCENVY TAGS (NFC & QR)' : 'SCENVY TAGS (NFC & QR)', desc: lang === 'de' ? 'Hochwertige Acryl Tischaufsteller & Metal-NFC Tags für blitzschnellen Kontakt.' : 'High-quality acrylic table displays & metal NFC tags for instant interaction.' },
+                { icon: <Tv size={16} color={C.blue}/>, title: lang === 'de' ? 'Digital Signage Displays' : 'Digital Signage Displays', desc: lang === 'de' ? 'Professionelle 4K Displays für den Dauerbetrieb in Gastronomie & Retail.' : 'Professional 4K displays for 24/7 commercial operation in hospitality & retail.' },
+                { icon: <Zap size={16} color={C.pink}/>, title: lang === 'de' ? 'Signage Player Hardware' : 'Signage Player Hardware', desc: lang === 'de' ? 'Kompakte Plug-and-Play Mediaplayer für SCENVY BOARD.' : 'Compact plug-and-play media players for SCENVY BOARD.' }
               ].map((item, idx) => (
                 <div key={idx} style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
                   <div style={{fontSize:14,fontWeight:700,marginBottom:4,display:'flex',alignItems:'center',gap:8}}>
@@ -765,7 +774,6 @@ export default function Landing(){
             <p style={{fontSize:16,color:C.muted}}>{t.howSub}</p>
           </div>
           <div className="steps-grid" style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:24,position:'relative'}}>
-            <div className="step-line" style={{position:'absolute',top:56,left:'16.67%',right:'16.67%',height:1,background:`linear-gradient(90deg,${C.purple},${C.blue})`,opacity:.3}}/>
             {t.steps.map((s,i)=>(
               <div key={i} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:20,padding:32}}>
                 <div style={{width:56,height:56,borderRadius:'50%',background:grad(stepColors[i],i===2?C.purple:C.pink),display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:900,marginBottom:24,boxShadow:`0 4px 20px ${stepColors[i]}44`}}>{s.n}</div>
@@ -797,8 +805,15 @@ export default function Landing(){
             </div>
             <Btn onClick={()=>nav('/l/demo')} style={{marginTop:20}}>{lang==='de'?'Live-Demo ausprobieren →':'Try live demo →'}</Btn>
           </div>
-          <div className="demo-phones" style={{display:'flex',gap:14,alignItems:'center',flexShrink:0}}>
-            {[0,1,2].map(o=><div key={o} style={{transform:o===1?'scale(1.06)':'none',marginTop:o===1?0:20}}><Phone size="small" lang={lang}/></div>)}
+          <div className="demo-phones" style={{display:'flex',gap:24,alignItems:'center',flexShrink:0}}>
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:10}}>
+              <Phone size="small" lang={lang}/>
+              <div style={{fontSize:11,fontWeight:800,color:C.purple,letterSpacing:0.5}}>🎬 {lang==='de'?'SCENVY FLOW (Reel)':'SCENVY FLOW (Reel)'}</div>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:10}}>
+              <ScenvyPhoneMockup module="menu" size="normal" active={true} lang={lang} />
+              <div style={{fontSize:11,fontWeight:800,color:C.orange,letterSpacing:0.5}}>📖 {lang==='de'?'SCENVY MENU (Speisekarte)':'SCENVY MENU (Digital Menu)'}</div>
+            </div>
           </div>
         </div>
       </section>
@@ -922,15 +937,15 @@ export default function Landing(){
       {/* FOOTER */}
       <footer style={{padding:'60px 5% 32px',borderTop:`1px solid ${C.border}`}}>
         <div style={{maxWidth:1200,margin:'0 auto'}}>
-          <div className="footer-grid" style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr 1fr',gap:40,marginBottom:48}}>
+          <div className="footer-grid" style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr',gap:40,marginBottom:48}}>
             <div>
               <div style={{marginBottom:16}}>
-                <ScenvyLogoFull height={40} />
+                <ScenvyLogoFull height={70} />
               </div>
               <p style={{fontSize:13,color:C.muted,lineHeight:1.65,marginBottom:12}}>{t.footerTag}</p>
               <div style={{fontSize:12,color:C.dim}}>app.scenvy.de</div>
             </div>
-            {[['Product',['Features','Pricing','Changelog','Demo']],['Company',['About','Blog','Careers','Press']],['Legal',['Privacy','Terms','GDPR','Imprint']]].map(([title,links])=>(
+            {[['Company',['About','Blog','Careers','Press']],['Legal',['Privacy','Terms','GDPR','Imprint']]].map(([title,links])=>(
               <div key={title}>
                 <div style={{fontSize:11,fontWeight:700,color:C.white,letterSpacing:1,marginBottom:14}}>{title.toUpperCase()}</div>
                 {links.map(l=><div key={l} style={{fontSize:13,color:C.muted,marginBottom:10,cursor:'pointer'}} onMouseEnter={e=>e.target.style.color=C.white} onMouseLeave={e=>e.target.style.color=C.muted}>{l}</div>)}

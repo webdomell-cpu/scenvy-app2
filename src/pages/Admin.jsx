@@ -259,10 +259,114 @@ export default function Admin() {
   ]
 
   const [flags, setFlags] = useState([
-    {n:'AI Generator',on:true,c:C.purple},{n:'AI Menu Reel Generator',on:true,c:C.purple},{n:'Social Import',on:true,c:C.blue},
-    {n:'Geo Targeting',on:false,c:C.pink},{n:'Gamification',on:false,c:C.orange},
-    {n:'White Label',on:true,c:C.purple},{n:'API Access',on:false,c:C.blue},
-    {n:'Analytics Pro',on:true,c:C.green},{n:'Scheduling AI',on:false,c:C.pink},
+    {
+      id: 'ai_gen',
+      n: 'AI Reel & Content Generator',
+      on: true,
+      c: C.purple,
+      tag: 'KI-STUDIO CORE',
+      desc: 'Erstellt automatisch Video-Reels & Werbetexte für Gastronomie-Angebote mit Gemini 3.6 & ChatGPT-4o.',
+      solve: 'Schnelle Erstellung von professionellen Werbe-Reels aus kurzen Stichpunkten oder Fotos ohne Videobearbeitung.',
+      whenOn: 'Mandanten können das KI-Studio im Dashboard nutzen, um neue Video-Reels per KI zu generieren.',
+      whenOff: 'KI-Studio Funktionen im Dashboard sind gesperrt; Reels müssen manuell als Datei hochgeladen werden.',
+      why: 'Aktivieren für Tarife mit KI-Guthaben oder Deaktivieren bei Wartungsarbeiten.'
+    },
+    {
+      id: 'ai_menu',
+      n: 'SNAP KI Speisekarten-Scan',
+      on: true,
+      c: C.purple,
+      tag: 'SPEISEKARTEN DIGITALISIERUNG',
+      desc: 'Wandelt Papierspeisekarten (PDF oder Fotos) per multimodaler KI direkt in digitale Menüs & Videos um.',
+      solve: 'Entfernt manuelles Abtippen von Gerichten, Preisen, Beschreibungen und Allergenen komplett.',
+      whenOn: 'Der "SNAP Speisekarte" Upload-Tab steht in SCENVY Menu allen berechtigten Mandanten zur Verfügung.',
+      whenOff: 'PDF/Bild-Scan ist gesperrt; Gerichte müssen manuell Stück für Stück im Editor angelegt werden.',
+      why: 'Ideal als Premium-Feature für Pro/Enterprise Kunden oder zur Drosselung hoher Server-Guthaben.'
+    },
+    {
+      id: 'social_import',
+      n: 'Social Media Direct Sync',
+      on: true,
+      c: C.blue,
+      tag: 'CONTENT-IMPORT',
+      desc: 'Importiert bestehende Fotos und Videos direkt aus Instagram, Facebook und TikTok Unternehmensprofilen.',
+      solve: 'Erspart das erneute Hochladen von bereits auf Social Media veröffentlichten Videos und Beiträgen.',
+      whenOn: 'Social-Import Button in der Medienbibliothek ist aktiv.',
+      whenOff: 'Social-Import ist ausgeblendet; Medien müssen lokal vom PC oder Smartphone hochgeladen werden.',
+      why: 'Ermöglicht blitzschnelles Onboarding für Betriebe, die bereits aktiv Social Media nutzen.'
+    },
+    {
+      id: 'geo_targeting',
+      n: 'Geo-Targeting & GPS Portal',
+      on: false,
+      c: C.pink,
+      tag: 'STANDORT-STEUERUNG',
+      desc: 'Erkennt den Standort des Gastes und zeigt automatisch das Reel der nächstgelegenen Filiale an.',
+      solve: 'Vermeidet Verwirrung bei Restaurant-Ketten und Hotelgruppen mit mehreren Standorten.',
+      whenOn: 'Gäste-Portal fragt auf Wunsch GPS ab und sortiert nahegelegene Venues ganz oben.',
+      whenOff: 'Gäste wählen ihren Standort manuell aus einer übersichtlichen alphabetischen Liste.',
+      why: 'Besonders wertvoll für Filialisten und Multi-Location Enterprise Mandanten.'
+    },
+    {
+      id: 'gamification',
+      n: 'Gamification & Lucky Wheel',
+      on: false,
+      c: C.orange,
+      tag: 'INTERAKTION & GUTSCHEINE',
+      desc: 'Erweiterte Gäste-Interaktion durch digitale Glücksräder, Rabatt-Gutscheine und Belohnungs-Aktionen.',
+      solve: 'Erhöht die Scan-Quote und Kundenbindung um bis zu 3x durch spielerische Anreize beim QR-Scan.',
+      whenOn: 'Glücksrad & Rabatt-Module im Reel-Editor für Aktionstage freigeschaltet.',
+      whenOff: 'Reels zeigen reine Informationen und Angebote ohne Gewinnspiel-Elemente.',
+      why: 'Perfekt für Events, Diskotheken & Sonderaktionen zur gezielten Umsatzsteigerung.'
+    },
+    {
+      id: 'white_label',
+      n: 'White Label & Custom Domains',
+      on: true,
+      c: C.purple,
+      tag: 'BRANDING & AGENTUR',
+      desc: 'Entfernt das SCENVY Branding auf Gast-Views und erlaubt eigene Custom Domains.',
+      solve: 'Ermöglicht Agenturen und Hotels, SCENVY komplett unter eigenem Namen/Logo anzubieten.',
+      whenOn: 'Gäste sehen nur das Logo des Mandanten; eigene Domains (z.B. menu.hotel.de) nutzbar.',
+      whenOff: 'Dezenter "Powered by SCENVY" Hinweis wird im Footer eingeblendet.',
+      why: 'Exklusives Standard-Feature für Enterprise-Kunden und Partner-Agenturen.'
+    },
+    {
+      id: 'api_access',
+      n: 'API Access & POS Webhooks',
+      on: false,
+      c: C.blue,
+      tag: 'INTEGRATION',
+      desc: 'REST API & Webhook Schnittstellen zur Anbindung an Kassensysteme (POS), PMS & CRM.',
+      solve: 'Synchronisiert tagesaktuelle Speisekarten, Tagesgerichte und Auslastungen automatisch mit dem Kassensystem.',
+      whenOn: 'API-Key Verwaltung und Webhook-Endpoints stehen in den Einstellungen bereit.',
+      whenOff: 'Externe API-Aufrufe werden mit HTTP 403 abgelehnt.',
+      why: 'Freischalten für Enterprise-Kunden mit eigener IT-Infrastruktur.'
+    },
+    {
+      id: 'analytics_pro',
+      n: 'Analytics Pro & Heatmaps',
+      on: true,
+      c: C.green,
+      tag: 'STATISTIKEN',
+      desc: 'Echtzeit-Statistiken über QR-Scans, Verweildauer, Klick-Raten und beliebteste Gerichte.',
+      solve: 'Gibt Betreibern genaue Einblicke, welche Angebote Gäste am häufigsten ansehen.',
+      whenOn: 'Detaillierte Diagramme und CSV-Export im Analytics-Tab verfügbar.',
+      whenOff: 'Nur einfache Gesamtzahl der Scans pro Woche wird angezeigt.',
+      why: 'Erhöht den wahrgenommenen Wert der Pro/Enterprise Abonnements deutlich.'
+    },
+    {
+      id: 'scheduling_ai',
+      n: 'Scheduling AI & Auto-Pilot',
+      on: false,
+      c: C.pink,
+      tag: 'AUTOMATISIERUNG',
+      desc: 'KI-Sendeplaner, der Angebote automatisch nach Tageszeit (Frühstück, Mittagstisch, Happy Hour) schaltet.',
+      solve: 'Erspart das manuelle An- und Ausschalten von tageszeitabhängigen Speisekarten.',
+      whenOn: 'Auto-Pilot Kalender plant und wechselt Reels vollautomatisch nach Uhrzeit.',
+      whenOff: 'Reels müssen manuell per Schalter live oder inaktiv gestellt werden.',
+      why: 'Perfekt für ganztägige Gastronomiebetriebe mit wechselndem Tagesangebot.'
+    },
   ])
 
   const [aiPool, setAiPool] = useState({
@@ -341,102 +445,222 @@ export default function Admin() {
   }
 
   return (
-    <div style={{minHeight:'100vh',background:C.bg,fontFamily:"'Inter',sans-serif",color:C.white}}>
+    <div style={{minHeight:'100vh',background:C.bg,fontFamily:"'Inter',sans-serif",color:C.white,display:'flex'}}>
       <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}} @keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
-      {/* Top bar */}
-      <div style={{height:58,background:C.card,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 28px',position:'sticky',top:0,zIndex:100}}>
-        <div style={{display:'flex',alignItems:'center',gap:10,flex:1}}>
-          <ScenvyLogoFull height={35} />
-          <span style={{fontSize:11,color:C.muted,marginLeft:8}}>/ Platform Admin</span>
+      {/* Left Sidebar Navigation */}
+      <aside style={{
+        width: 280,
+        flexShrink: 0,
+        background: C.card,
+        borderRight: `1px solid ${C.border}`,
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100
+      }}>
+        {/* Top Logo Section */}
+        <div style={{ padding: '20px 20px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <ScenvyLogoFull height={48} tagline={false} />
+          <div style={{ fontSize: 9, color: C.pink, fontWeight: 900, letterSpacing: 1.5, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.pink }} />
+            PLATFORM ADMIN CONSOLE
+          </div>
         </div>
-        <div style={{display:'flex',gap:10,alignItems:'center'}}>
+
+        {/* Navigation Items */}
+        <nav style={{ flex: 1, overflowY: 'auto', padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <div style={{ fontSize: 10, color: C.muted, fontWeight: 800, letterSpacing: 1.2, padding: '6px 10px 4px' }}>VERWALTUNG & SYSTEM</div>
+          {tabs.map(t => {
+            const isActive = tab === t.id
+            return (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '9px 12px',
+                  borderRadius: 8,
+                  border: 'none',
+                  cursor: 'pointer',
+                  background: isActive ? `${C.purple}22` : 'transparent',
+                  color: isActive ? C.white : C.muted,
+                  fontWeight: isActive ? 700 : 500,
+                  fontSize: 13,
+                  fontFamily: 'inherit',
+                  textAlign: 'left',
+                  lineHeight: 1.25,
+                  transition: 'all 0.15s ease',
+                  borderLeft: isActive ? `3px solid ${C.purple}` : '3px solid transparent'
+                }}
+                onMouseEnter={(e) => { if(!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                onMouseLeave={(e) => { if(!isActive) e.currentTarget.style.background = 'transparent' }}
+              >
+                <span style={{ color: isActive ? C.purple : C.muted, display: 'flex' }}>
+                  {t.icon}
+                </span>
+                <span style={{ flex: 1, lineHeight: 1.25 }}>{t.label}</span>
+              </button>
+            )
+          })}
+        </nav>
+
+        {/* Sidebar Footer Actions */}
+        <div style={{ padding: '12px 14px', borderTop: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', gap: 8, background: C.bg }}>
+          <button
+            onClick={() => nav('/dashboard')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 12px',
+              borderRadius: 8,
+              border: `1px solid ${C.purple}44`,
+              background: `${C.purple}11`,
+              color: C.purple,
+              cursor: 'pointer',
+              fontSize: 12,
+              fontWeight: 700,
+              fontFamily: 'inherit',
+              lineHeight: 1.2
+            }}
+          >
+            🏢 Mandanten Dashboard
+          </button>
+          
           <a
             href="/api/download-zip"
             download
-            style={{display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:8,border:`1px solid ${C.pink}`,background:`${C.pink}22`,color:C.pink,cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',textDecoration:'none'}}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 12px',
+              borderRadius: 8,
+              border: `1px solid ${C.pink}44`,
+              background: `${C.pink}11`,
+              color: C.pink,
+              cursor: 'pointer',
+              fontSize: 12,
+              fontWeight: 700,
+              fontFamily: 'inherit',
+              textDecoration: 'none',
+              lineHeight: 1.2
+            }}
             title="Gesamten Quellcode als ZIP herunterladen"
           >
             <Download size={14}/> 📦 Code ZIP Download
           </a>
-          <button onClick={() => nav('/dashboard')} style={{display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:8,border:`1px solid ${C.purple}`,background:`${C.purple}22`,color:C.purple,cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit'}}>
-            🏢 Mandanten Dashboard
-          </button>
-          <span style={{fontSize:12,color:C.muted}}>{user?.email}</span>
-          <button onClick={logout} style={{display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:8,border:`1px solid ${C.border}`,background:'transparent',color:C.muted,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>
-            <LogOut size={14}/> Logout
-          </button>
-        </div>
-      </div>
 
-      <div style={{padding:28,maxWidth:1300,margin:'0 auto'}}>
-        <div style={{marginBottom:24}}>
-          <div style={{fontSize:11,color:C.pink,fontWeight:700,letterSpacing:2,marginBottom:6}}>PLATFORM ADMIN</div>
-          <div style={{fontSize:28,fontWeight:800}}>Global Overview</div>
-        </div>
-
-        {/* KPIs */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:14,marginBottom:24}}>
-          {[
-            {l:'Tenants',  v:isLoading?'…':tenants.length, c:C.purple, i:<Users size={17} color={C.purple}/>},
-            {l:'MRR',      v:isLoading?'…':`€${mrr}`,      c:C.green,  i:<TrendingUp size={17} color={C.green}/>},
-            {l:'Locations',v:isLoading?'…':locs,            c:C.blue,   i:<MapPin size={17} color={C.blue}/>},
-            {l:'Reels',    v:isLoading?'…':reels,           c:C.pink,   i:<Film size={17} color={C.pink}/>},
-            {l:'Uptime',   v:'99.9%',                        c:C.green,  i:<Activity size={17} color={C.green}/>},
-          ].map((s,i)=>(
-            <div key={i} style={{background:C.card,borderRadius:14,padding:18,border:`1px solid ${C.border}`}}>
-              <div style={{display:'flex',justifyContent:'space-between',marginBottom:10}}><span style={{fontSize:11,color:C.muted}}>{s.l}</span>{s.i}</div>
-              <div style={{fontSize:26,fontWeight:800,color:s.c}}>{s.v}</div>
+          <div style={{ padding: '8px 10px', background: C.card2, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+            <div style={{ overflow: 'hidden' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.white, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</div>
+              <div style={{ fontSize: 9, color: C.green, fontWeight: 700 }}>● SUPER ADMIN</div>
             </div>
-          ))}
-        </div>
-
-        {/* MRR Chart + Plan Breakdown */}
-        <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:20,marginBottom:24}}>
-          <div style={{background:C.card,borderRadius:16,padding:20,border:`1px solid ${C.border}`}}>
-            <div style={{fontSize:14,fontWeight:700,marginBottom:16}}>MRR Growth</div>
-            <ResponsiveContainer width="100%" height={180}>
-              <LineChart data={MRR_TREND}>
-                <XAxis dataKey="month" tick={{fill:C.muted,fontSize:11}} axisLine={false} tickLine={false}/>
-                <YAxis tick={{fill:C.muted,fontSize:11}} axisLine={false} tickLine={false}/>
-                <Tooltip contentStyle={{background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,color:C.white}} formatter={v=>[`€${v}`,'MRR']}/>
-                <Line dataKey="mrr" stroke={C.green} strokeWidth={2.5} dot={{fill:C.green,r:4}}/>
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          <div style={{background:C.card,borderRadius:16,padding:20,border:`1px solid ${C.border}`}}>
-            <div style={{fontSize:14,fontWeight:700,marginBottom:18}}>Plan Breakdown</div>
-            {['enterprise','pro','starter'].map(key=>{
-              const count = tenants.filter(t=>t.plan===key).length
-              const rowMrr = count * (PLAN_MRR[key]||0)
-              return (
-                <div key={key} style={{marginBottom:16}}>
-                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
-                    <span style={{fontSize:13,fontWeight:600,color:PLAN_C[key],textTransform:'capitalize'}}>{key}</span>
-                    <span style={{fontSize:11,color:C.muted}}>{count} · €{rowMrr}/mo</span>
-                  </div>
-                  <div style={{height:6,background:C.card2,borderRadius:3,overflow:'hidden'}}>
-                    <div style={{height:'100%',width:tenants.length?`${(count/tenants.length)*100}%`:'0%',background:PLAN_C[key],borderRadius:3,transition:'width .5s'}}/>
-                  </div>
-                </div>
-              )
-            })}
-            <div style={{marginTop:24,padding:14,background:C.card2,borderRadius:10}}>
-              <div style={{fontSize:10,color:C.muted,marginBottom:5,letterSpacing:1}}>MONTHLY RECURRING REVENUE</div>
-              <div style={{fontSize:28,fontWeight:800,color:C.green}}>€{mrr}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div style={{display:'flex',gap:4,marginBottom:20,background:C.card,borderRadius:12,padding:4,border:`1px solid ${C.border}`,width:'fit-content'}}>
-          {tabs.map(t=>(
-            <button key={t.id} onClick={()=>setTab(t.id)}
-              style={{display:'flex',alignItems:'center',gap:7,padding:'9px 18px',borderRadius:9,border:'none',cursor:'pointer',background:tab===t.id?C.purple:'transparent',color:tab===t.id?C.white:C.muted,fontWeight:tab===t.id?700:500,fontSize:13,fontFamily:'inherit',transition:'all .2s'}}>
-              {t.icon} {t.label}
+            <button
+              onClick={logout}
+              title="Abmelden"
+              style={{ background: 'transparent', border: 'none', color: C.muted, cursor: 'pointer', padding: 4 }}
+            >
+              <LogOut size={16}/>
             </button>
-          ))}
+          </div>
         </div>
+      </aside>
+
+      {/* Main Panel Area */}
+      <main style={{ flex: 1, minWidth: 0, overflowY: 'auto', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        {/* Top Header Bar */}
+        <header style={{
+          height: 60,
+          background: C.card,
+          borderBottom: `1px solid ${C.border}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 28px',
+          sticky: 'top',
+          top: 0,
+          zIndex: 90
+        }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: C.white, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>{tabs.find(t=>t.id===tab)?.label || 'Platform Admin'}</span>
+              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, background: `${C.purple}22`, color: C.purple, fontWeight: 800 }}>
+                SYSTEM ACTIVE
+              </span>
+            </div>
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Zentrale Steuerung aller Mandanten, KI-Schlüssel, Domains und Platform-Features</div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 12px', background: C.bg, borderRadius: 8, border: `1px solid ${C.border}` }}>
+              <span style={{ fontSize: 11, color: C.muted }}>MRR: <strong style={{ color: C.green }}>€{mrr}</strong></span>
+              <span style={{ color: C.border }}>|</span>
+              <span style={{ fontSize: 11, color: C.muted }}>Tenants: <strong style={{ color: C.purple }}>{tenants.length}</strong></span>
+              <span style={{ color: C.border }}>|</span>
+              <span style={{ fontSize: 11, color: C.muted }}>Reels: <strong style={{ color: C.pink }}>{reels}</strong></span>
+            </div>
+          </div>
+        </header>
+
+        {/* Content Container */}
+        <div style={{ padding: 28, maxWidth: 1400, margin: '0 auto', width: '100%' }}>
+          {/* Global KPIs & MRR Overview */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 14, marginBottom: 20 }}>
+              {[
+                {l:'Tenants',  v:isLoading?'…':tenants.length, c:C.purple, i:<Users size={17} color={C.purple}/>},
+                {l:'MRR',      v:isLoading?'…':`€${mrr}`,      c:C.green,  i:<TrendingUp size={17} color={C.green}/>},
+                {l:'Locations',v:isLoading?'…':locs,            c:C.blue,   i:<MapPin size={17} color={C.blue}/>},
+                {l:'Reels',    v:isLoading?'…':reels,           c:C.pink,   i:<Film size={17} color={C.pink}/>},
+                {l:'Uptime',   v:'99.9%',                        c:C.green,  i:<Activity size={17} color={C.green}/>},
+              ].map((s,i)=>(
+                <div key={i} style={{background:C.card,borderRadius:12,padding:'14px 18px',border:`1px solid ${C.border}`}}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}><span style={{fontSize:11,color:C.muted}}>{s.l}</span>{s.i}</div>
+                  <div style={{fontSize:22,fontWeight:800,color:s.c}}>{s.v}</div>
+                </div>
+              ))}
+            </div>
+
+            {tab === 'users' && (
+              <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:20,marginBottom:10}}>
+                <div style={{background:C.card,borderRadius:14,padding:16,border:`1px solid ${C.border}`}}>
+                  <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>MRR Growth Trend</div>
+                  <ResponsiveContainer width="100%" height={140}>
+                    <LineChart data={MRR_TREND}>
+                      <XAxis dataKey="month" tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false}/>
+                      <YAxis tick={{fill:C.muted,fontSize:10}} axisLine={false} tickLine={false}/>
+                      <Tooltip contentStyle={{background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,color:C.white}} formatter={v=>[`€${v}`,'MRR']}/>
+                      <Line dataKey="mrr" stroke={C.green} strokeWidth={2.5} dot={{fill:C.green,r:4}}/>
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <div style={{background:C.card,borderRadius:14,padding:16,border:`1px solid ${C.border}`}}>
+                  <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>Plan Breakdown</div>
+                  {['enterprise','pro','starter'].map(key=>{
+                    const count = tenants.filter(t=>t.plan===key).length
+                    const rowMrr = count * (PLAN_MRR[key]||0)
+                    return (
+                      <div key={key} style={{marginBottom:10}}>
+                        <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                          <span style={{fontSize:12,fontWeight:600,color:PLAN_C[key],textTransform:'capitalize'}}>{key}</span>
+                          <span style={{fontSize:10,color:C.muted}}>{count} · €{rowMrr}/mo</span>
+                        </div>
+                        <div style={{height:5,background:C.card2,borderRadius:3,overflow:'hidden'}}>
+                          <div style={{height:'100%',width:tenants.length?`${(count/tenants.length)*100}%`:'0%',background:PLAN_C[key],borderRadius:3,transition:'width .5s'}}/>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
 
         {/* Users Tab */}
         {tab==='users' && (
@@ -1622,13 +1846,93 @@ export default function Admin() {
         {/* Feature Flags Tab */}
         {tab==='features' && (
           <div style={{background:C.card,borderRadius:16,padding:24,border:`1px solid ${C.border}`}}>
-            <div style={{fontSize:14,fontWeight:700,marginBottom:18}}>Feature Flags</div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+            <div style={{marginBottom:20}}>
+              <div style={{fontSize:16,fontWeight:800,color:C.white,display:'flex',alignItems:'center',gap:8}}>
+                <Shield size={18} color={C.purple}/> Platform Feature Flags & Modul-Steuerung
+              </div>
+              <div style={{fontSize:12,color:C.muted,marginTop:4}}>
+                Steuere platformweite Funktionen, Drosselungs-Schalter und KI-Module in Echtzeit. Jeder Flag erklärt genau, welches Problem er löst und was beim Ein- und Ausschalten passiert.
+              </div>
+            </div>
+
+            <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:16}}>
               {flags.map((f,i)=>(
-                <div key={i} onClick={()=>{setFlags(fs=>fs.map((x,j)=>i===j?{...x,on:!x.on}:x));notify(`${f.n} ${!f.on?'aktiviert':'deaktiviert'}`)}} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 14px',background:C.card2,borderRadius:10,cursor:'pointer',border:`1px solid ${f.on?f.c+'44':C.border}`,transition:'border .2s'}}>
-                  <span style={{fontSize:12,fontWeight:600,color:f.on?C.white:C.muted}}>{f.n}</span>
-                  <div style={{width:36,height:20,borderRadius:10,background:f.on?f.c:C.dim,position:'relative',transition:'background .2s',flexShrink:0}}>
-                    <div style={{width:14,height:14,borderRadius:'50%',background:C.white,position:'absolute',top:3,left:f.on?18:4,transition:'left .2s'}}/>
+                <div
+                  key={f.id || i}
+                  style={{
+                    background: C.bg,
+                    borderRadius: 14,
+                    padding: 20,
+                    border: `1px solid ${f.on ? f.c+'44' : C.border}`,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: 14,
+                    boxShadow: f.on ? `0 4px 20px ${f.c}11` : 'none',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {/* Card Header & Toggle */}
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+                    <div>
+                      <div style={{fontSize:9,fontWeight:900,color:f.c,letterSpacing:1.5,marginBottom:4}}>
+                        {f.tag || 'FEATURE FLAG'}
+                      </div>
+                      <div style={{fontSize:15,fontWeight:800,color:C.white,lineHeight:1.3}}>
+                        {f.n}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={()=>{
+                        setFlags(fs=>fs.map((x,j)=>i===j?{...x,on:!x.on}:x))
+                        notify(`${f.n} ${!f.on?'aktiviert (ON)':'deaktiviert (OFF)'}`)
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '6px 12px',
+                        borderRadius: 20,
+                        border: `1px solid ${f.on ? f.c : C.border}`,
+                        background: f.on ? `${f.c}22` : C.card2,
+                        color: f.on ? C.white : C.muted,
+                        cursor: 'pointer',
+                        fontSize: 11,
+                        fontWeight: 800,
+                        fontFamily: 'inherit',
+                        flexShrink: 0,
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <span>{f.on ? 'AKTIV (ON)' : 'INAKTIV (OFF)'}</span>
+                      <div style={{width:32,height:18,borderRadius:10,background:f.on?f.c:C.dim,position:'relative',transition:'background .2s',flexShrink:0}}>
+                        <div style={{width:12,height:12,borderRadius:'50%',background:C.white,position:'absolute',top:3,left:f.on?17:3,transition:'left .2s'}}/>
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Core Description & Problem solved */}
+                  <div style={{fontSize:12,color:C.white,lineHeight:1.5,background:C.card2,padding:12,borderRadius:10,border:`1px solid ${C.border}`}}>
+                    <strong style={{color:f.c,display:'block',marginBottom:3,fontSize:11}}>💡 Was es löst:</strong>
+                    {f.solve}
+                  </div>
+
+                  {/* Status impact breakdown */}
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,fontSize:11,lineHeight:1.4}}>
+                    <div style={{padding:'8px 10px',background:f.on?`${C.green}11`:C.card2,borderRadius:8,border:`1px solid ${f.on?C.green+'33':C.border}`}}>
+                      <div style={{fontWeight:800,color:C.green,marginBottom:2}}>🟢 Bei AKTIV (ON):</div>
+                      <div style={{color:C.muted}}>{f.whenOn}</div>
+                    </div>
+                    <div style={{padding:'8px 10px',background:!f.on?`${C.pink}11`:C.card2,borderRadius:8,border:`1px solid ${!f.on?C.pink+'33':C.border}`}}>
+                      <div style={{fontWeight:800,color:C.pink,marginBottom:2}}>🔴 Bei INAKTIV (OFF):</div>
+                      <div style={{color:C.muted}}>{f.whenOff}</div>
+                    </div>
+                  </div>
+
+                  {/* Why / Recommendation */}
+                  <div style={{fontSize:10,color:C.muted,display:'flex',alignItems:'center',gap:6,borderTop:`1px solid ${C.border}`,paddingTop:8}}>
+                    <span>🎯 <strong>Einsatzempfehlung:</strong> {f.why}</span>
                   </div>
                 </div>
               ))}
@@ -1636,6 +1940,7 @@ export default function Admin() {
           </div>
         )}
       </div>
+    </main>
 
       {toast&&<div style={{position:'fixed',bottom:28,left:'50%',transform:'translateX(-50%)',background:C.purple,color:C.white,padding:'12px 24px',borderRadius:14,fontSize:13,fontWeight:600,zIndex:9999,animation:'fadeUp .25s ease'}}>{toast}</div>}
     </div>

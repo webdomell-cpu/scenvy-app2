@@ -16,19 +16,39 @@ import {
 
 export const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
 
+export function formatDateTime(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  if (isNaN(d.getTime())) return String(ts)
+  return d.toLocaleDateString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  }) + ', ' + d.toLocaleTimeString('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit'
+  }) + ' Uhr'
+}
+
 // ─── Helper: normalize DB reel → frontend reel ───────────
-export const normalizeReel = (r) => ({
-  ...r,
-  locationId: r.location_id || r.locationId,
-  ctaUrl:     r.cta_url    || r.ctaUrl || '',
-  ctaAction:  r.cta_action || r.ctaAction || 'url',
-  mediaUrl:   r.media_url  || r.mediaUrl || null,
-  mediaType:  r.media_type || r.mediaType || 'image',
-  loc:        r.locations?.name || r.loc || '',
-  ago:        r.created_at || r.createdAt
-    ? new Date(r.created_at || r.createdAt).toLocaleDateString('de-DE')
-    : '',
-})
+export const normalizeReel = (r) => {
+  const created = r.created_at || r.createdAt
+  const updated = r.updated_at || r.updatedAt
+  return {
+    ...r,
+    createdAt: created || new Date().toISOString(),
+    updatedAt: updated || created || new Date().toISOString(),
+    locationId: r.location_id || r.locationId,
+    ctaUrl:     r.cta_url    || r.ctaUrl || '',
+    ctaAction:  r.cta_action || r.ctaAction || 'url',
+    mediaUrl:   r.media_url  || r.mediaUrl || null,
+    mediaType:  r.media_type || r.mediaType || 'image',
+    loc:        r.locations?.name || r.loc || '',
+    ago:        formatDateTime(updated || created),
+    createdFormatted: formatDateTime(created),
+    updatedFormatted: formatDateTime(updated || created),
+  }
+}
 
 // ─── Helper: normalize frontend reel → DB reel ───────────
 export const denormalizeReel = (r, tenantId) => ({
@@ -47,6 +67,7 @@ export const denormalizeReel = (r, tenantId) => ({
   media_type:  r.mediaType || r.media_type || 'image',
   loc:         r.loc || '',
   scheduled_at: r.scheduledAt || r.scheduled_at || null,
+  created_at:  r.created_at || r.createdAt || new Date().toISOString(),
   updated_at:  new Date().toISOString()
 })
 
@@ -267,26 +288,13 @@ export function useTenants() {
   return useQuery({
     queryKey: ['tenants'],
     queryFn: async () => {
-      const mockTenants = [
-        { id: 't-ocean', name: 'Ocean Beach Club', plan: 'pro', status: 'active', users: 12, modules: ['flow', 'menu'], joined: '2025-01-15' },
-        { id: 't-marina', name: 'Marina Group', plan: 'enterprise', status: 'active', users: 45, modules: ['flow', 'menu', 'board', 'host'], joined: '2024-11-02' },
-        { id: 't-cafe', name: 'Café Vienna', plan: 'starter', status: 'trial', users: 3, modules: ['flow'], joined: '2025-03-20' },
-        { id: 't-alpine', name: 'Alpine Resort Hotel', plan: 'enterprise', status: 'active', users: 85, modules: ['flow', 'menu', 'board', 'host', 'link'], joined: '2024-05-12' },
-        { id: 't-burger', name: 'Urban Burger Co', plan: 'pro', status: 'trial', users: 8, modules: ['menu'], joined: '2025-04-01' }
-      ];
       try {
         const snap = await getDocs(collection(db, 'tenants'))
-        let items = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-        if (items.length === 0) {
-          for (const t of mockTenants) {
-            await setDoc(doc(db, 'tenants', t.id), t).catch(() => {});
-          }
-          items = mockTenants;
-        }
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() }))
         return items
       } catch (e) {
-        console.warn('Firestore tenants query notice, falling back to mock:', e)
-        return mockTenants
+        console.warn('Firestore tenants query notice:', e)
+        return []
       }
     },
   })

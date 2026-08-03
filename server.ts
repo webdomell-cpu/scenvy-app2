@@ -6,6 +6,7 @@ import generateAiHandler from './api/ai/generate.js'
 import parseMenuHandler from './api/ai/parse-menu.js'
 import adminKeysHandler from './api/admin/keys.js'
 import contactHandler from './api/contact.js'
+import stripeHandler from './api/stripe/stripe-handler.js'
 
 async function startServer() {
   const app = express()
@@ -35,6 +36,11 @@ async function startServer() {
   app.all('/api/ai/parse-menu', adapt(parseMenuHandler))
   app.all('/api/admin/keys', adapt(adminKeysHandler))
   app.all('/api/contact', adapt(contactHandler))
+  app.all('/api/stripe/create-checkout-session', adapt(stripeHandler))
+  app.all('/api/stripe/create-portal-session', adapt(stripeHandler))
+  app.all('/api/stripe/status', adapt(stripeHandler))
+  app.all('/api/stripe/webhook', adapt(stripeHandler))
+  app.all('/api/stripe/*splat', adapt(stripeHandler))
 
   app.get('/api/download-project', (req, res) => {
     const zipPath = path.join(process.cwd(), 'public', 'scenvy-project.zip')

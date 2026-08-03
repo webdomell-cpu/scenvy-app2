@@ -9,7 +9,8 @@ import {
   useLocations, useSaveLocation, useDeleteLocation,
   useAnalyticsSummary, uploadMedia,
   useMedia, useSaveMedia, useDeleteMedia,
-  useTenant, useSaveTenantProfile, formatDateTime
+  useTenant, useSaveTenantProfile, formatDateTime,
+  createStripePortal
 } from '@/lib/db'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { Home, Film, MapPin, BarChart2, Sparkles, Settings, Menu, QrCode, Eye, MousePointer, Video, Plus, Trash2, RefreshCw, Copy, LogOut, Upload, Link, X, Image, ExternalLink, CreditCard as Edit2, Download, Globe, Save, Mail, Shield, Library, Building2, Phone, Utensils, Tv, ConciergeBell, Layers } from 'lucide-react'
@@ -2412,20 +2413,68 @@ export default function Dashboard() {
           {page==='media'     && <MediaLibraryPage tenantId={tenantId} notify={notify}/>}
           {page==='company'   && <CompanySettingsPage tenantId={tenantId} notify={notify}/>}
           {page==='settings'  && (
-            <div>
-              <div style={{fontSize:11,color:C.pink,fontWeight:700,letterSpacing:2,marginBottom:16}}>ACCOUNT</div>
-              <div style={{fontSize:24,fontWeight:800,marginBottom:24}}>Einstellungen</div>
-              <div style={{background:C.card,borderRadius:14,padding:20,border:`1px solid ${C.border}`,marginBottom:12}}>
-                <div style={{fontSize:14,fontWeight:700,marginBottom:12}}>Aktueller Plan</div>
-                <div style={{display:'flex',gap:14,alignItems:'center'}}>
-                  <span style={{padding:'6px 14px',background:`${C.purple}33`,color:C.purple,borderRadius:8,fontWeight:700,fontSize:13}}>{(user?.tenant?.plan||'STARTER').toUpperCase()}</span>
-                  <span style={{fontSize:13,color:C.muted}}>{locs.length} Standorte · {reels.length} Reels</span>
+            <div style={{display:'grid',gap:20,maxWidth:800}}>
+              <div>
+                <div style={{fontSize:11,color:C.pink,fontWeight:700,letterSpacing:2,marginBottom:4}}>ACCOUNT & BILLING</div>
+                <div style={{fontSize:24,fontWeight:800,marginBottom:16}}>Einstellungen & Abonnements</div>
+              </div>
+
+              <div style={{background:C.card,borderRadius:16,padding:24,border:`1px solid ${C.purple}44`}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:12}}>
+                  <div>
+                    <div style={{fontSize:16,fontWeight:800,color:C.white}}>Aktuelles Plattform-Abonnement</div>
+                    <div style={{fontSize:13,color:C.muted,marginTop:2}}>Gültig für alle Standorte, KI-Reels & Speisekarten-Generierung</div>
+                  </div>
+                  <span style={{padding:'6px 14px',background:`${C.purple}22`,color:C.purple,borderRadius:20,fontWeight:800,fontSize:12,border:`1px solid ${C.purple}44`}}>
+                    ● {(user?.tenant?.plan || 'PRO').toUpperCase()} PLAN
+                  </span>
+                </div>
+
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,background:C.bg,padding:16,borderRadius:12,border:`1px solid ${C.border}`,marginBottom:16}}>
+                  <div>
+                    <div style={{fontSize:11,color:C.muted,fontWeight:700}}>STANDORTE / CAPACITY</div>
+                    <div style={{fontSize:15,fontWeight:800,color:C.white,marginTop:2}}>{locs.length} Standorte belegt</div>
+                  </div>
+                  <div>
+                    <div style={{fontSize:11,color:C.muted,fontWeight:700}}>REELS & CREATIVE CONTENT</div>
+                    <div style={{fontSize:15,fontWeight:800,color:C.white,marginTop:2}}>{reels.length} aktive Reels</div>
+                  </div>
+                </div>
+
+                <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+                  <button
+                    onClick={async () => {
+                      notify('⌛ Öffne Stripe Customer Portal...')
+                      const res = await createStripePortal({
+                        customerId: user?.tenant?.stripe_customer_id || 'cus_demo_123',
+                        tenantId: tenantId,
+                        returnUrl: window.location.href
+                      })
+                      if (res?.url) window.open(res.url, '_blank')
+                    }}
+                    style={{
+                      padding:'11px 20px',
+                      borderRadius:10,
+                      border:'none',
+                      background:grad(C.purple, C.pink),
+                      color:C.white,
+                      fontWeight:800,
+                      fontSize:13,
+                      cursor:'pointer',
+                      display:'flex',
+                      alignItems:'center',
+                      gap:8
+                    }}
+                  >
+                    <ExternalLink size={15}/> Stripe Kundenportal öffnen & Rechnungen
+                  </button>
                 </div>
               </div>
-              <div style={{background:C.card,borderRadius:14,padding:20,border:`1px solid ${C.border}`}}>
-                <div style={{fontSize:14,fontWeight:700,marginBottom:12}}>Dein Account</div>
-                <div style={{fontSize:13,color:C.muted,marginBottom:6}}>E-Mail: <span style={{color:C.white}}>{user?.email}</span></div>
-                <div style={{fontSize:13,color:C.muted}}>Tenant-ID: <span style={{color:C.dim,fontSize:11}}>{tenantId}</span></div>
+
+              <div style={{background:C.card,borderRadius:16,padding:24,border:`1px solid ${C.border}`}}>
+                <div style={{fontSize:16,fontWeight:700,marginBottom:12}}>Dein Account & Kontaktdaten</div>
+                <div style={{fontSize:13,color:C.muted,marginBottom:8}}>E-Mail: <span style={{color:C.white,fontWeight:600}}>{user?.email}</span></div>
+                <div style={{fontSize:13,color:C.muted}}>Mandant-ID: <span style={{color:C.dim,fontSize:12,fontFamily:'monospace'}}>{tenantId}</span></div>
               </div>
             </div>
           )}

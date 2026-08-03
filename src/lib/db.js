@@ -1020,3 +1020,133 @@ export function useSavePricingConfig() {
   })
 }
 
+// ════════════════════════════════════════════════════════
+// EMAIL TEMPLATES CONFIG (Firestore Database Persistence)
+// ════════════════════════════════════════════════════════
+export const DEFAULT_EMAIL_TEMPLATES = {
+  reset_password: {
+    name: 'Passwort zurücksetzen (Password Recovery)',
+    subject_de: '🔐 Passwort zurücksetzen für deinen SCENVY Account',
+    subject_en: '🔐 Reset your password for your SCENVY account',
+    body_de: 'Hallo {user_name},\n\ndu hast eine Zurücksetzung deines Passworts angefordert. Klicke auf den folgenden Link, um dein Passwort neu zu vergeben:\n\n{reset_link}\n\nFalls du diese Anfrage nicht gestellt hast, kannst du diese E-Mail einfach ignorieren.\n\nHerzliche Grüße,\nDein SCENVY Team',
+    body_en: 'Hello {user_name},\n\nYou requested a password reset for your SCENVY account. Click the following link to choose a new password:\n\n{reset_link}\n\nIf you did not request this, please ignore this email.\n\nBest regards,\nYour SCENVY Team'
+  },
+  welcome_user: {
+    name: 'Willkommen nach Registrierung (User Welcome)',
+    subject_de: '🎉 Willkommen bei SCENVY — Dein Account ist bereit!',
+    subject_en: '🎉 Welcome to SCENVY — Your account is ready!',
+    body_de: 'Hallo {user_name},\n\nwillkommen bei SCENVY! Dein Account für {company_name} wurde erfolgreich erstellt.\n\nDu kannst dich jetzt jederzeit anmelden unter:\n{login_url}\n\nViel Erfolg beim Erstellen deiner ersten AI Video Reels und Speisekarten!\n\nDein SCENVY Team',
+    body_en: 'Hello {user_name},\n\nWelcome to SCENVY! Your account for {company_name} has been successfully created.\n\nYou can log in anytime at:\n{login_url}\n\nHave fun creating your first AI Video Reels and digital menus!\n\nYour SCENVY Team'
+  },
+  tenant_opened: {
+    name: 'Mandanten-Eröffnung (Tenant Welcome)',
+    subject_de: '🚀 Dein SCENVY Mandant {company_name} wurde freigeschaltet!',
+    subject_en: '🚀 Your SCENVY Tenant {company_name} is now live!',
+    body_de: 'Hallo {user_name},\n\ndein Mandat {company_name} ({plan_name} Plan) ist jetzt vollständig aktiviert.\n\nDeine Standorte, QR-Codes und KI-Generatoren stehen dir ab sofort zur Verfügung:\n{login_url}\n\nBei Fragen erreichst du uns unter {support_email}.\n\nDein SCENVY Team',
+    body_en: 'Hello {user_name},\n\nYour tenant {company_name} ({plan_name} Plan) has been fully activated.\n\nYour locations, QR codes and AI generators are ready:\n{login_url}\n\nIf you have any questions, reach out to {support_email}.\n\nYour SCENVY Team'
+  },
+  invoice_notice: {
+    name: 'Rechnung & Zahlungsbestätigung (Billing Notice)',
+    subject_de: '📄 Ihre SCENVY Rechnung #{invoice_id}',
+    subject_en: '📄 Your SCENVY Invoice #{invoice_id}',
+    body_de: 'Sehr geehrte Damen und Herren von {company_name},\n\nvielen Dank für Ihre Zahlung. Anbei erhalten Sie Ihre aktuelle Rechnung #{invoice_id}.\n\nRechnungsbetrag: €{total_amount} brutto\nZahlungsart: Stripe Direct Checkout\n\nSie können alle Rechnungen auch jederzeit in Ihrem Admin-Dashboard herunterladen.\n\nMit freundlichen Grüßen,\nSCENVY Finance Team',
+    body_en: 'Dear {company_name} Team,\n\nThank you for your payment. Attached is your invoice #{invoice_id}.\n\nTotal: €{total_amount} incl. VAT\nPayment method: Stripe Direct Checkout\n\nYou can also download all past invoices anytime in your dashboard.\n\nBest regards,\nSCENVY Finance Team'
+  },
+  contact_autoreply: {
+    name: 'Kontaktanfrage Bestätigung (Contact Form Response)',
+    subject_de: '📩 Wir haben deine Anfrage erhalten — SCENVY',
+    subject_en: '📩 We received your request — SCENVY',
+    body_de: 'Hallo {user_name},\n\nvielen Dank für deine Nachricht an SCENVY! Unser Support-Team prüft deine Anfrage und meldet sich innerhalb von 24 Stunden bei dir.\n\nEingegangene Nachricht:\n"{message_excerpt}"\n\nBeste Grüße,\nSCENVY Support',
+    body_en: 'Hello {user_name},\n\nThank you for contacting SCENVY! Our support team is reviewing your message and will get back to you within 24 hours.\n\nYour message:\n"{message_excerpt}"\n\nBest regards,\nSCENVY Support'
+  }
+}
+
+export function useEmailTemplates() {
+  return useQuery({
+    queryKey: ['system_config_email_templates'],
+    queryFn: async () => {
+      try {
+        const snap = await getDoc(doc(db, 'system_config', 'email_templates'))
+        if (snap.exists()) {
+          const data = { ...DEFAULT_EMAIL_TEMPLATES, ...snap.data().templates }
+          localStorage.setItem('scenvy_email_templates', JSON.stringify(data))
+          return data
+        }
+      } catch (e) {
+        console.warn('Firestore email templates notice:', e)
+      }
+      const saved = localStorage.getItem('scenvy_email_templates')
+      return saved ? { ...DEFAULT_EMAIL_TEMPLATES, ...JSON.parse(saved) } : DEFAULT_EMAIL_TEMPLATES
+    }
+  })
+}
+
+export function useSaveEmailTemplates() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (templates) => {
+      const payload = { templates, updated_at: new Date().toISOString() }
+      try {
+        await setDoc(doc(db, 'system_config', 'email_templates'), payload, { merge: true })
+      } catch (e) {
+        console.warn('Firestore save email templates error:', e)
+      }
+      localStorage.setItem('scenvy_email_templates', JSON.stringify(templates))
+      return templates
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(['system_config_email_templates'], data)
+      qc.invalidateQueries({ queryKey: ['system_config_email_templates'] })
+    }
+  })
+}
+
+// ════════════════════════════════════════════════════════
+// STRIPE BILLING & CHECKOUT CLIENT HELPERS
+// ════════════════════════════════════════════════════════
+export async function createStripeCheckout(params) {
+  try {
+    const res = await fetch('/api/stripe/create-checkout-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params)
+    })
+    return await res.json()
+  } catch (err) {
+    console.error('Create Stripe checkout error:', err)
+    return {
+      success: false,
+      error: err.message,
+      url: `${window.location.origin}/dashboard?stripe_demo_checkout=success`
+    }
+  }
+}
+
+export async function createStripePortal(params) {
+  try {
+    const res = await fetch('/api/stripe/create-portal-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params)
+    })
+    return await res.json()
+  } catch (err) {
+    console.error('Create Stripe portal error:', err)
+    return {
+      success: false,
+      error: err.message,
+      url: `${window.location.origin}/dashboard?portal_demo=active`
+    }
+  }
+}
+
+export async function getStripeStatus() {
+  try {
+    const res = await fetch('/api/stripe/status')
+    return await res.json()
+  } catch (err) {
+    return { configured: false, mode: 'demo' }
+  }
+}
+
+

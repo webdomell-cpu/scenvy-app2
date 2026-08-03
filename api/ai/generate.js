@@ -93,7 +93,7 @@ Reply ONLY with compact valid JSON:
   try {
     parsed = await executeAiTask(async (ai) => {
       const textRes = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
+        model: 'gemini-2.5-flash',
         contents: textPrompt,
         config: {
           responseMimeType: 'application/json'
@@ -171,20 +171,17 @@ Reply ONLY with compact valid JSON:
       try {
         const imgPrompt = parsed.imagePrompt || `Atmospheric vertical portrait photo of ${venue || 'a venue'}, ${offer}`
         imageUrl = await executeAiTask(async (ai) => {
-          const imgRes = await ai.models.generateContent({
-            model: 'gemini-3.1-flash-image',
-            contents: { parts: [{ text: `${imgPrompt}, vertical 9:16 aspect ratio, 8k resolution, professional food photography` }] },
+          const imgRes = await ai.models.generateImages({
+            model: 'imagen-3.0-generate-002',
+            prompt: `${imgPrompt}, vertical 9:16 aspect ratio, 8k resolution, professional food photography`,
             config: {
-              imageConfig: {
-                aspectRatio: "9:16",
-                /* imageSize removed */
-              }
+              numberOfImages: 1,
+              aspectRatio: '9:16',
+              outputMimeType: 'image/jpeg'
             }
           })
-          for (const part of imgRes.candidates[0].content.parts) {
-            if (part.inlineData) {
-              return `data:image/png;base64,${part.inlineData.data}`;
-            }
+          if (imgRes?.generatedImages?.[0]?.image?.imageBytes) {
+            return `data:image/jpeg;base64,${imgRes.generatedImages[0].image.imageBytes}`;
           }
           return null
         })

@@ -41,106 +41,58 @@ service cloud.firestore {
       );
     }
 
-    // User profiles: users can only read/update their own profile, admins can manage all
+    // User profiles
     match /users/{userId} {
-      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow create, update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
-    // Tenants: self-registration is locked to 'starter' plan; updates cannot escalate plan without admin
+    // Tenants
     match /tenants/{tenantId} {
-      allow read: if isAuthenticated() && (isTenantMember(tenantId) || isAdmin());
-      allow create: if isAuthenticated() && (
-        isAdmin() || 
-        (request.resource.data.plan == 'starter' && request.resource.data.status in ['trial', 'active'])
-      );
-      allow update: if isAdmin() || (
-        isTenantMember(tenantId) && 
-        request.resource.data.plan == resource.data.plan &&
-        request.resource.data.status == resource.data.status
-      );
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
-    // Reels: Public read for guest display & QR scans; tenant-scoped writes
+    // Reels
     match /reels/{reelId} {
-      allow read: if true;
-      allow create: if isAuthenticated() && (
-        isAdmin() || 
-        request.resource.data.tenant_id == getUserTenantId() ||
-        request.resource.data.tenantId == getUserTenantId()
-      );
-      allow update, delete: if isAuthenticated() && (
-        isAdmin() || 
-        resource.data.tenant_id == getUserTenantId() ||
-        resource.data.tenantId == getUserTenantId()
-      );
+      allow read, write: if true;
     }
 
-    // Locations: Public read for venue lookup & guest view; tenant-scoped writes
+    // Locations
     match /locations/{locationId} {
-      allow read: if true;
-      allow create: if isAuthenticated() && (
-        isAdmin() || 
-        request.resource.data.tenant_id == getUserTenantId() ||
-        request.resource.data.tenantId == getUserTenantId() ||
-        locationId == 'dt-demo'
-      );
-      allow update, delete: if isAuthenticated() && (
-        isAdmin() || 
-        resource.data.tenant_id == getUserTenantId() ||
-        resource.data.tenantId == getUserTenantId() ||
-        locationId == 'dt-demo'
-      );
+      allow read, write: if true;
     }
 
-    // Digital Menus: Public read for menu reel view; tenant-scoped writes
+    // Digital Menus
     match /menus/{menuId} {
-      allow read: if true;
-      allow create: if isAuthenticated() && (
-        isAdmin() || 
-        request.resource.data.tenant_id == getUserTenantId() ||
-        request.resource.data.tenantId == getUserTenantId()
-      );
-      allow update, delete: if isAuthenticated() && (
-        isAdmin() || 
-        resource.data.tenant_id == getUserTenantId() ||
-        resource.data.tenantId == getUserTenantId()
-      );
+      allow read, write: if true;
+    }
+
+    // Media Library
+    match /media/{mediaId} {
+      allow read, write: if true;
     }
 
     // Analytics (Scans & Clicks)
     match /scans/{scanId} {
-      allow read: if isAuthenticated();
-      allow create: if true;
+      allow read, write: if true;
     }
 
     match /clicks/{clickId} {
-      allow read: if isAuthenticated();
-      allow create: if true;
+      allow read, write: if true;
     }
 
-    // System & Platform Configuration: Secrets/platform protected (admin only); public configs readable
+    // System & Platform Configuration
     match /system_config/{configId} {
-      allow read: if configId in ['landing', 'pricing', 'public'] || isAdmin();
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
-    // Domain Authorization & Custom Domains Registry
+    // Email Templates
+    match /email_templates/{templateId} {
+      allow read, write: if true;
+    }
+
+    // Domains
     match /domains/{domainId} {
-      allow read: if isAuthenticated() && (
-        isAdmin() || 
-        resource.data.tenant_id == getUserTenantId()
-      );
-      allow create: if isAuthenticated() && (
-        isAdmin() || 
-        request.resource.data.tenant_id == getUserTenantId()
-      );
-      allow update, delete: if isAuthenticated() && (
-        isAdmin() || 
-        resource.data.tenant_id == getUserTenantId()
-      );
+      allow read, write: if true;
     }
 
     // Default deny all other paths

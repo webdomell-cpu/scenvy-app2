@@ -12,15 +12,15 @@ import {
 const T = {
   de: {
     back: "Zurück zur Hauptübersicht",
-    badge: "KERN-MODUL 01",
-    title: "SCENVY Reels — 9:16 Vertical Video Marketing",
+    badge: "SCENVY FLOW",
+    title: "SCENVY Flow — Scan the Flow (9:16 Video Marketing)",
     subtitle: "Verwandle passive QR-Code Scans in hochkonvertierende, mobile Social Video-Erlebnisse mit Echtzeit-Angeboten & Countdown-Aktionen.",
-    tryBtn: "Jetzt im Dashboard starten",
+    tryBtn: "Scan the Flow starten",
     demoBtn: "Live Reel-Demo ausprobieren",
     
     // Workflow Steps
     stepsTitle: "In 3 einfachen Schritten zu aktiven Gästen",
-    stepsSub: "Kein Entwickler nötig. In unter 5 Minuten sind deine Reels auf den Tischaufstellern deiner Location live.",
+    stepsSub: "Kein Entwickler nötig. In unter 5 Minuten sind deine Flow-Reels auf den Tischaufstellern deiner Location live.",
     step1Title: "1. Medien hochladen oder KI nutzen",
     step1Desc: "Lade bestehende MP4-Videos, Smartphone-Clips oder Fotos hoch. Oder beschreibe dein Angebot und erstelle dein Reel mit KI.",
     step2Title: "2. Angebote & CTAs konfigurieren",
@@ -42,15 +42,15 @@ const T = {
 
     // Call to Action
     ctaTitle: "Verwandle dein Venue in ein vertikales Erlebnis!",
-    ctaSub: "Testen Sie SCENVY Reels 30 Tage lang kostenlos & risikofrei.",
-    ctaBtn: "Modul 01 jetzt aktivieren"
+    ctaSub: "Scan the Flow — 30 Tage kostenlos & risikofrei testen.",
+    ctaBtn: "Jetzt Scan the Flow aktivieren"
   },
   en: {
     back: "Back to Main Portal",
-    badge: "CORE MODULE 01",
-    title: "SCENVY Reels — 9:16 Vertical Video Marketing",
+    badge: "SCENVY FLOW",
+    title: "SCENVY Flow — Scan the Flow (9:16 Video Marketing)",
     subtitle: "Turn passive QR code scans into high-converting mobile social video experiences with real-time offers and countdown deals.",
-    tryBtn: "Start in Dashboard Now",
+    tryBtn: "Start Scan the Flow",
     demoBtn: "Try Live Reel Demo",
     
     // Workflow Steps
@@ -77,8 +77,8 @@ const T = {
 
     // Call to Action
     ctaTitle: "Turn Your Venue into a Vertical Video Experience!",
-    ctaSub: "Test SCENVY Reels for 30 days free & risk-free.",
-    ctaBtn: "Activate Module 01 Now"
+    ctaSub: "Scan the Flow — 30 days free & risk-free trial.",
+    ctaBtn: "Activate Scan the Flow Now"
   }
 }
 

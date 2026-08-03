@@ -200,13 +200,19 @@ export default function Landing(){
       top_banner_link: '/auth?mode=register',
       show_login_btn: true,
       show_register_btn: true,
-      header_cta_text: 'Book Demo',
-      hero_kicker: 'THE OPERATING SYSTEM FOR',
-      hero_title_highlight: 'Modern Hospitality',
-      hero_subtitle: 'Create, manage and distribute digital experiences across every touchpoint.',
-      hero_btn_primary_text: 'Book Demo',
+      header_cta_text: 'Kostenlos starten →',
+      header_cta_text_en: 'Get Started Free →',
+      hero_kicker: 'DAS BETRIEBSSYSTEM FÜR',
+      hero_kicker_en: 'THE OPERATING SYSTEM FOR',
+      hero_title_highlight: 'Moderne Gastronomie',
+      hero_title_highlight_en: 'Modern Hospitality',
+      hero_subtitle: 'Erstelle, verwalte und verteile digitale Erlebnisse an jedem Berührungspunkt.',
+      hero_subtitle_en: 'Create, manage and distribute digital experiences across every touchpoint.',
+      hero_btn_primary_text: 'Demo buchen',
+      hero_btn_primary_text_en: 'Book Demo',
       hero_btn_primary_action: 'contact',
-      hero_btn_secondary_text: 'Live Preview',
+      hero_btn_secondary_text: 'Live Vorschau',
+      hero_btn_secondary_text_en: 'Live Preview',
       hero_btn_secondary_action: 'demo',
     }
   })
@@ -242,7 +248,7 @@ export default function Landing(){
     let text = lang === 'en' ? defaultEn : defaultDe;
     
     // Check if the user has overridden it in landingConfig
-    if (lang === 'de' && landingConfig[key] && landingConfig[key] !== defaultEn && landingConfig[key] !== 'The Operating System for') {
+    if (lang === 'de' && landingConfig[key] && landingConfig[key] !== defaultEn && landingConfig[key] !== 'Book Demo' && landingConfig[key] !== 'The Operating System for') {
        text = landingConfig[key];
     } else if (lang === 'en' && landingConfig[`${key}_en`]) {
        text = landingConfig[`${key}_en`];
@@ -355,7 +361,7 @@ export default function Landing(){
             <Btn variant="ghost" onClick={()=>nav('/auth')} style={{fontSize:14,padding:'9px 16px'}}>{t.nav.login}</Btn>
           )}
           {landingConfig.show_register_btn && (
-            <Btn onClick={()=>nav('/auth?mode=register')} style={{fontSize:14,padding:'9px 18px'}}>{landingConfig.header_cta_text || t.nav.cta}</Btn>
+            <Btn onClick={()=>nav('/auth?mode=register')} style={{fontSize:14,padding:'9px 18px'}}>{getLangText('header_cta_text', 'Kostenlos starten →', 'Get Started Free →')}</Btn>
           )}
         </div>
 
@@ -381,7 +387,7 @@ export default function Landing(){
           </Link>
           <div style={{display:'flex',flexDirection:'column',gap:12,marginTop:20}}>
             <Btn variant="outline" onClick={()=>{setMobileMenuOpen(false);nav('/auth')}} style={{width:'100%',textAlign:'center',padding:'12px 0'}}>{t.nav.login}</Btn>
-            <Btn onClick={()=>{setMobileMenuOpen(false);nav('/auth?mode=register')}} style={{width:'100%',textAlign:'center',padding:'12px 0'}}>{t.nav.cta}</Btn>
+            <Btn onClick={()=>{setMobileMenuOpen(false);nav('/auth?mode=register')}} style={{width:'100%',textAlign:'center',padding:'12px 0'}}>{getLangText('header_cta_text', 'Kostenlos starten →', 'Get Started Free →')}</Btn>
           </div>
         </div>
       )}
@@ -453,24 +459,50 @@ export default function Landing(){
             {/* Left: Chaos */}
             <div style={{background:'rgba(255,255,255,0.02)',border:`1px solid rgba(255,255,255,0.05)`,borderRadius:24,padding:48,position:'relative',overflow:'hidden'}}>
               <div style={{position:'absolute',top:0,left:0,width:'100%',height:4,background:'#333'}}></div>
-              <h3 style={{fontSize:32,fontWeight:900,color:C.muted,marginBottom:20}}>Hospitality is stuck in the past.</h3>
+              <h3 style={{fontSize:32,fontWeight:900,color:C.muted,marginBottom:20}}>
+                {lang === 'de' ? 'Gastronomie hängt in der Vergangenheit fest.' : 'Hospitality is stuck in the past.'}
+              </h3>
               <ul style={{listStyle:'none',padding:0,margin:0,color:C.dim,fontSize:16,lineHeight:1.8}}>
-                <li style={{marginBottom:12,display:'flex',gap:12}}><X size={20} color="#666" style={{flexShrink:0,marginTop:4}}/> Printed menus that are immediately outdated</li>
-                <li style={{marginBottom:12,display:'flex',gap:12}}><X size={20} color="#666" style={{flexShrink:0,marginTop:4}}/> Static digital screens displaying irrelevant content</li>
-                <li style={{marginBottom:12,display:'flex',gap:12}}><X size={20} color="#666" style={{flexShrink:0,marginTop:4}}/> Fragmented marketing tools that don't talk to each other</li>
-                <li style={{marginBottom:12,display:'flex',gap:12}}><X size={20} color="#666" style={{flexShrink:0,marginTop:4}}/> Missing guest data and engagement analytics</li>
+                {(lang === 'de' ? [
+                  'Gedruckte Speisekarten, die sofort veraltet sind',
+                  'Statische Bildschirme mit veralteten Inhalten',
+                  'Isolierte Marketing-Tools ohne Verbindung',
+                  'Fehlende Gästedaten und Engagement-Analysen'
+                ] : [
+                  'Printed menus that are immediately outdated',
+                  'Static digital screens displaying irrelevant content',
+                  "Fragmented marketing tools that don't talk to each other",
+                  'Missing guest data and engagement analytics'
+                ]).map((item, idx) => (
+                  <li key={idx} style={{marginBottom:12,display:'flex',gap:12}}>
+                    <X size={20} color="#666" style={{flexShrink:0,marginTop:4}}/> {item}
+                  </li>
+                ))}
               </ul>
             </div>
             
             {/* Right: Impact */}
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:24,padding:48,position:'relative',overflow:'hidden',boxShadow:'0 20px 40px rgba(0,0,0,0.4)'}}>
               <div style={{position:'absolute',top:0,left:0,width:'100%',height:4,background:'linear-gradient(90deg, #8B5CF6, #EC4899)'}}></div>
-              <h3 style={{fontSize:32,fontWeight:900,color:C.white,marginBottom:20}}>The SCENVY Impact.</h3>
+              <h3 style={{fontSize:32,fontWeight:900,color:C.white,marginBottom:20}}>
+                {lang === 'de' ? 'Der SCENVY Effekt.' : 'The SCENVY Impact.'}
+              </h3>
               <ul style={{listStyle:'none',padding:0,margin:0,color:C.white,fontSize:16,lineHeight:1.8}}>
-                <li style={{marginBottom:12,display:'flex',gap:12}}><Check size={20} color="#10B981" style={{flexShrink:0,marginTop:4}}/> One login, one system, infinite touchpoints</li>
-                <li style={{marginBottom:12,display:'flex',gap:12}}><Check size={20} color="#10B981" style={{flexShrink:0,marginTop:4}}/> Dynamic Reels and digital menus updated in real-time</li>
-                <li style={{marginBottom:12,display:'flex',gap:12}}><Check size={20} color="#10B981" style={{flexShrink:0,marginTop:4}}/> AI-powered content creation across all screens</li>
-                <li style={{marginBottom:12,display:'flex',gap:12}}><Check size={20} color="#10B981" style={{flexShrink:0,marginTop:4}}/> Centralized control turning passive guests into active customers</li>
+                {(lang === 'de' ? [
+                  'Ein Login, ein System, unendliche Touchpoints',
+                  'Dynamische Reels & Speisekarten in Echtzeit',
+                  'KI-gestützte Content-Erstellung für alle Screens',
+                  'Zentrale Steuerung, die Gäste zu Stammkunden macht'
+                ] : [
+                  'One login, one system, infinite touchpoints',
+                  'Dynamic Reels and digital menus updated in real-time',
+                  'AI-powered content creation across all screens',
+                  'Centralized control turning passive guests into active customers'
+                ]).map((item, idx) => (
+                  <li key={idx} style={{marginBottom:12,display:'flex',gap:12}}>
+                    <Check size={20} color="#10B981" style={{flexShrink:0,marginTop:4}}/> {item}
+                  </li>
+                ))}
               </ul>
             </div>
           </div>
@@ -495,12 +527,18 @@ export default function Landing(){
         <Glow color="#F97316" x="80%" y="70%" size={600}/>
         <div style={{maxWidth:1200,margin:'0 auto'}}>
           <div style={{textAlign:'center',marginBottom:60}}>
-            <div style={{fontSize:11,color:'#8B5CF6',fontWeight:800,letterSpacing:2,marginBottom:12}}>THE ECOSYSTEM</div>
+            <div style={{fontSize:11,color:'#8B5CF6',fontWeight:800,letterSpacing:2,marginBottom:12}}>
+              {lang === 'de' ? 'DAS ÖKOSYSTEM' : 'THE ECOSYSTEM'}
+            </div>
             <h2 style={{fontSize:'clamp(32px, 4vw, 48px)',fontWeight:900,marginBottom:16}}>
-              <span style={{background:grad('#8B5CF6','#F97316'),WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>Three Core Pillars</span>
+              <span style={{background:grad('#8B5CF6','#F97316'),WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
+                {lang === 'de' ? 'Drei Kernsäulen für dein Venue' : 'Three Core Pillars'}
+              </span>
             </h2>
             <p style={{fontSize:18,color:C.muted,maxWidth:650,margin:'0 auto'}}>
-              Everything you need to control the digital experience of your venue from one central dashboard.
+              {lang === 'de'
+                ? 'Alles was du brauchst, um das digitale Erlebnis deiner Location über ein zentrales Dashboard zu steuern.'
+                : 'Everything you need to control the digital experience of your venue from one central dashboard.'}
             </p>
           </div>
 
@@ -512,16 +550,28 @@ export default function Landing(){
               <div>
                 <div style={{display:'flex',justify:'space-between',alignItems:'center',marginBottom:16}}>
                   <span style={{fontSize:11,fontWeight:800,color:'#8B5CF6',background:'rgba(139,92,246,0.15)',padding:'4px 12px',borderRadius:20,border:'1px solid rgba(139,92,246,0.3)',letterSpacing:1}}>
-                    MODUL 01 · AKTIV (flow.scenvy.de)
+                    {lang === 'de' ? 'SCENVY FLOW · AKTIV (flow.scenvy.de)' : 'SCENVY FLOW · ACTIVE (flow.scenvy.de)'}
                   </span>
-                  <ScenvyAppIcon module="flow" size={48} style={{borderRadius:12,boxShadow:'0 4px 12px rgba(139,92,246,0.3)'}} />
+                  <ScenvyAppIcon module="flow" size={56} style={{borderRadius:14,boxShadow:'0 4px 16px rgba(139,92,246,0.4)'}} />
                 </div>
                 <h3 style={{fontSize:24,fontWeight:900,color:C.white,marginBottom:10}}>SCENVY FLOW</h3>
                 <p style={{fontSize:15,color:C.muted,lineHeight:1.6,marginBottom:20}}>
-                  Turn every scan into an experience. TikTok-style 9:16 vertical video reels, flash sales, and AI video generation.
+                  {lang === 'de'
+                    ? 'Mache jeden Scan zum Erlebnis. TikTok-artige 9:16 Video-Reels, Live Flash-Sales & KI-Video-Erstellung.'
+                    : 'Turn every scan into an experience. TikTok-style 9:16 vertical video reels, flash sales, and AI video generation.'}
                 </p>
                 <div style={{display:'flex',flexDirection:'column',gap:12,marginBottom:32}}>
-                  {['TikTok-style 9:16 video feed','Live flash-sales in <60 sec','Interactive CTA buttons & timers','Full scan & conversion analytics'].map((feat,idx)=>(
+                  {(lang === 'de' ? [
+                    'TikTok-Style 9:16 Video-Feed',
+                    'Live Flash-Sales in <60 Sek',
+                    'Interaktive CTA Buttons & Timer',
+                    'Volle Scan- & Conversion Analytics'
+                  ] : [
+                    'TikTok-style 9:16 video feed',
+                    'Live flash-sales in <60 sec',
+                    'Interactive CTA buttons & timers',
+                    'Full scan & conversion analytics'
+                  ]).map((feat,idx)=>(
                     <div key={idx} style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:C.white}}>
                       <div style={{width:16,height:16,borderRadius:'50%',background:'rgba(139,92,246,0.2)',display:'flex',alignItems:'center',justifyContent:'center',color:'#8B5CF6',fontSize:10,fontWeight:900}}>✓</div>
                       {feat}
@@ -532,10 +582,10 @@ export default function Landing(){
 
               <div style={{display:'flex',gap:12}}>
                 <button onClick={()=>nav('/reels-addon')} style={{flex:1,padding:'12px 0',borderRadius:12,border:'1px solid rgba(139,92,246,0.5)',background:'rgba(139,92,246,0.15)',color:C.white,fontWeight:700,fontSize:13,cursor:'pointer',textAlign:'center'}}>
-                  Details ansehen →
+                  {lang === 'de' ? 'Details ansehen →' : 'View details →'}
                 </button>
                 <button onClick={()=>nav('/auth?mode=register')} style={{flex:1.2,padding:'12px 0',borderRadius:12,border:'none',background:'linear-gradient(135deg, #8B5CF6, #EC4899)',color:C.white,fontWeight:700,fontSize:13,cursor:'pointer',textAlign:'center'}}>
-                  Jetzt starten
+                  {lang === 'de' ? 'Scan the Flow starten' : 'Start Scan the Flow'}
                 </button>
               </div>
             </div>
@@ -545,19 +595,31 @@ export default function Landing(){
               <div>
                 <div style={{display:'flex',justify:'space-between',alignItems:'center',marginBottom:16}}>
                   <span style={{fontSize:11,fontWeight:800,color:'#F97316',background:'rgba(249,115,22,0.15)',padding:'4px 12px',borderRadius:20,border:'1px solid rgba(249,115,22,0.3)',letterSpacing:1}}>
-                    MODUL 02 · AKTIV (menu.scenvy.de)
+                    {lang === 'de' ? 'SCENVY MENU · AKTIV (menu.scenvy.de)' : 'SCENVY MENU · ACTIVE (menu.scenvy.de)'}
                   </span>
-                  <ScenvyAppIcon module="menu" size={48} style={{borderRadius:12,boxShadow:'0 4px 12px rgba(249,115,22,0.3)'}} />
+                  <ScenvyAppIcon module="menu" size={56} style={{borderRadius:14,boxShadow:'0 4px 16px rgba(249,115,22,0.4)'}} />
                 </div>
                 <h3 style={{fontSize:24,fontWeight:900,color:C.white,marginBottom:6}}>SCENVY MENU</h3>
                 <div style={{fontSize:12,fontWeight:700,color:'#F97316',marginBottom:12,display:'flex',alignItems:'center',gap:4}}>
-                  <span>✨ Inklusive SCENVY SNAP (KI Import)</span>
+                  <span>{lang === 'de' ? '✨ Gastronomie & Restaurant Add-on (inkl. SCENVY SNAP KI-Import)' : '✨ Hospitality & Restaurant Add-on (incl. SCENVY SNAP AI-Import)'}</span>
                 </div>
                 <p style={{fontSize:15,color:C.muted,lineHeight:1.6,marginBottom:20}}>
-                  From PDF to digital menu in seconds. Upload a file or photo — categories, products & prices are extracted instantly by AI.
+                  {lang === 'de'
+                    ? 'Vom PDF zur digitalen Speisekarte in Sekunden. Lade eine Datei oder ein Foto hoch — Kategorien, Speisen & Preise werden sofort per KI ausgelesen.'
+                    : 'From PDF to digital menu in seconds. Upload a file or photo — categories, products & prices are extracted instantly by AI.'}
                 </p>
                 <div style={{display:'flex',flexDirection:'column',gap:12,marginBottom:32}}>
-                  {['SCENVY SNAP: PDF & Photo AI Import','Interactive Web Menu & Food Reels','Allergens, Tags & Categories','Print-ready Table QR Templates'].map((feat,idx)=>(
+                  {(lang === 'de' ? [
+                    'SCENVY SNAP: PDF & Foto KI-Import',
+                    'Interaktives Web-Menü & Food-Reels',
+                    'Allergene, Tags & Kategorien',
+                    'Druckfertige Tisch-QR-Vorlagen'
+                  ] : [
+                    'SCENVY SNAP: PDF & Photo AI Import',
+                    'Interactive Web Menu & Food Reels',
+                    'Allergens, Tags & Categories',
+                    'Print-ready Table QR Templates'
+                  ]).map((feat,idx)=>(
                     <div key={idx} style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:C.white}}>
                       <div style={{width:16,height:16,borderRadius:'50%',background:'rgba(249,115,22,0.2)',display:'flex',alignItems:'center',justifyContent:'center',color:'#F97316',fontSize:10,fontWeight:900}}>✓</div>
                       {feat}
@@ -568,10 +630,10 @@ export default function Landing(){
 
               <div style={{display:'flex',gap:12}}>
                 <button onClick={()=>nav('/menu-addon')} style={{flex:1,padding:'12px 0',borderRadius:12,border:'1px solid rgba(249,115,22,0.5)',background:'rgba(249,115,22,0.15)',color:C.white,fontWeight:700,fontSize:13,cursor:'pointer',textAlign:'center'}}>
-                  Details ansehen →
+                  {lang === 'de' ? 'Details ansehen →' : 'View details →'}
                 </button>
                 <button onClick={()=>nav('/auth?mode=register')} style={{flex:1.2,padding:'12px 0',borderRadius:12,border:'none',background:'linear-gradient(135deg, #F97316, #8B5CF6)',color:C.white,fontWeight:700,fontSize:13,cursor:'pointer',textAlign:'center'}}>
-                  Jetzt starten
+                  {lang === 'de' ? 'Jetzt Speisekarte starten' : 'Start Menu Now'}
                 </button>
               </div>
             </div>
@@ -581,16 +643,28 @@ export default function Landing(){
               <div>
                 <div style={{display:'flex',justify:'space-between',alignItems:'center',marginBottom:16}}>
                   <span style={{fontSize:11,fontWeight:800,color:'#3B82F6',background:'rgba(59,130,246,0.15)',padding:'4px 12px',borderRadius:20,border:'1px solid rgba(59,130,246,0.3)',letterSpacing:1}}>
-                    MODUL 03 · IN VORBEREITUNG (board.scenvy.de)
+                    {lang === 'de' ? 'SCENVY BOARD · IN VORBEREITUNG (board.scenvy.de)' : 'SCENVY BOARD · COMING SOON (board.scenvy.de)'}
                   </span>
-                  <ScenvyAppIcon module="board" size={48} style={{borderRadius:12,boxShadow:'0 4px 12px rgba(59,130,246,0.3)'}} />
+                  <ScenvyAppIcon module="board" size={56} style={{borderRadius:14,boxShadow:'0 4px 16px rgba(59,130,246,0.4)'}} />
                 </div>
                 <h3 style={{fontSize:24,fontWeight:900,color:C.white,marginBottom:10}}>SCENVY BOARD</h3>
                 <p style={{fontSize:15,color:C.muted,lineHeight:1.6,marginBottom:20}}>
-                  Control every screen from one place. Manage digital signage in restaurants, hotels and retail with dynamic playlists.
+                  {lang === 'de'
+                    ? 'Steuere jeden Bildschirm von einem Ort aus. Digital Signage in Gastronomie, Hotels & Retail mit dynamischen Playlists.'
+                    : 'Control every screen from one place. Manage digital signage in restaurants, hotels and retail with dynamic playlists.'}
                 </p>
                 <div style={{display:'flex',flexDirection:'column',gap:12,marginBottom:32}}>
-                  {['Multi-Screen CMS Management','Drag & Drop Playlist Builder','Time-based Content Scheduling','Hardware & Player Integration'].map((feat,idx)=>(
+                  {(lang === 'de' ? [
+                    'Multi-Screen CMS Verwaltung',
+                    'Drag & Drop Playlist Builder',
+                    'Zeitgesteuerte Inhaltsplaner',
+                    'Hardware & Player Integration'
+                  ] : [
+                    'Multi-Screen CMS Management',
+                    'Drag & Drop Playlist Builder',
+                    'Time-based Content Scheduling',
+                    'Hardware & Player Integration'
+                  ]).map((feat,idx)=>(
                     <div key={idx} style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:C.muted}}>
                       <div style={{width:16,height:16,borderRadius:'50%',background:'rgba(59,130,246,0.15)',display:'flex',alignItems:'center',justifyContent:'center',color:'#3B82F6',fontSize:10,fontWeight:900}}>•</div>
                       {feat}
@@ -600,7 +674,7 @@ export default function Landing(){
               </div>
 
               <button disabled style={{width:'100%',padding:'12px 0',borderRadius:12,border:'1px solid rgba(59,130,246,0.3)',background:'rgba(59,130,246,0.08)',color:'#3B82F6',fontWeight:700,fontSize:13,cursor:'not-allowed',textAlign:'center'}}>
-                Coming Q3 2026 (board.scenvy.de)
+                {lang === 'de' ? 'In Vorbereitung 2026 (board.scenvy.de)' : 'Coming Q3 2026 (board.scenvy.de)'}
               </button>
             </div>
 
@@ -612,9 +686,13 @@ export default function Landing(){
       <section style={{padding:'100px 5%',background:'rgba(255,255,255,0.02)',borderTop:`1px solid ${C.border}`,borderBottom:`1px solid ${C.border}`,position:'relative',zIndex:2}}>
         <div style={{maxWidth:1200,margin:'0 auto'}}>
           <div style={{textAlign:'center',marginBottom:60}}>
-            <h2 style={{fontSize:'clamp(32px, 4vw, 48px)',fontWeight:900,marginBottom:16}}>Built for every venue.</h2>
+            <h2 style={{fontSize:'clamp(32px, 4vw, 48px)',fontWeight:900,marginBottom:16}}>
+              {lang === 'de' ? 'Perfekt für jede Location.' : 'Built for every venue.'}
+            </h2>
             <p style={{fontSize:18,color:C.muted,maxWidth:650,margin:'0 auto'}}>
-              Adapt SCENVY to your industry's specific needs.
+              {lang === 'de'
+                ? 'Passe SCENVY nahtlos an die spezifischen Anforderungen deines Betriebs an.'
+                : "Adapt SCENVY to your industry's specific needs."}
             </p>
           </div>
           
@@ -623,19 +701,31 @@ export default function Landing(){
             <div style={{background:C.bg,borderRadius:20,padding:40,border:`1px solid ${C.border}`,boxShadow:'0 8px 30px rgba(0,0,0,0.3)',transition:'transform .2s',cursor:'default'}} onMouseEnter={e=>e.currentTarget.style.transform='translateY(-4px)'} onMouseLeave={e=>e.currentTarget.style.transform='translateY(0)'}>
               <div style={{width:56,height:56,borderRadius:16,background:'rgba(249,115,22,0.1)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:24}}><Utensils size={28} color="#F97316"/></div>
               <h3 style={{fontSize:22,fontWeight:800,marginBottom:12}}>Restaurants & Cafés</h3>
-              <p style={{color:C.muted,lineHeight:1.7,fontSize:15}}>Drive more revenue with interactive food reels, effortless digital menus, and instant happy hour promotions across your tables and screens.</p>
+              <p style={{color:C.muted,lineHeight:1.7,fontSize:15}}>
+                {lang === 'de'
+                  ? 'Steigere deinen Umsatz mit interaktiven Food-Reels, digitalen Speisekarten und spontanen Happy-Hour-Aktionen direkt auf Tischen und Screens.'
+                  : 'Drive more revenue with interactive food reels, effortless digital menus, and instant happy hour promotions across your tables and screens.'}
+              </p>
             </div>
             {/* Hotels */}
             <div style={{background:C.bg,borderRadius:20,padding:40,border:`1px solid ${C.border}`,boxShadow:'0 8px 30px rgba(0,0,0,0.3)',transition:'transform .2s',cursor:'default'}} onMouseEnter={e=>e.currentTarget.style.transform='translateY(-4px)'} onMouseLeave={e=>e.currentTarget.style.transform='translateY(0)'}>
               <div style={{width:56,height:56,borderRadius:16,background:'rgba(16,185,129,0.1)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:24}}><Building size={28} color="#10B981"/></div>
               <h3 style={{fontSize:22,fontWeight:800,marginBottom:12}}>Hotels & Resorts</h3>
-              <p style={{color:C.muted,lineHeight:1.7,fontSize:15}}>Engage guests from lobby to room. Display local recommendations on lobby screens and offer seamless digital room service via QR codes.</p>
+              <p style={{color:C.muted,lineHeight:1.7,fontSize:15}}>
+                {lang === 'de'
+                  ? 'Begeistere Gäste von der Lobby bis zum Zimmer. Zeige lokale Empfehlungen auf Screens und biete nahtlosen digitalen Zimmerservice per QR-Code.'
+                  : 'Engage guests from lobby to room. Display local recommendations on lobby screens and offer seamless digital room service via QR codes.'}
+              </p>
             </div>
             {/* Retail */}
             <div style={{background:C.bg,borderRadius:20,padding:40,border:`1px solid ${C.border}`,boxShadow:'0 8px 30px rgba(0,0,0,0.3)',transition:'transform .2s',cursor:'default'}} onMouseEnter={e=>e.currentTarget.style.transform='translateY(-4px)'} onMouseLeave={e=>e.currentTarget.style.transform='translateY(0)'}>
               <div style={{width:56,height:56,borderRadius:16,background:'rgba(139,92,246,0.1)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:24}}><ShoppingBag size={28} color="#8B5CF6"/></div>
               <h3 style={{fontSize:22,fontWeight:800,marginBottom:12}}>Retail & Lifestyle</h3>
-              <p style={{color:C.muted,lineHeight:1.7,fontSize:15}}>Bring static displays to life. Highlight new collections on screens and allow customers to scan and shop exclusive offers directly.</p>
+              <p style={{color:C.muted,lineHeight:1.7,fontSize:15}}>
+                {lang === 'de'
+                  ? 'Hauche Schaufenstern und Displays Leben ein. Präsentiere neue Kollektionen auf Bildschirmen und erlaube Kunden, exklusive Angebote direkt per Scan zu entdecken.'
+                  : 'Bring static displays to life. Highlight new collections on screens and allow customers to scan and shop exclusive offers directly.'}
+              </p>
             </div>
           </div>
         </div>
@@ -928,9 +1018,12 @@ export default function Landing(){
         <Glow color={C.purple} x="30%" y="50%" size={700}/><Glow color={C.pink} x="70%" y="50%" size={600}/>
         <div style={{maxWidth:700,margin:'0 auto',textAlign:'center',position:'relative',background:'rgba(22,29,39,0.5)',backdropFilter:'blur(20px)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:32,padding:60,boxShadow:'0 20px 60px rgba(0,0,0,0.5)'}}>
           <h2 style={{fontSize:'clamp(32px,5vw,56px)',fontWeight:900,lineHeight:1.15,marginBottom:24}}>
-            Ready to transform<br/><span style={{background:'linear-gradient(135deg, #8B5CF6, #EC4899)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>your business?</span>
+            {lang === 'de' ? 'Bereit, deine Gastronomie' : 'Ready to transform'}<br/>
+            <span style={{background:'linear-gradient(135deg, #8B5CF6, #EC4899)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
+              {lang === 'de' ? 'zu revolutionieren?' : 'your business?'}
+            </span>
           </h2>
-          <Btn onClick={()=>setShowContact(true)} style={{fontSize:18,padding:'18px 48px',borderRadius:16}}>{lang==='en'?'Book Demo':'Demo buchen'}</Btn>
+          <Btn onClick={()=>setShowContact(true)} style={{fontSize:18,padding:'18px 48px',borderRadius:16}}>{lang==='de'?'Demo buchen':'Book Demo'}</Btn>
         </div>
       </section>
 

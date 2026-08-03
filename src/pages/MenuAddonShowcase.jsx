@@ -13,9 +13,9 @@ import {
 const T = {
   de: {
     back: "Zurück zur Übersicht",
-    badge: "EXKLUSIVES GASTRONOMIE ADD-ON",
-    title: "AI Speisekarten-Reel Generator",
-    subtitle: "Verwandle deine Speisekarte, PDF oder Tafel-Fotos mit KI in ein faszinierendes 9:16 Video-Reel Erlebnis & Tisch-QR-Code.",
+    badge: "SCENVY MENU",
+    title: "SCENVY Menu — Gastronomie & Restaurant Add-on",
+    subtitle: "Verwandle deine Speisekarte, PDF oder Tafel-Fotos mit KI in ein faszinierendes 9:16 Video-Reel Erlebnis & Tisch-QR-Code (inkl. SCENVY SNAP).",
     tryBtn: "Jetzt im Dashboard testen",
     demoBtn: "Live-Erlebnis ansehen",
     

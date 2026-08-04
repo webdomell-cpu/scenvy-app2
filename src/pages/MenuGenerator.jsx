@@ -86,8 +86,8 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // 15MB Size limit check to prevent crashes
-    const MAX_MB = 15
+    // 50MB Size limit check to prevent crashes
+    const MAX_MB = 50
     if (file.size > MAX_MB * 1024 * 1024) {
       notify(`⚠️ Datei zu groß (${(file.size / (1024 * 1024)).toFixed(1)}MB). Max ${MAX_MB}MB erlaubt.`)
       return
@@ -237,6 +237,12 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
       let parsedMenu = null
       if (res.ok) {
         parsedMenu = await res.json()
+      } else {
+        const errData = await res.json().catch(() => ({}))
+        console.error('Menu parsing API error:', errData)
+        notify(`⚠️ Fehler bei der KI-Analyse: ${errData?.message || 'Serverfehler oder zu viele Anfragen.'}`)
+        setIsGenerating(false)
+        return
       }
 
       if (!parsedMenu || !parsedMenu.categories) {

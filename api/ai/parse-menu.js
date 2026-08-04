@@ -1,5 +1,8 @@
 import { executeAiTask } from './ai-key-manager.js'
 import { checkRateLimitAndAuth } from './ai-guard.js'
+import fs from 'fs'
+import path from 'path'
+import os from 'os'
 
 function repairAndParseJson(raw) {
   if (!raw || typeof raw !== 'string') return null
@@ -286,42 +289,65 @@ Return strictly JSON matching this structure:
 Raw Input Context:
 """${rawInput.slice(0, 50000)}"""`
 
+    let tmpFilePath = null
+    let cleanMime = fileMimeType
+
+    if (fileBase64 && typeof fileBase64 === 'string') {
+      let cleanBase64 = fileBase64
+      if (cleanBase64.includes(';base64,')) {
+        cleanBase64 = cleanBase64.split(';base64,')[1]
+      }
+      if (!cleanMime || cleanMime === 'application/octet-stream' || cleanMime === '') {
+        if (fileBase64.startsWith('data:application/pdf') || fileBase64.toLowerCase().includes('pdf')) {
+          cleanMime = 'application/pdf'
+        } else if (fileBase64.startsWith('data:image/png')) {
+          cleanMime = 'image/png'
+        } else if (fileBase64.startsWith('data:image/jpeg') || fileBase64.startsWith('data:image/jpg')) {
+          cleanMime = 'image/jpeg'
+        } else if (fileBase64.startsWith('data:image/webp')) {
+          cleanMime = 'image/webp'
+        } else {
+          cleanMime = 'application/pdf'
+        }
+      }
+      if (cleanMime === 'image/jpg') cleanMime = 'image/jpeg'
+
+      try {
+        tmpFilePath = path.join(os.tmpdir(), `menu_${Date.now()}_${Math.floor(Math.random()*10000)}.bin`)
+        fs.writeFileSync(tmpFilePath, Buffer.from(cleanBase64, 'base64'))
+      } catch(e) {
+        console.error("Failed to write tmp file for AI upload", e)
+      }
+    }
+
     const parsed = await executeAiTask(async (ai) => {
       let contents = []
-
-      if (fileBase64) {
-        let cleanBase64 = fileBase64
-        if (cleanBase64.includes(';base64,')) {
-          cleanBase64 = cleanBase64.split(';base64,')[1]
-        }
-
-        let cleanMime = fileMimeType
-        if (!cleanMime || cleanMime === 'application/octet-stream' || cleanMime === '') {
-          if (fileBase64.startsWith('data:application/pdf') || fileBase64.toLowerCase().includes('pdf')) {
-            cleanMime = 'application/pdf'
-          } else if (fileBase64.startsWith('data:image/png')) {
-            cleanMime = 'image/png'
-          } else if (fileBase64.startsWith('data:image/jpeg') || fileBase64.startsWith('data:image/jpg')) {
-            cleanMime = 'image/jpeg'
-          } else if (fileBase64.startsWith('data:image/webp')) {
-            cleanMime = 'image/webp'
-          } else {
-            cleanMime = 'application/pdf'
+      if (tmpFilePath) {
+          try {
+            console.log(`Uploading file ${tmpFilePath} to Gemini File API (${cleanMime})...`)
+            const uploadResult = await ai.files.upload({ file: tmpFilePath, mimeType: cleanMime })
+            contents.push({
+              fileData: {
+                fileUri: uploadResult.uri,
+                mimeType: uploadResult.mimeType
+              }
+            })
+            // Brief wait for processing
+            await new Promise(r => setTimeout(r, 2000))
+          } catch(err) {
+            console.warn("File API upload failed, falling back to inlineData", err.message)
+            contents.push({
+              inlineData: {
+                data: fs.readFileSync(tmpFilePath).toString('base64'),
+                mimeType: cleanMime
+              }
+            })
           }
         }
-        if (cleanMime === 'image/jpg') cleanMime = 'image/jpeg'
 
-        contents.push({
-          inlineData: {
-            data: cleanBase64,
-            mimeType: cleanMime
-          }
-        })
-      }
+        contents.push(promptText)
 
-      contents.push(promptText)
-
-      const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash']
+        const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash']
       let lastErr = null
       let rawText = null
 
@@ -452,7 +478,15 @@ Raw Input Context:
     return res.status(200).json(parsed)
   } catch (err) {
     console.error('AI parse-menu error:', err)
-    return res.status(200).json(defaultSample)
+    return res.status(500).json({ error: 'AI processing failed', message: err.message })
+  } finally {
+    if (tmpFilePath && fs.existsSync(tmpFilePath)) {
+      try {
+        fs.unlinkSync(tmpFilePath)
+      } catch(e) {
+        console.error("Failed to delete tmp file", e)
+      }
+    }
   }
 }
 

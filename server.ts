@@ -16,8 +16,8 @@ async function startServer() {
   app.set('trust proxy', 1)
 
   // Increased body limit for menu uploads and images
-  app.use(express.json({ limit: '25mb' }))
-  app.use(express.urlencoded({ extended: true, limit: '25mb' }))
+  app.use(express.json({ limit: '50mb' }))
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }))
 
   // Wrap Vercel/Node style handler for Express
   const adapt = (handler: any) => async (req: express.Request, res: express.Response) => {

@@ -26,43 +26,84 @@ export default async function handler(req, res) {
   // Smart prompt-to-image match helper with expanded HD Unsplash food & venue collection
   const getSmartImageForPrompt = (promptText, type) => {
     const text = (promptText + ' ' + (offer || '') + ' ' + (venue || '')).toLowerCase()
+    const r = (arr) => arr[Math.floor(Math.random() * arr.length)]
     
     if (text.includes('sushi') || text.includes('roll') || text.includes('japan') || text.includes('sashimi') || text.includes('maki')) {
-      return 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?q=80&w=600&auto=format&fit=crop'
+      return r([
+        'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?q=80&w=600&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1553621042-f6e147245754?q=80&w=600&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1611143669185-af224c5e3252?q=80&w=600&auto=format&fit=crop'
+      ])
     }
     if (text.includes('burger') || text.includes('smash') || text.includes('fries') || text.includes('beef') || text.includes('cheeseburger')) {
-      return 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=600&auto=format&fit=crop'
+      return r([
+        'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=600&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=600&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1594212202875-86ac5a40dbcc?q=80&w=600&auto=format&fit=crop'
+      ])
     }
     if (text.includes('pizza') || text.includes('trattoria') || text.includes('pasta') || text.includes('italy') || text.includes('burrata')) {
-      return 'https://images.unsplash.com/photo-1551183053-bf91a1d81141?q=80&w=600&auto=format&fit=crop'
+      return r([
+        'https://images.unsplash.com/photo-1551183053-bf91a1d81141?q=80&w=600&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?q=80&w=600&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?q=80&w=600&auto=format&fit=crop'
+      ])
     }
     if (text.includes('steak') || text.includes('grill') || text.includes('ribeye') || text.includes('meat') || text.includes('bbq')) {
-      return 'https://images.unsplash.com/photo-1558030006-450675393462?q=80&w=600&auto=format&fit=crop'
+      return r([
+        'https://images.unsplash.com/photo-1558030006-450675393462?q=80&w=600&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=600&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?q=80&w=600&auto=format&fit=crop'
+      ])
     }
     if (text.includes('salad') || text.includes('vegan') || text.includes('bowl') || text.includes('healthy') || text.includes('avocado')) {
-      return 'https://images.unsplash.com/photo-1540420773420-3366772f4999?q=80&w=600&auto=format&fit=crop'
+      return r([
+        'https://images.unsplash.com/photo-1540420773420-3366772f4999?q=80&w=600&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=600&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1490645935967-10de6ba17061?q=80&w=600&auto=format&fit=crop'
+      ])
     }
     if (text.includes('dessert') || text.includes('cake') || text.includes('tiramisu') || text.includes('sweet') || text.includes('ice') || text.includes('chocolate')) {
-      return 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?q=80&w=600&auto=format&fit=crop'
+      return r([
+        'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?q=80&w=600&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1551024601-bec78aea704b?q=80&w=600&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1488477181946-6428a0291777?q=80&w=600&auto=format&fit=crop'
+      ])
     }
     if (text.includes('coffee') || text.includes('cafe') || text.includes('cappuccino') || text.includes('brunch') || text.includes('bakery') || text.includes('croissant')) {
-      return 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?q=80&w=600&auto=format&fit=crop'
+      return r([
+        'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?q=80&w=600&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1509042239860-f550ce710b93?q=80&w=600&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?q=80&w=600&auto=format&fit=crop'
+      ])
     }
     if (text.includes('event') || text.includes('party') || text.includes('dj') || text.includes('night') || text.includes('club') || text.includes('festival')) {
-      return 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=600&auto=format&fit=crop'
+      return r([
+        'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=600&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=600&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1533174000253-1d5b4a091040?q=80&w=600&auto=format&fit=crop'
+      ])
     }
     if (text.includes('cocktail') || text.includes('bar') || text.includes('drink') || text.includes('aperol') || text.includes('wine') || text.includes('gin')) {
-      return 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=600&auto=format&fit=crop'
+      return r([
+        'https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=600&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1536935338788-846bb9981813?q=80&w=600&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1556679343-c7306c1976bc?q=80&w=600&auto=format&fit=crop'
+      ])
     }
     if (text.includes('rooftop') || text.includes('lounge') || text.includes('terrace') || text.includes('view') || text.includes('dubai')) {
-      return 'https://images.unsplash.com/photo-1578474846511-04ba529f0b88?q=80&w=600&auto=format&fit=crop'
+      return r([
+        'https://images.unsplash.com/photo-1578474846511-04ba529f0b88?q=80&w=600&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=600&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1521017430055-16fb194917dc?q=80&w=600&auto=format&fit=crop'
+      ])
     }
 
     const fallbacks = {
-      offer: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=600&auto=format&fit=crop',
-      event: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=600&auto=format&fit=crop',
-      menu: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600&auto=format&fit=crop',
-      promo: 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=600&auto=format&fit=crop'
+      offer: r(['https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=600&auto=format&fit=crop', 'https://images.unsplash.com/photo-1414235077428-338988692286?q=80&w=600&auto=format&fit=crop']),
+      event: r(['https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=600&auto=format&fit=crop', 'https://images.unsplash.com/photo-1533174000253-1d5b4a091040?q=80&w=600&auto=format&fit=crop']),
+      menu: r(['https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600&auto=format&fit=crop', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=600&auto=format&fit=crop']),
+      promo: r(['https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=600&auto=format&fit=crop', 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?q=80&w=600&auto=format&fit=crop'])
     }
     return fallbacks[type] || fallbacks.offer
   }
@@ -137,7 +178,7 @@ Reply ONLY with compact valid JSON:
         const imgPrompt = parsed.imagePrompt || `Atmospheric vertical portrait of ${venue || 'a venue'}, ${offer}`
         imageUrl = await executeAiTask(async (ai, currentKeyObj) => {
           const operation = await ai.models.generateVideos({
-            model: 'veo-3.1-lite-generate-preview',
+            model: 'veo-2.0-generate-preview',
             prompt: `${imgPrompt}, cinematic vertical video, 4k quality, highly detailed`,
             config: {
               numberOfVideos: 1,

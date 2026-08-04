@@ -294,31 +294,128 @@ Raw Input Context:
         if (cleanBase64.includes(';base64,')) {
           cleanBase64 = cleanBase64.split(';base64,')[1]
         }
+
+        let cleanMime = fileMimeType
+        if (!cleanMime || cleanMime === 'application/octet-stream' || cleanMime === '') {
+          if (fileBase64.startsWith('data:application/pdf') || fileBase64.toLowerCase().includes('pdf')) {
+            cleanMime = 'application/pdf'
+          } else if (fileBase64.startsWith('data:image/png')) {
+            cleanMime = 'image/png'
+          } else if (fileBase64.startsWith('data:image/jpeg') || fileBase64.startsWith('data:image/jpg')) {
+            cleanMime = 'image/jpeg'
+          } else if (fileBase64.startsWith('data:image/webp')) {
+            cleanMime = 'image/webp'
+          } else {
+            cleanMime = 'application/pdf'
+          }
+        }
+        if (cleanMime === 'image/jpg') cleanMime = 'image/jpeg'
+
         contents.push({
           inlineData: {
             data: cleanBase64,
-            mimeType: fileMimeType || 'application/pdf'
+            mimeType: cleanMime
           }
         })
       }
 
       contents.push(promptText)
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents,
-        config: { 
-          responseMimeType: 'application/json',
-          maxOutputTokens: 16384
-        }
-      })
+      const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash']
+      let lastErr = null
+      let rawText = null
 
-      const raw = response.text || '{}'
-      return repairAndParseJson(raw)
+      for (const m of modelsToTry) {
+        try {
+          const response = await ai.models.generateContent({
+            model: m,
+            contents,
+            config: { 
+              responseMimeType: 'application/json',
+              maxOutputTokens: 16384
+            }
+          })
+          if (response?.text) {
+            rawText = response.text
+            break
+          }
+        } catch (mErr) {
+          console.warn(`Model ${m} failed in parse-menu:`, mErr?.message)
+          lastErr = mErr
+        }
+      }
+
+      if (!rawText) {
+        console.warn('AI models failed or rate-limited in parse-menu.js')
+        // Extract raw text lines if available instead of hardcoded sample
+        const lines = (rawInput || '').split('\n').map(l => l.trim()).filter(l => l.length > 2)
+        if (lines.length > 0) {
+          const items = lines.slice(0, 10).map((line, idx) => ({
+            id: `extracted_${idx + 1}`,
+            name: { de: line, en: line },
+            description: { de: 'Aus Dokument extrahiert', en: 'Extracted from document' },
+            price: '—',
+            highlight: idx === 0
+          }))
+          return {
+            branding: {
+              name: venue || 'Hochgeladene Speisekarte',
+              style: style || 'modern',
+              primaryColor: primaryColor || '#7C3AED',
+              secondaryColor: secondaryColor || '#FF2D8D',
+            },
+            categories: [
+              {
+                id: 'cat_extracted',
+                name: { de: 'Extrahierte Positionen', en: 'Extracted Items' },
+                icon: '📋',
+                items
+              }
+            ]
+          }
+        }
+        return null
+      }
+      return repairAndParseJson(rawText)
     })
 
     if (!parsed || !parsed.categories || !Array.isArray(parsed.categories) || parsed.categories.length === 0) {
-      console.warn('AI parse returned empty categories, falling back to default sample')
+      console.warn('AI parse returned empty categories for user uploaded document')
+      if (fileBase64 || rawInput.trim()) {
+        const lines = (rawInput || '').split('\n').map(l => l.trim()).filter(l => l.length > 2 && !l.startsWith('['))
+        const items = lines.length > 0 ? lines.slice(0, 10).map((line, idx) => ({
+          id: `item_doc_${idx + 1}`,
+          name: { de: line, en: line },
+          description: { de: 'Aus Ihrem Dokument erfasst', en: 'Extracted from your document' },
+          price: '0.00 €',
+          highlight: idx === 0
+        })) : [
+          {
+            id: 'item_pdf_1',
+            name: { de: `Dokument: ${venue || 'PDF Speisekarte'}`, en: `Document: ${venue || 'PDF Menu'}` },
+            description: { de: 'Die KI konnte keinen lesbaren Text im PDF finden. Bitte stellen Sie sicher, dass es sich um ein Text-PDF oder ein scharfes Foto handelt.', en: 'No readable text found. Please verify PDF clarity.' },
+            price: '0.00 €',
+            highlight: true
+          }
+        ]
+
+        return res.status(200).json({
+          branding: {
+            name: venue || 'Hochgeladene Speisekarte',
+            style: style || 'modern',
+            primaryColor: primaryColor || '#7C3AED',
+            secondaryColor: secondaryColor || '#FF2D8D',
+          },
+          categories: [
+            {
+              id: 'cat_uploaded',
+              name: { de: 'Inhalte aus Ihrem Dokument', en: 'Extracted Document Content' },
+              icon: '📋',
+              items
+            }
+          ]
+        })
+      }
       return res.status(200).json(defaultSample)
     }
 

@@ -92,14 +92,24 @@ Reply ONLY with compact valid JSON:
 
   try {
     parsed = await executeAiTask(async (ai) => {
-      const textRes = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: textPrompt,
-        config: {
-          responseMimeType: 'application/json'
+      let textRes = null
+      const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash']
+      for (const m of modelsToTry) {
+        try {
+          textRes = await ai.models.generateContent({
+            model: m,
+            contents: textPrompt,
+            config: {
+              responseMimeType: 'application/json'
+            }
+          })
+          if (textRes?.text) break
+        } catch (e) {
+          console.warn(`Model ${m} failed in generate.js:`, e?.message)
         }
-      })
-      const rawText = textRes.text || '{}'
+      }
+
+      const rawText = textRes?.text || '{}'
       return JSON.parse(rawText.replace(/```json|```/g, '').trim())
     })
   } catch (err) {

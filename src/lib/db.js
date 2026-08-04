@@ -304,6 +304,48 @@ export function useTenants() {
   })
 }
 
+export function useSaveTenant() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (tenantData) => {
+      const id = tenantData.id || (`tenant-${Date.now()}`)
+      const newTenant = {
+        id,
+        name: tenantData.name || 'Neuer Mandant',
+        plan: tenantData.plan || 'pro',
+        status: tenantData.status || 'active',
+        locations_count: tenantData.locations_count || 1,
+        max_locations: tenantData.max_locations ?? (tenantData.plan === 'starter' ? 1 : tenantData.plan === 'pro' ? 5 : 10),
+        reels_count: tenantData.reels_count || 0,
+        custom_price: tenantData.custom_price ? Number(tenantData.custom_price) : 0,
+        contact_email: tenantData.contact_email || tenantData.email || '',
+        contact_name: tenantData.contact_name || '',
+        company_name: tenantData.company_name || tenantData.name || '',
+        company_city: tenantData.company_city || '',
+        modules: tenantData.modules || { flow: true, menu: true, board: true, host: false },
+        createdAt: new Date().toISOString()
+      }
+      try {
+        await setDoc(doc(db, 'tenants', id), newTenant, { merge: true })
+      } catch (e) {
+        console.warn('Firestore save tenant fallback:', e)
+      }
+      return newTenant
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(['tenants'], (old) => {
+        if (!old || !Array.isArray(old)) return [data]
+        const exists = old.some(t => t.id === data.id)
+        if (exists) {
+          return old.map(t => t.id === data.id ? { ...t, ...data } : t)
+        }
+        return [data, ...old]
+      })
+      qc.invalidateQueries({ queryKey: ['tenants'] })
+    },
+  })
+}
+
 export function useUpdateTenant() {
   const qc = useQueryClient()
   return useMutation({

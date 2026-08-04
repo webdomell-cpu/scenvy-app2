@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { C, grad } from '@/tokens'
 import { ScenvyLogoFull } from '@/components/ScenvyLogo'
-import { useTenants, useUpdateTenant, useDeleteTenant, useUsers, useSaveUser, useDeleteUser, useReels, useSaveReel, useLocations, useLandingConfig, useSaveLandingConfig, usePricingConfig, useSavePricingConfig, usePlatformConfig, useSavePlatformConfig, useDomains, useSaveDomain, useDeleteDomain, useEmailTemplates, useSaveEmailTemplates, createStripeCheckout, createStripePortal, getStripeStatus } from '@/lib/db'
+import { useTenants, useSaveTenant, useUpdateTenant, useDeleteTenant, useUsers, useSaveUser, useDeleteUser, useReels, useSaveReel, useLocations, useLandingConfig, useSaveLandingConfig, usePricingConfig, useSavePricingConfig, usePlatformConfig, useSavePlatformConfig, useDomains, useSaveDomain, useDeleteDomain, useEmailTemplates, useSaveEmailTemplates, createStripeCheckout, createStripePortal, getStripeStatus } from '@/lib/db'
 import { useAuth } from '@/lib/AuthContext'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { Users, TrendingUp, MapPin, Film, Activity, LogOut, RefreshCw, Save, Mail, Shield, Building2, CreditCard, X, ChevronRight, Trash2, Power, CheckCircle, AlertCircle, ExternalLink, Package, DollarSign, FileText, Download, Plus, Check, Play, Zap, Globe, Sliders, Layout } from 'lucide-react'
@@ -19,8 +19,70 @@ export default function Admin() {
   const nav = useNavigate()
   const { user, logout, impersonateTenant } = useAuth()
   const { data: tenants=[], isLoading } = useTenants()
+  const saveTenantMutation = useSaveTenant()
   const updateTenant = useUpdateTenant()
   const deleteTenant = useDeleteTenant()
+
+  const [showCreateTenantModal, setShowCreateTenantModal] = useState(false)
+  const [newTenantData, setNewTenantData] = useState({
+    name: '',
+    contact_name: '',
+    contact_email: '',
+    plan: 'pro',
+    status: 'active',
+    max_locations: 5,
+    custom_price: '',
+    company_city: ''
+  })
+
+  const handleCreateTenantSubmit = async (e) => {
+    e?.preventDefault()
+    if (!newTenantData.name.trim()) {
+      notify('⚠️ Bitte einen Mandanten-Namen eingeben')
+      return
+    }
+
+    try {
+      const tenantId = `tenant_${Date.now()}`
+      const savedTenant = await saveTenantMutation.mutateAsync({
+        id: tenantId,
+        name: newTenantData.name.trim(),
+        contact_name: newTenantData.contact_name.trim(),
+        contact_email: newTenantData.contact_email.trim(),
+        plan: newTenantData.plan,
+        status: newTenantData.status,
+        max_locations: Number(newTenantData.max_locations) || 1,
+        custom_price: newTenantData.custom_price ? Number(newTenantData.custom_price) : 0,
+        company_city: newTenantData.company_city.trim()
+      })
+
+      if (newTenantData.contact_email.trim()) {
+        await saveUserMutation.mutateAsync({
+          email: newTenantData.contact_email.trim(),
+          name: newTenantData.contact_name.trim() || newTenantData.name.trim(),
+          role: 'tenant_owner',
+          tenant_id: tenantId,
+          tenant_name: newTenantData.name.trim(),
+          plan: newTenantData.plan
+        })
+      }
+
+      notify(`✅ Mandant "${savedTenant.name}" erfolgreich angelegt!`)
+      setShowCreateTenantModal(false)
+      setNewTenantData({
+        name: '',
+        contact_name: '',
+        contact_email: '',
+        plan: 'pro',
+        status: 'active',
+        max_locations: 5,
+        custom_price: '',
+        company_city: ''
+      })
+    } catch (err) {
+      notify('❌ Fehler beim Anlegen des Mandanten: ' + err.message)
+    }
+  }
 
   const { data: users = [], isLoading: usersLoading } = useUsers()
   const saveUserMutation = useSaveUser()
@@ -1120,7 +1182,9 @@ export default function Admin() {
                 <div style={{fontSize:16,fontWeight:800}}>Mandanten Übersicht ({tenants.length})</div>
                 <div style={{fontSize:12,color:C.muted}}>Klicke auf "🚀 Einstieg", um direkt in die Einstellungen eines Mandanten zu wechseln</div>
               </div>
-              <button onClick={()=>notify('Neuer Mandant - Einladung via Supabase/System versendet')} style={{padding:'8px 16px',borderRadius:8,border:'none',background:C.purple,color:C.white,cursor:'pointer',fontWeight:600,fontSize:13,fontFamily:'inherit'}}>+ Mandant Anlegen</button>
+              <button onClick={()=>setShowCreateTenantModal(true)} style={{padding:'8px 18px',borderRadius:8,border:'none',background:grad(C.purple, C.pink),color:C.white,cursor:'pointer',fontWeight:700,fontSize:13,fontFamily:'inherit',display:'flex',alignItems:'center',gap:6}}>
+                <Plus size={16}/> Mandant Anlegen
+              </button>
             </div>
             {isLoading ? (
               <div style={{padding:40,textAlign:'center',color:C.muted}}>Lade Mandanten...</div>
@@ -2494,6 +2558,146 @@ export default function Admin() {
         )}
       </div>
     </main>
+
+      {showCreateTenantModal && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.82)',backdropFilter:'blur(8px)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={()=>setShowCreateTenantModal(false)}>
+          <div style={{background:C.card,borderRadius:20,border:`1px solid ${C.purple}`,width:'100%',maxWidth:580,padding:28,boxShadow:'0 20px 60px rgba(0,0,0,0.8)',maxHeight:'90vh',overflowY:'auto'}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{width:40,height:40,borderRadius:10,background:`${C.purple}22`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <Building2 size={22} color={C.purple}/>
+                </div>
+                <div>
+                  <div style={{fontSize:18,fontWeight:800,color:C.white}}>Neuen Mandanten anlegen</div>
+                  <div style={{fontSize:12,color:C.muted}}>Erstelle eine neue Gastronomie-/Venue-Instanz auf der Plattform</div>
+                </div>
+              </div>
+              <button onClick={()=>setShowCreateTenantModal(false)} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',padding:4}}><X size={20}/></button>
+            </div>
+
+            <form onSubmit={handleCreateTenantSubmit} style={{display:'grid',gap:16}}>
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:C.muted,display:'block',marginBottom:6,letterSpacing:0.5}}>MANDANT / VENUE NAME *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="z.B. Trattoria Bella Vista oder Hotel Plaza Group"
+                  value={newTenantData.name}
+                  onChange={e=>setNewTenantData(d=>({...d, name: e.target.value}))}
+                  style={{width:'100%',background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,padding:'11px 14px',color:C.white,fontSize:14,outline:'none'}}
+                />
+              </div>
+
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                <div>
+                  <label style={{fontSize:11,fontWeight:700,color:C.muted,display:'block',marginBottom:6,letterSpacing:0.5}}>ANSPRECHPARTNER NAME</label>
+                  <input
+                    type="text"
+                    placeholder="z.B. Marco Rossi"
+                    value={newTenantData.contact_name}
+                    onChange={e=>setNewTenantData(d=>({...d, contact_name: e.target.value}))}
+                    style={{width:'100%',background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,padding:'11px 14px',color:C.white,fontSize:13,outline:'none'}}
+                  />
+                </div>
+
+                <div>
+                  <label style={{fontSize:11,fontWeight:700,color:C.muted,display:'block',marginBottom:6,letterSpacing:0.5}}>KONTAKT / LOGIN E-MAIL</label>
+                  <input
+                    type="email"
+                    placeholder="z.B. inhaber@trattoria.de"
+                    value={newTenantData.contact_email}
+                    onChange={e=>setNewTenantData(d=>({...d, contact_email: e.target.value}))}
+                    style={{width:'100%',background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,padding:'11px 14px',color:C.white,fontSize:13,outline:'none'}}
+                  />
+                </div>
+              </div>
+
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12}}>
+                <div>
+                  <label style={{fontSize:11,fontWeight:700,color:C.muted,display:'block',marginBottom:6,letterSpacing:0.5}}>TARIF / PLAN</label>
+                  <select
+                    value={newTenantData.plan}
+                    onChange={e=>{
+                      const p = e.target.value
+                      const defLocs = p === 'starter' ? 1 : p === 'pro' ? 5 : 10
+                      setNewTenantData(d=>({...d, plan: p, max_locations: defLocs}))
+                    }}
+                    style={{width:'100%',background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,padding:'11px 14px',color:C.white,fontSize:13,outline:'none',fontWeight:600}}
+                  >
+                    <option value="starter">Starter (€0 - 1 Standort)</option>
+                    <option value="pro">Pro (€29 - 5 Standorte)</option>
+                    <option value="enterprise">Enterprise (€299 - Multi)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{fontSize:11,fontWeight:700,color:C.muted,display:'block',marginBottom:6,letterSpacing:0.5}}>STATUS</label>
+                  <select
+                    value={newTenantData.status}
+                    onChange={e=>setNewTenantData(d=>({...d, status: e.target.value}))}
+                    style={{width:'100%',background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,padding:'11px 14px',color:C.white,fontSize:13,outline:'none',fontWeight:600}}
+                  >
+                    <option value="active">🟢 Active</option>
+                    <option value="trial">⏳ Trial (Testphase)</option>
+                    <option value="suspended">⛔ Inaktiv</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{fontSize:11,fontWeight:700,color:C.muted,display:'block',marginBottom:6,letterSpacing:0.5}}>MAX STANDORTE</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={newTenantData.max_locations}
+                    onChange={e=>setNewTenantData(d=>({...d, max_locations: e.target.value}))}
+                    style={{width:'100%',background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,padding:'11px 14px',color:C.white,fontSize:13,outline:'none'}}
+                  />
+                </div>
+              </div>
+
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                <div>
+                  <label style={{fontSize:11,fontWeight:700,color:C.muted,display:'block',marginBottom:6,letterSpacing:0.5}}>INDIVIDUELLER PREIS (€ / mtl.)</label>
+                  <input
+                    type="number"
+                    placeholder="Standard gem. Tarif"
+                    value={newTenantData.custom_price}
+                    onChange={e=>setNewTenantData(d=>({...d, custom_price: e.target.value}))}
+                    style={{width:'100%',background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,padding:'11px 14px',color:C.white,fontSize:13,outline:'none'}}
+                  />
+                </div>
+
+                <div>
+                  <label style={{fontSize:11,fontWeight:700,color:C.muted,display:'block',marginBottom:6,letterSpacing:0.5}}>STADT / STANDORT</label>
+                  <input
+                    type="text"
+                    placeholder="z.B. München"
+                    value={newTenantData.company_city}
+                    onChange={e=>setNewTenantData(d=>({...d, company_city: e.target.value}))}
+                    style={{width:'100%',background:C.bg,border:`1px solid ${C.border}`,borderRadius:9,padding:'11px 14px',color:C.white,fontSize:13,outline:'none'}}
+                  />
+                </div>
+              </div>
+
+              <div style={{display:'flex',gap:12,marginTop:12}}>
+                <button
+                  type="button"
+                  onClick={()=>setShowCreateTenantModal(false)}
+                  style={{flex:1,padding:'12px',borderRadius:10,border:`1px solid ${C.border}`,background:C.bg,color:C.muted,fontWeight:700,fontSize:13,cursor:'pointer'}}
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="submit"
+                  style={{flex:2,padding:'12px',borderRadius:10,border:'none',background:grad(C.purple, C.pink),color:C.white,fontWeight:800,fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}
+                >
+                  <Building2 size={16}/> Mandanten Jetzt Anlegen
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {toast&&<div style={{position:'fixed',bottom:28,left:'50%',transform:'translateX(-50%)',background:C.purple,color:C.white,padding:'12px 24px',borderRadius:14,fontSize:13,fontWeight:600,zIndex:9999,animation:'fadeUp .25s ease'}}>{toast}</div>}
     </div>

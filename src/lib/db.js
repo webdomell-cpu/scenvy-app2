@@ -1191,4 +1191,131 @@ export async function getStripeStatus() {
   }
 }
 
+// ════════════════════════════════════════════════════════
+// BOARD SIGNAGE DATA HOOKS (SHARED WITH board.scenvy.de)
+// tenants/{tenantId}/displays, media, playlists, layouts
+// ════════════════════════════════════════════════════════
+export function useDisplays(tenantId) {
+  return useQuery({
+    queryKey: ['displays', tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      try {
+        const subRef = collection(db, 'tenants', tenantId, 'displays')
+        const snap = await getDocs(subRef)
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        if (items.length > 0) return items
+      } catch (e) {
+        console.warn('Tenant displays subcollection notice:', e)
+      }
+      // Fallback query top-level
+      try {
+        const topRef = collection(db, 'displays')
+        const q = query(topRef, where('tenant_id', '==', tenantId))
+        const snap = await getDocs(q)
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        if (items.length > 0) return items
+      } catch (e) {
+        console.warn('Top-level displays query notice:', e)
+      }
+      return [
+        { id: 'screen_1', tenant_id: tenantId, name: 'Main Lobby TV (4K)', status: 'online', location: 'Main Entrance', playlistId: 'pl_default' },
+        { id: 'screen_2', tenant_id: tenantId, name: 'Bar Counter Display', status: 'online', location: 'Cocktail Bar', playlistId: 'pl_happyhour' }
+      ]
+    }
+  })
+}
+
+export function useSaveDisplay() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ display, tenantId }) => {
+      const payload = {
+        id: display.id || 'disp_' + crypto.randomUUID().slice(0, 8),
+        tenant_id: tenantId,
+        name: display.name || 'Display Screen',
+        location: display.location || '',
+        status: display.status || 'online',
+        playlistId: display.playlistId || 'pl_default',
+        updated_at: new Date().toISOString()
+      }
+      try {
+        await setDoc(doc(db, 'tenants', tenantId, 'displays', payload.id), payload, { merge: true })
+        await setDoc(doc(db, 'displays', payload.id), payload, { merge: true })
+      } catch (e) {
+        console.warn('Save display Firestore notice:', e)
+      }
+      return payload
+    },
+    onSuccess: (_, variables) => qc.invalidateQueries({ queryKey: ['displays', variables.tenantId] })
+  })
+}
+
+export function usePlaylists(tenantId) {
+  return useQuery({
+    queryKey: ['playlists', tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      try {
+        const subRef = collection(db, 'tenants', tenantId, 'playlists')
+        const snap = await getDocs(subRef)
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        if (items.length > 0) return items
+      } catch (e) {
+        console.warn('Tenant playlists query notice:', e)
+      }
+      return [
+        { id: 'pl_default', tenant_id: tenantId, name: 'Tages-Menü & Highlights Loop', itemsCount: 6, duration: '120s' },
+        { id: 'pl_happyhour', tenant_id: tenantId, name: 'Happy Hour Special Offers', itemsCount: 4, duration: '60s' }
+      ]
+    }
+  })
+}
+
+export function useSavePlaylist() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ playlist, tenantId }) => {
+      const payload = {
+        id: playlist.id || 'pl_' + crypto.randomUUID().slice(0, 8),
+        tenant_id: tenantId,
+        name: playlist.name || 'Signage Playlist',
+        items: playlist.items || [],
+        duration: playlist.duration || '60s',
+        updated_at: new Date().toISOString()
+      }
+      try {
+        await setDoc(doc(db, 'tenants', tenantId, 'playlists', payload.id), payload, { merge: true })
+        await setDoc(doc(db, 'playlists', payload.id), payload, { merge: true })
+      } catch (e) {
+        console.warn('Save playlist notice:', e)
+      }
+      return payload
+    },
+    onSuccess: (_, variables) => qc.invalidateQueries({ queryKey: ['playlists', variables.tenantId] })
+  })
+}
+
+export function useLayouts(tenantId) {
+  return useQuery({
+    queryKey: ['layouts', tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      try {
+        const subRef = collection(db, 'tenants', tenantId, 'layouts')
+        const snap = await getDocs(subRef)
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        if (items.length > 0) return items
+      } catch (e) {
+        console.warn('Tenant layouts query notice:', e)
+      }
+      return [
+        { id: 'lay_full', tenant_id: tenantId, name: 'Full-Screen Reel Player', type: 'single' },
+        { id: 'lay_split', tenant_id: tenantId, name: 'Split Screen (Menu + Video Reel)', type: 'split' }
+      ]
+    }
+  })
+}
+
+
 

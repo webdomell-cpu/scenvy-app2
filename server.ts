@@ -7,6 +7,7 @@ import parseMenuHandler from './api/ai/parse-menu.js'
 import adminKeysHandler from './api/admin/keys.js'
 import contactHandler from './api/contact.js'
 import stripeHandler from './api/stripe/stripe-handler.js'
+import ssoHandler from './api/auth/sso.js'
 
 async function startServer() {
   const app = express()
@@ -36,6 +37,8 @@ async function startServer() {
   app.all('/api/ai/parse-menu', adapt(parseMenuHandler))
   app.all('/api/admin/keys', adapt(adminKeysHandler))
   app.all('/api/contact', adapt(contactHandler))
+  app.all('/api/auth/sso', adapt(ssoHandler))
+  app.all('/api/auth/sso-token', adapt(ssoHandler))
   app.all('/api/stripe/create-checkout-session', adapt(stripeHandler))
   app.all('/api/stripe/create-portal-session', adapt(stripeHandler))
   app.all('/api/stripe/status', adapt(stripeHandler))

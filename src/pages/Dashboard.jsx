@@ -10,8 +10,11 @@ import {
   useAnalyticsSummary, uploadMedia,
   useMedia, useSaveMedia, useDeleteMedia,
   useTenant, useSaveTenantProfile, formatDateTime,
-  createStripePortal
+  createStripePortal,
+  useDisplays, useSaveDisplay, usePlaylists, useSavePlaylist, useLayouts
 } from '@/lib/db'
+import { AppLauncherBar } from '@/components/AppLauncherBar'
+import { launchSubdomainModule } from '@/lib/sso'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { Home, Film, MapPin, BarChart2, Sparkles, Settings, Menu, QrCode, Eye, MousePointer, Video, Plus, Trash2, RefreshCw, Copy, LogOut, Upload, Link, X, Image, ExternalLink, CreditCard as Edit2, Download, Globe, Save, Mail, Shield, Library, Building2, Phone, Utensils, Tv, ConciergeBell, Layers } from 'lucide-react'
 import MenuGenerator from '@/pages/MenuGenerator'
@@ -1804,44 +1807,152 @@ function CompanySettingsPage({ tenantId, notify }) {
 }
 
 // ── Board Showcase Module ─────────────────────────────────
-function BoardShowcase() {
+function BoardShowcase({ user, tenant }) {
+  const tenantId = tenant?.id || user?.tenant_id || 'tenant_default'
+  const { data: displays = [], isLoading } = useDisplays(tenantId)
+  const { data: playlists = [] } = usePlaylists(tenantId)
+  const saveDisplay = useSaveDisplay()
+
+  const [newScreenName, setNewScreenName] = useState('')
+  const [newScreenLoc, setNewScreenLoc] = useState('')
+  const [isAdding, setIsAdding] = useState(false)
+  const [launching, setLaunching] = useState(false)
+
+  const handleAddDisplay = async (e) => {
+    e.preventDefault()
+    if (!newScreenName.trim()) return
+    await saveDisplay.mutateAsync({
+      tenantId,
+      display: {
+        name: newScreenName,
+        location: newScreenLoc || 'Main Entrance',
+        status: 'online',
+        playlistId: playlists[0]?.id || 'pl_default'
+      }
+    })
+    setNewScreenName('')
+    setNewScreenLoc('')
+    setIsAdding(false)
+  }
+
+  const handleLaunchBoard = async () => {
+    setLaunching(true)
+    try {
+      await launchSubdomainModule('board', user, tenant, true)
+    } catch (e) {
+      console.warn('Launch board notice:', e)
+    } finally {
+      setTimeout(() => setLaunching(false), 800)
+    }
+  }
+
   return (
     <div>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 11, color: C.blue, fontWeight: 800, letterSpacing: 2, marginBottom: 4 }}>GEBUCHTES MODUL</div>
-        <div style={{ fontSize: 26, fontWeight: 900 }}>📺 SCENVY BOARD — Digital Signage & TV Screens</div>
-        <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
-          Steuere TV-Bildschirme, Menükarten auf Großmonitoren und digitale Werbedisplays direkt von deinem Mandanten-Konto.
+      <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <div style={{ fontSize: 11, color: C.blue, fontWeight: 800, letterSpacing: 2, marginBottom: 4 }}>INTEGRIERTES SUBSYSTEM</div>
+          <div style={{ fontSize: 26, fontWeight: 900 }}>📺 SCENVY BOARD — board.scenvy.de</div>
+          <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
+            Digital Signage, TV-Displays & Menü-Bildschirme. Synchronisiert über Firestore mit Mandant <span style={{ color: C.white, fontWeight: 700 }}>{tenant?.name || tenantId}</span>.
+          </div>
         </div>
+
+        <button
+          onClick={handleLaunchBoard}
+          style={{
+            padding: '12px 24px',
+            borderRadius: 12,
+            background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+            color: C.white,
+            border: 'none',
+            fontWeight: 800,
+            fontSize: 14,
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            boxShadow: '0 4px 14px rgba(59,130,246,0.4)'
+          }}
+        >
+          <ExternalLink size={16} />
+          {launching ? 'Oeffne board.scenvy.de...' : 'Scenvy Board mit SSO oeffnen →'}
+        </button>
       </div>
 
-      <div style={{ background: C.card, borderRadius: 20, border: `1px solid ${C.border}`, padding: 32, textAlign: 'center', maxWidth: 680, margin: '40px auto 0' }}>
-        <div style={{ width: 64, height: 64, borderRadius: '50%', background: `${C.blue}22`, color: C.blue, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-          <Tv size={32} />
-        </div>
-        <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Modul "SCENVY BOARD" freigeschaltet</div>
-        <div style={{ fontSize: 13, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>
-          Anbindung für Smart-TV, Fire TV Stick, Android Signage & Browser-Displays. Automatische Synchronisation mit deinen SCENVY Reels und digitalen Speisekarten.
+      {/* Connected Displays & Playlists Bar */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20, marginBottom: 32 }}>
+        {/* Displays List */}
+        <div style={{ background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, padding: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: C.white, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Tv size={18} color="#3B82F6" /> Connected Displays ({displays.length})
+            </div>
+            <button
+              onClick={() => setIsAdding(!isAdding)}
+              style={{ padding: '6px 12px', borderRadius: 8, background: `${C.blue}22`, color: C.blue, border: `1px solid ${C.blue}44`, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+            >
+              {isAdding ? 'Abbrechen' : '+ Display verbinden'}
+            </button>
+          </div>
+
+          {isAdding && (
+            <form onSubmit={handleAddDisplay} style={{ display: 'flex', flexDirection: 'column', gap: 10, background: C.bg, padding: 14, borderRadius: 12, marginBottom: 16, border: `1px solid ${C.border}` }}>
+              <input
+                type="text"
+                placeholder="Bildschirm-Name (z.B. Bar TV 4K)"
+                value={newScreenName}
+                onChange={e => setNewScreenName(e.target.value)}
+                style={{ padding: '8px 12px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, fontSize: 13 }}
+              />
+              <input
+                type="text"
+                placeholder="Standort/Bereich (z.B. Eingangsbereich)"
+                value={newScreenLoc}
+                onChange={e => setNewScreenLoc(e.target.value)}
+                style={{ padding: '8px 12px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, fontSize: 13 }}
+              />
+              <button type="submit" style={{ padding: '8px', background: C.blue, color: C.white, border: 'none', borderRadius: 8, fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>
+                Display registrieren
+              </button>
+            </form>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {displays.map(d => (
+              <div key={d.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 12, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}` }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.white }}>{d.name}</div>
+                  <div style={{ fontSize: 11, color: C.muted }}>{d.location || 'Standort Hauptbereich'}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: '#10B98122', color: '#10B981', fontWeight: 800, border: '1px solid #10B98144' }}>
+                    ONLINE
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, textAlign: 'left', marginBottom: 28 }}>
-          <div style={{ background: C.bg, padding: 14, borderRadius: 12, border: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginBottom: 4 }}>📺 Screen Sync</div>
-            <div style={{ fontSize: 11, color: C.muted }}>Automatischer Stream von 9:16 Video Reels auf 16:9 TV-Displays</div>
+        {/* Playlists & Media Sync */}
+        <div style={{ background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, padding: 24 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.white, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Layers size={18} color="#8B5CF6" /> Signage Playlisten ({playlists.length})
           </div>
-          <div style={{ background: C.bg, padding: 14, borderRadius: 12, border: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginBottom: 4 }}>⏱ Playlisten</div>
-            <div style={{ fontSize: 11, color: C.muted }}>Zeitgesteuerte Angebote für Lunch, Happy Hour & Abendkarte</div>
-          </div>
-          <div style={{ background: C.bg, padding: 14, borderRadius: 12, border: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginBottom: 4 }}>⚡ Multi-Display</div>
-            <div style={{ fontSize: 11, color: C.muted }}>Unbegrenzte Bildschirme pro Standort synchron verwalten</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {playlists.map(p => (
+              <div key={p.id} style={{ padding: 12, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.white }}>{p.name}</div>
+                  <div style={{ fontSize: 11, color: C.muted }}>{p.itemsCount || 4} Medienelemente • Loop {p.duration || '60s'}</div>
+                </div>
+                <button onClick={handleLaunchBoard} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.05)', color: C.white, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                  In Board bearbeiten
+                </button>
+              </div>
+            ))}
           </div>
         </div>
-
-        <button style={{ padding: '12px 28px', borderRadius: 12, background: C.blue, color: C.white, border: 'none', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
-          🚀 Screen verbinden & QR-Pairing starten
-        </button>
       </div>
     </div>
   )
@@ -2314,6 +2425,9 @@ export default function Dashboard() {
         <Sidebar page={page} setPage={handleSetPage} open={open} setOpen={setOpen} t={t} user={user} logout={logout} tenant={tenant}/>
 
       <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
+        {/* SCENVY Ecosystem Module Switcher Bar */}
+        <AppLauncherBar user={user} tenant={tenant} activePage={page} setPage={handleSetPage} />
+
         {/* Top bar */}
         <div style={{height:60,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 24px',justifyContent:'space-between',flexShrink:0,background:C.bg}}>
           {/* Left: Tenant Profile & Page Badge */}
@@ -2407,7 +2521,7 @@ export default function Dashboard() {
           {page==='analytics' && <Analytics  tenantId={tenantId} locs={locs} reels={reels}/>}
           {page==='ai'        && <AIGenerator tenantId={tenantId} locs={locs} notify={notify}/>}
           {(page==='menu_generator' || page==='menu') && <MenuGenerator embedded={true} initialTab={moduleTab} />}
-          {page==='board'     && <BoardShowcase />}
+          {page==='board'     && <BoardShowcase user={user} tenant={tenant} />}
           {page==='host'      && <HostShowcase />}
           {page==='qr'        && <QRPage     locs={locs} notify={notify}/>}
           {page==='media'     && <MediaLibraryPage tenantId={tenantId} notify={notify}/>}

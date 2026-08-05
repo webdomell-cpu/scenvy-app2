@@ -358,7 +358,13 @@ export default function Landing(){
             {[['de','🇩🇪'],['en','🇬🇧']].map(([l,f])=><button key={l} onClick={()=>setLang(l)} style={{padding:'4px 8px',borderRadius:6,border:'none',cursor:'pointer',background:lang===l?C.purple:'transparent',fontSize:16,fontFamily:'inherit'}}>{f}</button>)}
           </div>
           {landingConfig.show_login_btn && (
-            <Btn variant="ghost" onClick={()=>nav('/auth')} style={{fontSize:14,padding:'9px 16px'}}>{t.nav.login}</Btn>
+            <Btn variant="ghost" onClick={() => {
+              if (window.location.hostname === 'scenvy.de') {
+                window.location.href = 'https://app.scenvy.de/auth/login'
+              } else {
+                nav('/auth/login')
+              }
+            }} style={{fontSize:14,padding:'9px 16px'}}>{t.nav.login}</Btn>
           )}
           {landingConfig.show_register_btn && (
             <Btn onClick={()=>nav('/auth?mode=register')} style={{fontSize:14,padding:'9px 18px'}}>{getLangText('header_cta_text', 'Kostenlos starten →', 'Get Started Free →')}</Btn>

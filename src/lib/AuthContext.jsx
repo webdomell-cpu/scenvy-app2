@@ -71,6 +71,23 @@ export function AuthProvider({ children }) {
         }, { merge: true })
       }
 
+      // Sync tenant user membership record under tenants/{tenantId}/users/{userId}
+      if (userData.tenant_id) {
+        try {
+          const tenantUserRef = doc(db, 'tenants', userData.tenant_id, 'users', uid)
+          await setDoc(tenantUserRef, {
+            uid: uid,
+            id: uid,
+            email: userData.email || fbUser.email || '',
+            name: userData.name || 'User',
+            role: isDefaultAdmin ? 'admin' : (userData.role || 'tenant_owner'),
+            updatedAt: new Date().toISOString()
+          }, { merge: true })
+        } catch (mErr) {
+          console.warn('Tenant user membership sync notice:', mErr)
+        }
+      }
+
       // Fetch tenant details
       let tenantData = null
       if (userData.tenant_id) {

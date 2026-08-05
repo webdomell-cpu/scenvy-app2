@@ -57,6 +57,8 @@ function AppRoutes() {
       <Route path="/menu-addon"     element={<MenuAddonShowcase />} />
       <Route path="/add-ons/menu-reel" element={<MenuAddonShowcase />} />
       <Route path="/auth"          element={<PublicOnly><ScenvyAuth /></PublicOnly>} />
+      <Route path="/auth/login"    element={<PublicOnly><ScenvyAuth /></PublicOnly>} />
+      <Route path="/auth/register" element={<PublicOnly><ScenvyAuth /></PublicOnly>} />
       <Route path="/l/:locationId" element={<GuestView />} />
       <Route path="/r/:locationId" element={<GuestView />} />
       <Route path="/reel/:locationId" element={<GuestView />} />

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
 import { C, grad } from '@/tokens'
 import { ScenvyLogoFull } from '@/components/ScenvyLogo'
+import { ScenvyAppIcon } from '@/components/ScenvyBrandShowcase'
 import { Eye, EyeOff } from 'lucide-react'
 
 const F = ({ label, value, onChange, placeholder, type='text', onEnter }) => (
@@ -36,16 +37,18 @@ export default function ScenvyAuth() {
   const nav = useNavigate()
   const { login, loginWithGoogle, quickAdminLogin, signup, resetPassword } = useAuth()
   const p = new URLSearchParams(window.location.search)
-  const [mode,    setMode]    = useState(p.get('mode')==='register'?'register':'login')
-  const [email,   setEmail]   = useState('')
-  const [pw,      setPw]      = useState('')
-  const [pw2,     setPw2]     = useState('')
-  const [name,    setName]    = useState('')
-  const [venue,   setVenue]   = useState('')
-  const [error,   setError]   = useState('')
-  const [loading, setLoading] = useState(false)
-  const [sent,    setSent]    = useState(false)
-  const de = navigator.language?.startsWith('de')
+  const [lang,           setLang]           = useState(() => (navigator.language?.startsWith('de') ? 'de' : 'en'))
+  const [mode,           setMode]           = useState(p.get('mode')==='register'?'register':'login')
+  const [selectedModule, setSelectedModule] = useState('flow')
+  const [email,          setEmail]          = useState('')
+  const [pw,             setPw]             = useState('')
+  const [pw2,            setPw2]            = useState('')
+  const [name,           setName]           = useState('')
+  const [venue,          setVenue]          = useState('')
+  const [error,          setError]          = useState('')
+  const [loading,        setLoading]        = useState(false)
+  const [sent,           setSent]           = useState(false)
+  const de = lang === 'de'
 
   const doQuickAdmin = () => {
     quickAdminLogin('web.domell@gmail.com')
@@ -113,14 +116,92 @@ export default function ScenvyAuth() {
   )
 
   return (
-    <div style={{ minHeight:'100vh', background:C.bg, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Inter',sans-serif", position:'relative', overflow:'hidden' }}>
+    <div style={{ minHeight:'100vh', background:C.bg, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Inter',sans-serif", position:'relative', overflow:'hidden', padding: '24px 0' }}>
+      {/* Top Right English / German Language Switcher */}
+      <div style={{ position: 'absolute', top: 20, right: 24, zIndex: 50, display: 'flex', background: 'rgba(255,255,255,0.06)', padding: 3, borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(10px)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+        <button
+          onClick={() => setLang('de')}
+          style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: lang === 'de' ? C.purple : 'transparent', color: '#FFF', fontSize: 12, fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', alignItems: 'center', gap: 5 }}
+        >
+          🇩🇪 DE
+        </button>
+        <button
+          onClick={() => setLang('en')}
+          style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: lang === 'en' ? C.purple : 'transparent', color: '#FFF', fontSize: 12, fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', alignItems: 'center', gap: 5 }}
+        >
+          🇬🇧 EN
+        </button>
+      </div>
+      <style>{`
+        .product-glow-card-flow {
+          background: rgba(139, 92, 246, 0.06);
+          border: 1.5px solid rgba(139, 92, 246, 0.25);
+          border-radius: 16px;
+          padding: 16px 12px;
+          text-align: center;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .product-glow-card-flow:hover {
+          transform: translateY(-3px);
+          border-color: rgba(167, 139, 250, 0.9);
+          background: rgba(139, 92, 246, 0.16);
+          box-shadow: 0 0 25px rgba(139, 92, 246, 0.45), inset 0 0 12px rgba(139, 92, 246, 0.2);
+        }
+        .product-glow-card-menu {
+          background: rgba(249, 115, 22, 0.06);
+          border: 1.5px solid rgba(249, 115, 22, 0.25);
+          border-radius: 16px;
+          padding: 16px 12px;
+          text-align: center;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .product-glow-card-menu:hover {
+          transform: translateY(-3px);
+          border-color: rgba(251, 146, 60, 0.9);
+          background: rgba(249, 115, 22, 0.16);
+          box-shadow: 0 0 25px rgba(249, 115, 22, 0.45), inset 0 0 12px rgba(249, 115, 22, 0.2);
+        }
+      `}</style>
+
       <div style={{ position:'absolute', width:600, height:600, borderRadius:'50%', background:`radial-gradient(circle,${C.purple}33 0%,transparent 70%)`, top:'-10%', left:'-10%', pointerEvents:'none' }}/>
       <div style={{ position:'absolute', width:600, height:600, borderRadius:'50%', background:`radial-gradient(circle,${C.pink}22 0%,transparent 70%)`, bottom:'-10%', right:'-10%', pointerEvents:'none' }}/>
 
       <div style={{ width:'100%', maxWidth:440, padding:'0 20px' }}>
-        <div style={{ textAlign:'center', marginBottom:32 }}>
-          <ScenvyLogoFull height={58} style={{ margin: '0 auto 12px' }} />
-          <div style={{ fontSize:13, color:C.muted, marginTop:6 }}>app.scenvy.de</div>
+        {/* Header: Larger Logo & Tight Main Domain */}
+        <div style={{ textAlign:'center', marginBottom:16 }}>
+          <ScenvyLogoFull height={110} style={{ margin: '0 auto -6px', filter: 'drop-shadow(0 6px 16px rgba(139,92,246,0.35))' }} />
+          <div style={{ fontSize:15, color:'#A78BFA', fontWeight:800, letterSpacing:1.5, marginTop:0 }}>
+            www.scenvy.de
+          </div>
+        </div>
+
+        {/* Product Cards: SCENVY FLOW & SCENVY MENU (Non-clickable, hover-glow) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 22 }}>
+          {/* SCENVY FLOW */}
+          <div className="product-glow-card-flow">
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+              <ScenvyAppIcon module="flow" size={44} />
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 900, color: C.white, letterSpacing: 0.5 }}>
+              SCENVY FLOW
+            </div>
+            <div style={{ fontSize: 10, color: C.muted, marginTop: 3, fontWeight: 600 }}>
+              {de ? 'Vertikale Reels' : 'Vertical Reels'}
+            </div>
+          </div>
+
+          {/* SCENVY MENU */}
+          <div className="product-glow-card-menu">
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+              <ScenvyAppIcon module="menu" size={44} />
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 900, color: C.white, letterSpacing: 0.5 }}>
+              SCENVY MENU
+            </div>
+            <div style={{ fontSize: 10, color: C.muted, marginTop: 3, fontWeight: 600 }}>
+              {de ? 'Digitales Menü' : 'Digital Menu'}
+            </div>
+          </div>
         </div>
 
         {sent ? (
@@ -210,8 +291,35 @@ export default function ScenvyAuth() {
           </>
         )}
 
-        <div style={{ textAlign:'center', marginTop:20 }}>
-          <span onClick={()=>nav('/')} style={{ fontSize:13, color:C.muted, cursor:'pointer' }}>← {de?'Zur Startseite':'Homepage'}</span>
+        <div style={{ textAlign:'center', marginTop:24 }}>
+          <button
+            onClick={() => nav('/landing')}
+            style={{
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: `1px solid ${C.border}`,
+              borderRadius: 20,
+              padding: '10px 20px',
+              color: C.white,
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              transition: 'all 0.2s ease',
+              fontFamily: 'inherit'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(139, 92, 246, 0.18)'
+              e.currentTarget.style.borderColor = C.purple
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'
+              e.currentTarget.style.borderColor = C.border
+            }}
+          >
+            🌐 {de ? 'Klick zur Homepage (www.scenvy.de)' : 'Click to homepage (www.scenvy.de)'} →
+          </button>
         </div>
       </div>
     </div>

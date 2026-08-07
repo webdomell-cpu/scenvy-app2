@@ -1825,7 +1825,7 @@ function BoardShowcase({ user, tenant }) {
       tenantId,
       display: {
         name: newScreenName,
-        location: newScreenLoc || 'Main Entrance',
+        location: newScreenLoc || 'Eingangsbereich',
         status: 'online',
         playlistId: playlists[0]?.id || 'pl_default'
       }
@@ -1838,7 +1838,7 @@ function BoardShowcase({ user, tenant }) {
   const handleLaunchBoard = async () => {
     setLaunching(true)
     try {
-      await launchSubdomainModule('board', user, tenant, true)
+      await launchSubdomainModule('board.scenvy.de', user, tenant, true)
     } catch (e) {
       console.warn('Launch board notice:', e)
     } finally {
@@ -1847,111 +1847,172 @@ function BoardShowcase({ user, tenant }) {
   }
 
   return (
-    <div>
-      <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-        <div>
-          <div style={{ fontSize: 11, color: C.blue, fontWeight: 800, letterSpacing: 2, marginBottom: 4 }}>INTEGRIERTES SUBSYSTEM</div>
-          <div style={{ fontSize: 26, fontWeight: 900 }}>📺 SCENVY BOARD — board.scenvy.de</div>
-          <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
-            Digital Signage, TV-Displays & Menü-Bildschirme. Synchronisiert über Firestore mit Mandant <span style={{ color: C.white, fontWeight: 700 }}>{tenant?.name || tenantId}</span>.
+    <div style={{ maxWidth: 1100 }}>
+      {/* Top Banner Launch Card */}
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(59,130,246,0.15) 0%, rgba(29,78,216,0.08) 100%)',
+        borderRadius: 20,
+        border: '1px solid rgba(59,130,246,0.3)',
+        padding: 32,
+        marginBottom: 28,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: 20
+      }}>
+        <div style={{ maxWidth: 640 }}>
+          <div style={{ fontSize: 11, color: '#60A5FA', fontWeight: 800, letterSpacing: 2, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#3B82F6' }} />
+            DIGITAL SIGNAGE SUBSYSTEM (board.scenvy.de)
+          </div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: C.white, lineHeight: 1.2, marginBottom: 10 }}>
+            📺 SCENVY Board Signage Hub
+          </div>
+          <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6 }}>
+            Steuere TV-Bildschirme, digitale Menükarten & Video-Loops in Echtzeit. Der Zugriff erfolgt direkt über die dedizierte App auf <code style={{ color: C.white }}>board.scenvy.de</code> mit automatischer Mandanten-Synchronisation.
           </div>
         </div>
 
         <button
           onClick={handleLaunchBoard}
+          disabled={launching}
           style={{
-            padding: '12px 24px',
-            borderRadius: 12,
+            padding: '16px 32px',
+            borderRadius: 14,
             background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
             color: C.white,
             border: 'none',
             fontWeight: 800,
+            fontSize: 15,
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 10,
+            boxShadow: '0 8px 24px rgba(59,130,246,0.4)',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <ExternalLink size={18} />
+          {launching ? 'Öffne board.scenvy.de...' : 'In board.scenvy.de einsteigen (SSO) →'}
+        </button>
+      </div>
+
+      {/* WebStudio CMS Banner Card */}
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(124,58,237,0.1) 100%)',
+        borderRadius: 20,
+        border: '1px solid rgba(16,185,129,0.3)',
+        padding: 28,
+        marginBottom: 28,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: 20
+      }}>
+        <div style={{ maxWidth: 640 }}>
+          <div style={{ fontSize: 11, color: '#34D399', fontWeight: 800, letterSpacing: 2, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981' }} />
+            WEBSITE & LANDING PAGE BUILDER & STUDIO
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 900, color: C.white, lineHeight: 1.2, marginBottom: 8 }}>
+            🌐 SCENVY Webseiten Studio & CMS Backend
+          </div>
+          <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>
+            Erstelle und bearbeite deine Landing-Pages mit vollem visuellen Baukasten, WYSIWYG Inspector, Schriftgrößen-Anpassung, Custom CSS Animationen und sofortiger Veröffentlichung unter <code style={{ color: C.white }}>/p/{'{slug}'}</code>.
+          </div>
+        </div>
+
+        <button
+          onClick={() => nav('/website-studio')}
+          style={{
+            padding: '14px 28px',
+            borderRadius: 12,
+            background: '#10B981',
+            color: '#000',
+            border: 'none',
+            fontWeight: 900,
             fontSize: 14,
             cursor: 'pointer',
             display: 'inline-flex',
             alignItems: 'center',
             gap: 8,
-            boxShadow: '0 4px 14px rgba(59,130,246,0.4)'
+            boxShadow: '0 6px 20px rgba(16,185,129,0.3)'
           }}
         >
-          <ExternalLink size={16} />
-          {launching ? 'Oeffne board.scenvy.de...' : 'Scenvy Board mit SSO oeffnen →'}
+          🚀 Webstudio & CMS Editor Öffnen →
         </button>
       </div>
 
-      {/* Connected Displays & Playlists Bar */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20, marginBottom: 32 }}>
-        {/* Displays List */}
-        <div style={{ background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, padding: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: C.white, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Tv size={18} color="#3B82F6" /> Connected Displays ({displays.length})
-            </div>
-            <button
-              onClick={() => setIsAdding(!isAdding)}
-              style={{ padding: '6px 12px', borderRadius: 8, background: `${C.blue}22`, color: C.blue, border: `1px solid ${C.blue}44`, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-            >
-              {isAdding ? 'Abbrechen' : '+ Display verbinden'}
-            </button>
+      {/* Display Fleet Summary */}
+      <div style={{ background: C.card, borderRadius: 18, border: `1px solid ${C.border}`, padding: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: C.white }}>📺 Registrierte Display-Bildschirme ({displays.length})</div>
+            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Mandant: {tenant?.name || tenantId}</div>
           </div>
 
-          {isAdding && (
-            <form onSubmit={handleAddDisplay} style={{ display: 'flex', flexDirection: 'column', gap: 10, background: C.bg, padding: 14, borderRadius: 12, marginBottom: 16, border: `1px solid ${C.border}` }}>
+          <button
+            onClick={() => setIsAdding(!isAdding)}
+            style={{ padding: '8px 16px', borderRadius: 8, background: `${C.blue}22`, color: C.blue, border: `1px solid ${C.blue}44`, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+          >
+            {isAdding ? 'Abbrechen' : '+ Neuer Bildschirm hinzufügen'}
+          </button>
+        </div>
+
+        {isAdding && (
+          <form onSubmit={handleAddDisplay} style={{ display: 'flex', flexDirection: 'column', gap: 12, background: C.bg, padding: 16, borderRadius: 12, marginBottom: 20, border: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.white }}>Neues Display registrieren</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <input
                 type="text"
                 placeholder="Bildschirm-Name (z.B. Bar TV 4K)"
                 value={newScreenName}
                 onChange={e => setNewScreenName(e.target.value)}
-                style={{ padding: '8px 12px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, fontSize: 13 }}
+                style={{ padding: '10px 14px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, fontSize: 13, outline: 'none' }}
               />
               <input
                 type="text"
                 placeholder="Standort/Bereich (z.B. Eingangsbereich)"
                 value={newScreenLoc}
                 onChange={e => setNewScreenLoc(e.target.value)}
-                style={{ padding: '8px 12px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, fontSize: 13 }}
+                style={{ padding: '10px 14px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, color: C.white, fontSize: 13, outline: 'none' }}
               />
-              <button type="submit" style={{ padding: '8px', background: C.blue, color: C.white, border: 'none', borderRadius: 8, fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>
-                Display registrieren
-              </button>
-            </form>
-          )}
+            </div>
+            <button type="submit" style={{ padding: '10px', background: C.blue, color: C.white, border: 'none', borderRadius: 8, fontWeight: 800, cursor: 'pointer', fontSize: 13, alignSelf: 'flex-start' }}>
+              ✓ Display Registrieren
+            </button>
+          </form>
+        )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {displays.map(d => (
-              <div key={d.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 12, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}` }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+          {displays.length === 0 ? (
+            <div style={{ padding: 24, background: C.bg, borderRadius: 12, textAlign: 'center', color: C.muted, fontSize: 13, gridColumn: '1 / -1' }}>
+              Noch keine Bildschirme registriert. Nutze den Button oben oder verwalte deine Flotte direkt in <strong>board.scenvy.de</strong>.
+            </div>
+          ) : (
+            displays.map(d => (
+              <div key={d.id} style={{ background: C.bg, padding: 16, borderRadius: 12, border: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 12 }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: C.white }}>{d.name}</div>
-                  <div style={{ fontSize: 11, color: C.muted }}>{d.location || 'Standort Hauptbereich'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: C.white }}>{d.name}</div>
+                    <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 12, background: `${C.green}22`, color: C.green }}>
+                      ● ONLINE
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: C.muted }}>📍 {d.location || 'Hauptraum'}</div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: '#10B98122', color: '#10B981', fontWeight: 800, border: '1px solid #10B98144' }}>
-                    ONLINE
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
 
-        {/* Playlists & Media Sync */}
-        <div style={{ background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, padding: 24 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: C.white, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Layers size={18} color="#8B5CF6" /> Signage Playlisten ({playlists.length})
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {playlists.map(p => (
-              <div key={p.id} style={{ padding: 12, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: C.white }}>{p.name}</div>
-                  <div style={{ fontSize: 11, color: C.muted }}>{p.itemsCount || 4} Medienelemente • Loop {p.duration || '60s'}</div>
-                </div>
-                <button onClick={handleLaunchBoard} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.05)', color: C.white, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                  In Board bearbeiten
+                <button
+                  onClick={handleLaunchBoard}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.blue, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                >
+                  <ExternalLink size={13} /> Auf board.scenvy.de steuern
                 </button>
               </div>
-            ))}
-          </div>
+            ))
+          )}
         </div>
       </div>
     </div>

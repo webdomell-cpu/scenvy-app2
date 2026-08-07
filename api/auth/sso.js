@@ -43,9 +43,13 @@ export default async function handler(req, res) {
 
     const domainMap = {
       board: 'https://board.scenvy.de',
+      'board.scenvy.de': 'https://board.scenvy.de',
       flow: 'https://flow.scenvy.de',
+      'flow.scenvy.de': 'https://flow.scenvy.de',
       menu: 'https://menu.scenvy.de',
-      app: 'https://app.scenvy.de'
+      'menu.scenvy.de': 'https://menu.scenvy.de',
+      app: 'https://app.scenvy.de',
+      'app.scenvy.de': 'https://app.scenvy.de'
     }
 
     const baseUrl = domainMap[targetDomain] || (targetDomain.startsWith('http') ? targetDomain : `https://${targetDomain}`)

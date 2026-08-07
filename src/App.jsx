@@ -13,6 +13,8 @@ import GuestMenuReel from './pages/GuestMenuReel.jsx'
 import MenuAddonShowcase from './pages/MenuAddonShowcase.jsx'
 import ReelsAddonShowcase from './pages/ReelsAddonShowcase.jsx'
 import StyleGuide from './pages/StyleGuide.jsx'
+import WebsiteStudio from './pages/WebsiteStudio.jsx'
+import PublicCustomPage from './pages/PublicCustomPage.jsx'
 
 // ─── Route guards ────────────────────────────────────────
 function Protected({ children, adminOnly = false }) {
@@ -51,7 +53,8 @@ function Spinner() {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/"              element={<Landing />} />
+      <Route path="/"              element={<PublicOnly><ScenvyAuth /></PublicOnly>} />
+      <Route path="/landing"       element={<Landing />} />
       <Route path="/style-guide"    element={<StyleGuide />} />
       <Route path="/reels-addon"    element={<ReelsAddonShowcase />} />
       <Route path="/menu-addon"     element={<MenuAddonShowcase />} />
@@ -66,7 +69,10 @@ function AppRoutes() {
       <Route path="/m/:menuId"     element={<GuestMenuReel />} />
       <Route path="/menu/:menuId"  element={<GuestMenuReel />} />
       <Route path="/menu-reel/:menuId" element={<GuestMenuReel />} />
+      <Route path="/p/:slug"       element={<PublicCustomPage />} />
+      <Route path="/pages/:slug"   element={<PublicCustomPage />} />
       <Route path="/dashboard"     element={<Protected><Dashboard /></Protected>} />
+      <Route path="/website-studio" element={<Protected><WebsiteStudio /></Protected>} />
       <Route path="/menu-generator" element={<Protected><MenuGenerator /></Protected>} />
       <Route path="/admin"         element={<Protected adminOnly><Admin /></Protected>} />
       <Route path="*"              element={<Navigate to="/" replace />} />

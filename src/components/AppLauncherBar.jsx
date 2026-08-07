@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Tv, Film, Utensils, Settings, ExternalLink, ChevronDown, Sparkles, Building2, Shield } from 'lucide-react'
+import { Tv, Film, Utensils, Settings, ExternalLink, ChevronDown, Sparkles, Building2, Shield, Globe } from 'lucide-react'
 import { C } from '@/tokens'
 import { getSsoLaunchUrl, launchSubdomainModule } from '@/lib/sso'
 
@@ -9,6 +9,16 @@ export function AppLauncherBar({ user, tenant, activePage, setPage }) {
   const [opening, setOpening] = useState(null)
 
   const modules = [
+    {
+      id: 'website_studio',
+      key: 'website',
+      name: 'WEBSTUDIO CMS',
+      subdomain: 'app.scenvy.de/website-studio',
+      sub: 'Landing Pages & Web-Editor',
+      icon: <Globe size={15} color="#10B981" />,
+      color: '#10B981',
+      badge: 'CMS EDITOR'
+    },
     {
       id: 'board',
       key: 'board',
@@ -53,6 +63,10 @@ export function AppLauncherBar({ user, tenant, activePage, setPage }) {
 
   const handleLaunch = async (m, e) => {
     e.stopPropagation()
+    if (m.id === 'website_studio') {
+      nav('/website-studio')
+      return
+    }
     if (m.id === 'settings') {
       if (setPage) setPage('settings')
       else nav('/dashboard?page=settings')
@@ -110,7 +124,8 @@ export function AppLauncherBar({ user, tenant, activePage, setPage }) {
             <div
               key={m.id}
               onClick={() => {
-                if (m.id === 'settings' && setPage) setPage('settings')
+                if (m.id === 'website_studio') nav('/website-studio')
+                else if (m.id === 'settings' && setPage) setPage('settings')
                 else if (setPage) setPage(m.id)
               }}
               style={{

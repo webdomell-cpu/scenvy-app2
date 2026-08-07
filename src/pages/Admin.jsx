@@ -5,7 +5,7 @@ import { ScenvyLogoFull } from '@/components/ScenvyLogo'
 import { useTenants, useSaveTenant, useUpdateTenant, useDeleteTenant, useUsers, useSaveUser, useDeleteUser, useReels, useSaveReel, useLocations, useLandingConfig, useSaveLandingConfig, usePricingConfig, useSavePricingConfig, usePlatformConfig, useSavePlatformConfig, useDomains, useSaveDomain, useDeleteDomain, useEmailTemplates, useSaveEmailTemplates, createStripeCheckout, createStripePortal, getStripeStatus } from '@/lib/db'
 import { useAuth } from '@/lib/AuthContext'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import { Users, TrendingUp, MapPin, Film, Activity, LogOut, RefreshCw, Save, Mail, Shield, Building2, CreditCard, X, ChevronRight, Trash2, Power, CheckCircle, AlertCircle, ExternalLink, Package, DollarSign, FileText, Download, Plus, Check, Play, Zap, Globe, Sliders, Layout } from 'lucide-react'
+import { Users, TrendingUp, MapPin, Film, Activity, LogOut, RefreshCw, Save, Mail, Shield, Building2, CreditCard, X, ChevronRight, Trash2, Power, CheckCircle, AlertCircle, ExternalLink, Package, DollarSign, FileText, Download, Plus, Check, Play, Zap, Globe, Sliders, Layout, Tv } from 'lucide-react'
 
 const MRR_TREND = [
   {month:'Jan',mrr:0},{month:'Feb',mrr:0},{month:'Mar',mrr:29},
@@ -398,16 +398,16 @@ export default function Admin() {
   }
 
   const tabs = [
-    {id:'users',     label:'Benutzerverwaltung',   icon:<Shield size={15}/>},
-    {id:'tenants',   label:'Mandanten & Einstieg', icon:<Users size={15}/>},
-    {id:'domains',   label:'Authorized Domains & Registry', icon:<Globe size={15}/>},
-    {id:'website',   label:'Landing & Webseiten',  icon:<Globe size={15}/>},
-    {id:'pricing',   label:'Preise & Tarife',       icon:<DollarSign size={15}/>},
-    {id:'modules',   label:'Modul-Freigaben',      icon:<Package size={15}/>},
-    {id:'ai_system', label:'Multi-KI & System Status', icon:<Activity size={15}/>},
-    {id:'billing',   label:'Abrechnung & Stripe',  icon:<CreditCard size={15}/>},
-    {id:'email',     label:'E-Mail & Forwarding',  icon:<Mail size={15}/>},
-    {id:'features',  label:'Feature Flags',        icon:<Shield size={15}/>},
+    {id:'users',       label:'Benutzerverwaltung',   icon:<Shield size={15}/>},
+    {id:'tenants',     label:'Mandanten & Einstieg', icon:<Users size={15}/>},
+    {id:'domains',     label:'Authorized Domains & Registry', icon:<Globe size={15}/>},
+    {id:'website',     label:'Landing & Webseiten',  icon:<Globe size={15}/>},
+    {id:'pricing',     label:'Preise & Tarife',       icon:<DollarSign size={15}/>},
+    {id:'modules',     label:'Modul-Freigaben',      icon:<Package size={15}/>},
+    {id:'ai_system',   label:'Multi-KI & System Status', icon:<Activity size={15}/>},
+    {id:'billing',     label:'Abrechnung & Stripe',  icon:<CreditCard size={15}/>},
+    {id:'email',       label:'E-Mail & Forwarding',  icon:<Mail size={15}/>},
+    {id:'features',    label:'Feature Flags',        icon:<Shield size={15}/>},
   ]
 
   const [flags, setFlags] = useState([
@@ -1236,16 +1236,10 @@ export default function Admin() {
                 ))}
               </>
             )}
-
-            {/* Tenant Edit Drawer */}
-            {editTenant && (
-              <TenantEditDrawer tenant={editTenant} onClose={()=>setEditTenant(null)} onDelete={()=>handleDeleteTenant(editTenant)} onSave={async (updates)=>{
-                try { await updateTenant.mutateAsync({ id:editTenant.id, updates }); notify('✅ Tenant aktualisiert'); setEditTenant(null) }
-                catch(e) { notify('❌ ' + e.message) }
-              }} />
-            )}
           </div>
         )}
+
+        {/* Existing Tenants Tab Continuation */}
 
         {/* Multi-KI API & System Health Tab */}
         {tab==='ai_system' && (
@@ -1601,10 +1595,28 @@ export default function Admin() {
         {/* Landing Pages & Website Steuerung Tab */}
         {tab==='website' && (
           <div style={{background:C.card,borderRadius:16,padding:24,border:`1px solid ${C.border}`}}>
+            
+            {/* Direct Studio Banner */}
+            <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(124,58,237,0.15) 100%)', border: `1px solid ${C.green}44`, borderRadius: 14, padding: 20, marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+              <div>
+                <div style={{ fontSize: 11, color: C.green, fontWeight: 800, letterSpacing: 1.5, marginBottom: 4 }}>DEDIZIERTES CMS & LIVE-EDITOR BACKEND</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: C.white }}>🌐 SCENVY Landing-Pages & Webseiten Studio</div>
+                <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
+                  Erstelle neue Unterseiten, passe Schriftgrößen & Abstände an, verfasse Texte oder füge Custom-CSS Animationen & Code im visuellen Live-Editor ein.
+                </div>
+              </div>
+              <button
+                onClick={() => nav('/website-studio')}
+                style={{ padding: '12px 24px', borderRadius: 10, border: 'none', background: C.green, color: '#000', fontWeight: 900, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: `0 4px 16px ${C.green}44` }}
+              >
+                🚀 Webseiten Studio Öffnen →
+              </button>
+            </div>
+
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,borderBottom:`1px solid ${C.border}`,paddingBottom:16}}>
               <div>
                 <div style={{fontSize:18,fontWeight:800,display:'flex',alignItems:'center',gap:8}}>
-                  <Globe size={20} color={C.purple}/> 🌐 Landing-Pages & Webseiten-Steuerung
+                  <Globe size={20} color={C.purple}/> 🌐 Subsystem-Sichtbarkeit & Modul-Links
                 </div>
                 <div style={{fontSize:13,color:C.muted,marginTop:4}}>
                   Steuere zentral aus dem Superadmin, welche Unterseiten, Menü-Links & Buttons auf der Plattform und Landing-Page sichtbar sind.
@@ -2012,11 +2024,12 @@ export default function Admin() {
                 <div style={{background:C.bg,padding:16,borderRadius:12,border:`1px solid ${C.border}`}}>
                   <div style={{fontSize:11,color:C.muted,fontWeight:700,letterSpacing:0.5}}>WEBHOOK ENDPOINT</div>
                   <div style={{fontSize:12,fontWeight:600,color:C.purple,marginTop:6,fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                    {stripeServerStatus.webhookUrl || `${window.location.origin}/api/stripe/webhook`}
+                    {stripeServerStatus.webhookUrl || (typeof window !== 'undefined' ? window.location.origin + '/api/stripe/webhook' : '/api/stripe/webhook')}
                   </div>
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(stripeServerStatus.webhookUrl || `${window.location.origin}/api/stripe/webhook`)
+                      const url = stripeServerStatus.webhookUrl || window.location.origin + '/api/stripe/webhook'
+                      navigator.clipboard.writeText(url)
                       notify('📋 Webhook URL in Zwischenablage kopiert!')
                     }}
                     style={{background:'none',border:'none',color:C.blue,fontSize:11,fontWeight:700,cursor:'pointer',padding:0,marginTop:4}}
@@ -2384,13 +2397,13 @@ export default function Admin() {
                   {/* Placeholders Cheat Sheet */}
                   <div style={{fontSize:12,color:C.muted,background:C.card2,padding:12,borderRadius:10,border:`1px solid ${C.border}`}}>
                     <span style={{fontWeight:700,color:C.white,marginRight:6}}>Verfügbare Variablen:</span>
-                    <code style={{color:C.purple,marginRight:8}}>{'{user_name}'}</code>
-                    <code style={{color:C.purple,marginRight:8}}>{'{company_name}'}</code>
-                    <code style={{color:C.purple,marginRight:8}}>{'{login_url}'}</code>
-                    <code style={{color:C.purple,marginRight:8}}>{'{reset_link}'}</code>
-                    <code style={{color:C.purple,marginRight:8}}>{'{plan_name}'}</code>
-                    <code style={{color:C.purple,marginRight:8}}>{'{invoice_id}'}</code>
-                    <code style={{color:C.purple}}>{'{total_amount}'}</code>
+                    <code style={{color:C.purple,marginRight:8}}>{"{user_name}"}</code>
+                    <code style={{color:C.purple,marginRight:8}}>{"{company_name}"}</code>
+                    <code style={{color:C.purple,marginRight:8}}>{"{login_url}"}</code>
+                    <code style={{color:C.purple,marginRight:8}}>{"{reset_link}"}</code>
+                    <code style={{color:C.purple,marginRight:8}}>{"{plan_name}"}</code>
+                    <code style={{color:C.purple,marginRight:8}}>{"{invoice_id}"}</code>
+                    <code style={{color:C.purple}}>{"{total_amount}"}</code>
                   </div>
 
                   {/* DE Subjects & Body */}
@@ -2480,12 +2493,12 @@ export default function Admin() {
                     background: C.bg,
                     borderRadius: 14,
                     padding: 20,
-                    border: `1px solid ${f.on ? f.c+'44' : C.border}`,
+                    border: f.on ? '1px solid ' + f.c + '44' : '1px solid ' + C.border,
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
                     gap: 14,
-                    boxShadow: f.on ? `0 4px 20px ${f.c}11` : 'none',
+                    boxShadow: f.on ? '0 4px 20px ' + f.c + '11' : 'none',
                     transition: 'all 0.2s ease'
                   }}
                 >
@@ -2503,7 +2516,7 @@ export default function Admin() {
                     <button
                       onClick={()=>{
                         setFlags(fs=>fs.map((x,j)=>i===j?{...x,on:!x.on}:x))
-                        notify(`${f.n} ${!f.on?'aktiviert (ON)':'deaktiviert (OFF)'}`)
+                        notify(f.n + (f.on ? ' deaktiviert (OFF)' : ' aktiviert (ON)'))
                       }}
                       style={{
                         display: 'flex',
@@ -2511,8 +2524,8 @@ export default function Admin() {
                         gap: 8,
                         padding: '6px 12px',
                         borderRadius: 20,
-                        border: `1px solid ${f.on ? f.c : C.border}`,
-                        background: f.on ? `${f.c}22` : C.card2,
+                        border: f.on ? '1px solid ' + f.c : '1px solid ' + C.border,
+                        background: f.on ? f.c + '22' : C.card2,
                         color: f.on ? C.white : C.muted,
                         cursor: 'pointer',
                         fontSize: 11,
@@ -2537,11 +2550,11 @@ export default function Admin() {
 
                   {/* Status impact breakdown */}
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,fontSize:11,lineHeight:1.4}}>
-                    <div style={{padding:'8px 10px',background:f.on?`${C.green}11`:C.card2,borderRadius:8,border:`1px solid ${f.on?C.green+'33':C.border}`}}>
+                    <div style={{padding:'8px 10px',background:f.on?`${C.green}11`:C.card2,borderRadius:8,border:f.on?`1px solid ${C.green}33`:`1px solid ${C.border}`}}>
                       <div style={{fontWeight:800,color:C.green,marginBottom:2}}>🟢 Bei AKTIV (ON):</div>
                       <div style={{color:C.muted}}>{f.whenOn}</div>
                     </div>
-                    <div style={{padding:'8px 10px',background:!f.on?`${C.pink}11`:C.card2,borderRadius:8,border:`1px solid ${!f.on?C.pink+'33':C.border}`}}>
+                    <div style={{padding:'8px 10px',background:!f.on?`${C.pink}11`:C.card2,borderRadius:8,border:!f.on?`1px solid ${C.pink}33`:`1px solid ${C.border}`}}>
                       <div style={{fontWeight:800,color:C.pink,marginBottom:2}}>🔴 Bei INAKTIV (OFF):</div>
                       <div style={{color:C.muted}}>{f.whenOff}</div>
                     </div>

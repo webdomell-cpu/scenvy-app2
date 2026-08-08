@@ -22,6 +22,7 @@ import {
   query, 
   where, 
   orderBy, 
+  onSnapshot,
   serverTimestamp 
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -53,5 +54,6 @@ export {
   query,
   where,
   orderBy,
+  onSnapshot,
   serverTimestamp
 };

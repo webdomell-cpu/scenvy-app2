@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { fetchMenuReel } from '@/lib/db'
-import { Phone, MessageCircle, MapPin, Instagram, Globe, Sparkles, ChevronUp, ArrowLeft, Edit3, Check, Plus, Trash2, Image, ShieldAlert, Download, QrCode, Share2, Copy } from 'lucide-react'
+import { fetchMenuReel, useSubmitOrder, useSubmitServiceCall, useRecordMenuScan } from '@/lib/db'
+import { Phone, MessageCircle, MapPin, Instagram, Globe, Sparkles, ChevronUp, ArrowLeft, Edit3, Check, Plus, Trash2, Image, ShieldAlert, Download, QrCode, Share2, Copy, ShoppingCart, Bell, Receipt, Send, X, Minus, UtensilsCrossed } from 'lucide-react'
 import { copyToClipboard } from '@/storage'
 import JSZip from 'jszip'
 
@@ -18,6 +18,20 @@ export default function GuestMenuReel({ initialMenu, isPreview = false, onSaveMe
   const [showQrModal, setShowQrModal] = useState(false)
   const [qrType, setQrType] = useState('menu') // 'menu' | 'reel'
   const [toast, setToast] = useState(null)
+
+  // In-Menu Ordering & Service Call States
+  const [cart, setCart] = useState([]) // [{ id, name, price, qty }]
+  const [tableNumber, setTableNumber] = useState('Tisch 1')
+  const [specialNotes, setSpecialNotes] = useState('')
+  const [showCartModal, setShowCartModal] = useState(false)
+  const [showCallModal, setShowCallModal] = useState(false)
+  const [callType, setCallType] = useState('waiter') // 'waiter' | 'bill'
+  const [orderSentSuccess, setOrderSentSuccess] = useState(false)
+  const [callSentSuccess, setCallSentSuccess] = useState(false)
+
+  const submitOrder = useSubmitOrder()
+  const submitServiceCall = useSubmitServiceCall()
+  const recordScan = useRecordMenuScan()
 
   const catRefs = useRef({})
 
@@ -77,8 +91,90 @@ export default function GuestMenuReel({ initialMenu, isPreview = false, onSaveMe
       setMenu(getSampleMenu())
       setActiveCat('cat_1')
       setLoading(false)
+      recordScan.mutate({ tenantId: 'tenant-demo-1', menuId: menuId || 'demo' })
     }
   }, [menuId, initialMenu])
+
+  // Cart Helper Functions
+  const addToCart = (item) => {
+    const name = typeof item.name === 'object' ? item.name[lang] || item.name.de || item.name.en : item.name
+    const priceStr = item.price || '0.00 €'
+
+    setCart(prev => {
+      const existingIndex = prev.findIndex(x => x.id === item.id)
+      if (existingIndex >= 0) {
+        const updated = [...prev]
+        updated[existingIndex].qty += 1
+        return updated
+      }
+      return [...prev, { id: item.id || `i_${Date.now()}`, name, price: priceStr, qty: 1 }]
+    })
+    notify(`🛒 ${name} zum Warenkorb hinzugefügt`)
+  }
+
+  const updateCartQty = (id, delta) => {
+    setCart(prev => {
+      return prev.map(x => {
+        if (x.id === id) {
+          const newQty = x.qty + delta
+          return newQty > 0 ? { ...x, qty: newQty } : null
+        }
+        return x
+      }).filter(Boolean)
+    })
+  }
+
+  const getCartTotalNum = () => {
+    return cart.reduce((acc, item) => {
+      const num = parseFloat(item.price.replace(/[^0-9,.]/g, '').replace(',', '.')) || 0
+      return acc + (num * item.qty)
+    }, 0)
+  }
+
+  const getCartTotalFormatted = () => {
+    return `${getCartTotalNum().toFixed(2)} €`
+  }
+
+  const handleOrderSubmit = (e) => {
+    e.preventDefault()
+    if (cart.length === 0) return
+
+    submitOrder.mutate({
+      tenantId: menu?.tenantId || 'tenant-demo-1',
+      menuId: menu?.id || menuId || 'demo',
+      tableNumber: tableNumber || 'Tisch 1',
+      items: cart,
+      notes: specialNotes,
+      totalPrice: getCartTotalFormatted()
+    }, {
+      onSuccess: () => {
+        setOrderSentSuccess(true)
+        setCart([])
+        setSpecialNotes('')
+        setTimeout(() => {
+          setOrderSentSuccess(false)
+          setShowCartModal(false)
+        }, 3000)
+      }
+    })
+  }
+
+  const handleServiceCallSubmit = (type = 'waiter') => {
+    submitServiceCall.mutate({
+      tenantId: menu?.tenantId || 'tenant-demo-1',
+      tableNumber: tableNumber || 'Tisch 1',
+      type,
+      note: type === 'bill' ? 'Rechnung / Kartenzahlung' : 'Kellner am Tisch gewünscht'
+    }, {
+      onSuccess: () => {
+        setCallSentSuccess(true)
+        setTimeout(() => {
+          setCallSentSuccess(false)
+          setShowCallModal(false)
+        }, 3000)
+      }
+    })
+  }
 
   if (loading) {
     return (
@@ -431,6 +527,30 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
                           ))}
                         </div>
 
+                        {!editorMode && (
+                          <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+                            <button
+                              onClick={() => addToCart(item)}
+                              style={{
+                                padding: '6px 14px',
+                                borderRadius: 10,
+                                background: 'linear-gradient(135deg, #7C3AED 0%, #C026D3 100%)',
+                                color: '#FFF',
+                                border: 'none',
+                                fontSize: 12,
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)'
+                              }}
+                            >
+                              <Plus size={14} /> {lang === 'de' ? 'Hinzufügen' : 'Add to Order'}
+                            </button>
+                          </div>
+                        )}
+
                         {editorMode && (
                           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
                             <button onClick={() => deleteItemFromCategory(catIdx, itemIdx)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 6, background: '#EF444422', border: '1px solid #EF444444', color: '#EF4444', fontSize: 11, cursor: 'pointer' }}>
@@ -465,8 +585,105 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
         </div>
       </div>
 
+      {/* STICKY GUEST BOTTOM ACTION BAR (Tisch-Bestellung & Kellner-Ruf) */}
+      {!editorMode && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1500,
+            background: 'rgba(15, 15, 23, 0.95)',
+            backdropFilter: 'blur(16px)',
+            borderTop: '1px solid rgba(255,255,255,0.12)',
+            padding: '12px 16px',
+            boxShadow: '0 -8px 30px rgba(0,0,0,0.5)'
+          }}
+        >
+          <div style={{ maxWidth: 680, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            {/* Quick Service Buttons */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => { setCallType('waiter'); setShowCallModal(true) }}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 12,
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  color: '#FCA5A5',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                <Bell size={15} color="#EF4444" />
+                <span>{lang === 'de' ? 'Kellner rufen' : 'Call Waiter'}</span>
+              </button>
+
+              <button
+                onClick={() => { setCallType('bill'); setShowCallModal(true) }}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 12,
+                  background: 'rgba(245, 158, 11, 0.15)',
+                  border: '1px solid rgba(245, 158, 11, 0.4)',
+                  color: '#FDE047',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                <Receipt size={15} color="#F59E0B" />
+                <span>{lang === 'de' ? 'Rechnung' : 'Bill'}</span>
+              </button>
+            </div>
+
+            {/* Cart Button */}
+            <button
+              onClick={() => setShowCartModal(true)}
+              style={{
+                flex: 1,
+                padding: '10px 16px',
+                borderRadius: 14,
+                background: cart.length > 0 ? 'linear-gradient(135deg, #10B981 0%, #059669 100%)' : 'rgba(255,255,255,0.08)',
+                border: cart.length > 0 ? 'none' : '1px solid rgba(255,255,255,0.15)',
+                color: '#FFF',
+                fontSize: 13,
+                fontWeight: 900,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                boxShadow: cart.length > 0 ? '0 4px 20px rgba(16,185,129,0.4)' : 'none'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <ShoppingCart size={18} />
+                <span>{lang === 'de' ? 'Bestellung' : 'Order Cart'}</span>
+                {cart.length > 0 && (
+                  <span style={{ padding: '2px 8px', borderRadius: 10, background: '#FFF', color: '#059669', fontSize: 11, fontWeight: 900 }}>
+                    {cart.reduce((a, b) => a + b.qty, 0)}
+                  </span>
+                )}
+              </div>
+
+              <span style={{ fontSize: 14, fontWeight: 900 }}>
+                {cart.length > 0 ? getCartTotalFormatted() : (lang === 'de' ? 'Leer' : 'Empty')}
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Floating Action Buttons */}
-      <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 100, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ position: 'fixed', bottom: 80, right: 20, zIndex: 100, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {branding.whatsapp && (
           <a href={`https://wa.me/${branding.whatsapp.replace(/\+/g, '')}`} target="_blank" rel="noreferrer" style={{ width: 48, height: 48, borderRadius: '50%', background: '#25D366', color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(37,211,102,0.4)', textDecoration: 'none' }}>
             <MessageCircle size={24} />
@@ -476,6 +693,236 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
           <ChevronUp size={20} />
         </button>
       </div>
+
+      {/* MODAL 1: ORDER CART MODAL */}
+      {showCartModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowCartModal(false)}>
+          <div style={{ background: '#12121A', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: 24, padding: 24, maxWidth: 460, width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10B981' }}>
+                  <ShoppingCart size={20} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: '#FFF' }}>
+                    {lang === 'de' ? 'Ihre Tisch-Bestellung' : 'Your Table Order'}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#9CA3AF' }}>
+                    {lang === 'de' ? 'Keine Online-Zahlung erforderlich. Bezahlung erfolgt beim Kellner.' : 'No online payment required. Pay your waiter directly.'}
+                  </div>
+                </div>
+              </div>
+
+              <button onClick={() => setShowCartModal(false)} style={{ background: 'transparent', border: 'none', color: '#9CA3AF', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {orderSentSuccess ? (
+              <div style={{ padding: '30px 20px', textAlign: 'center', background: 'rgba(16,185,129,0.1)', borderRadius: 16, border: '1px solid #10B981' }}>
+                <Check size={48} color="#10B981" style={{ margin: '0 auto 12px' }} />
+                <div style={{ fontSize: 18, fontWeight: 900, color: '#FFF' }}>Bestellung übermittelt!</div>
+                <div style={{ fontSize: 13, color: '#A7F3D0', marginTop: 6 }}>
+                  Ihre Auswahl wurde an das Team übergeben ({tableNumber}). Ein Servicemitarbeiter bringt Ihre Speisen in Kürze.
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleOrderSubmit}>
+                {/* Table Number Selection */}
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: '#A78BFA', marginBottom: 6 }}>
+                    📍 {lang === 'de' ? 'Tischnummer angeben' : 'Table Number'}
+                  </label>
+                  <input
+                    value={tableNumber}
+                    onChange={(e) => setTableNumber(e.target.value)}
+                    placeholder="z.B. Tisch 4"
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px',
+                      borderRadius: 12,
+                      background: 'rgba(0,0,0,0.4)',
+                      border: '1px solid rgba(139, 92, 246, 0.4)',
+                      color: '#FFF',
+                      fontSize: 14,
+                      fontWeight: 700,
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                {/* Cart Items List */}
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: '#9CA3AF', marginBottom: 8 }}>
+                    🛒 {lang === 'de' ? 'Ausgewählte Gerichte' : 'Selected Items'}
+                  </label>
+
+                  {cart.length === 0 ? (
+                    <div style={{ textStyle: 'italic', padding: 20, textAlign: 'center', color: '#6B7280', background: 'rgba(0,0,0,0.2)', borderRadius: 12 }}>
+                      {lang === 'de' ? 'Noch keine Gerichte ausgewählt.' : 'No items selected yet.'}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gap: 8, maxHeight: 220, overflowY: 'auto' }}>
+                      {cart.map(item => (
+                        <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)' }}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#FFF' }}>{item.name}</div>
+                            <div style={{ fontSize: 12, color: '#10B981', fontWeight: 800 }}>{item.price}</div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <button type="button" onClick={() => updateCartQty(item.id, -1)} style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.1)', border: 'none', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <Minus size={14} />
+                            </button>
+                            <span style={{ fontSize: 14, fontWeight: 800, color: '#FFF', minWidth: 16, textAlign: 'center' }}>
+                              {item.qty}
+                            </span>
+                            <button type="button" onClick={() => updateCartQty(item.id, 1)} style={{ width: 28, height: 28, borderRadius: 8, background: '#7C3AED', border: 'none', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <Plus size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Special Requests / Notes */}
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: '#9CA3AF', marginBottom: 6 }}>
+                    ✍️ {lang === 'de' ? 'Sonderwünsche / Anmerkungen' : 'Special Notes'}
+                  </label>
+                  <textarea
+                    value={specialNotes}
+                    onChange={(e) => setSpecialNotes(e.target.value)}
+                    placeholder="z.B. Bitte ohne Knoblauch, Besteck für 2 Personen"
+                    rows={2}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: 12,
+                      background: 'rgba(0,0,0,0.4)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      color: '#FFF',
+                      fontSize: 12,
+                      outline: 'none',
+                      resize: 'none'
+                    }}
+                  />
+                </div>
+
+                {/* Summary & Submit */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, paddingTop: 12, borderTop: '1px dashed rgba(255,255,255,0.1)' }}>
+                  <span style={{ fontSize: 13, color: '#9CA3AF', fontWeight: 700 }}>Gesamtsumme:</span>
+                  <span style={{ fontSize: 20, fontWeight: 900, color: '#10B981' }}>{getCartTotalFormatted()}</span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={cart.length === 0 || submitOrder.isPending}
+                  style={{
+                    width: '100%',
+                    padding: '14px',
+                    borderRadius: 14,
+                    background: cart.length > 0 ? 'linear-gradient(135deg, #10B981 0%, #059669 100%)' : '#374151',
+                    color: '#FFF',
+                    border: 'none',
+                    fontSize: 14,
+                    fontWeight: 900,
+                    cursor: cart.length > 0 ? 'pointer' : 'not-allowed',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    boxShadow: cart.length > 0 ? '0 6px 20px rgba(16,185,129,0.4)' : 'none'
+                  }}
+                >
+                  <Send size={16} />
+                  {submitOrder.isPending ? 'Sende Bestellung...' : (lang === 'de' ? 'Bestellung an Kellner senden' : 'Send Order to Waiter')}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: SERVICE CALL MODAL (KELLNER RUFEN / RECHNUNG) */}
+      {showCallModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowCallModal(false)}>
+          <div style={{ background: '#12121A', border: `1px solid ${callType === 'bill' ? '#F59E0B' : '#EF4444'}`, borderRadius: 24, padding: 24, maxWidth: 380, width: '100%' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {callType === 'bill' ? <Receipt size={24} color="#F59E0B" /> : <Bell size={24} color="#EF4444" />}
+                <div style={{ fontSize: 18, fontWeight: 900, color: '#FFF' }}>
+                  {callType === 'bill' ? (lang === 'de' ? 'Rechnung anfordern' : 'Request Bill') : (lang === 'de' ? 'Kellner rufen' : 'Call Waiter')}
+                </div>
+              </div>
+              <button onClick={() => setShowCallModal(false)} style={{ background: 'transparent', border: 'none', color: '#9CA3AF', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {callSentSuccess ? (
+              <div style={{ padding: '24px 16px', textAlign: 'center', background: 'rgba(16,185,129,0.1)', borderRadius: 16, border: '1px solid #10B981' }}>
+                <Check size={40} color="#10B981" style={{ margin: '0 auto 8px' }} />
+                <div style={{ fontSize: 16, fontWeight: 900, color: '#FFF' }}>Signal gesendet!</div>
+                <div style={{ fontSize: 12, color: '#A7F3D0', marginTop: 4 }}>
+                  Ein Servicemitarbeiter wurde benachrichtigt und kommt sofort zu {tableNumber}.
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: '#A78BFA', marginBottom: 6 }}>
+                    📍 {lang === 'de' ? 'Ihre Tischnummer' : 'Your Table Number'}
+                  </label>
+                  <input
+                    value={tableNumber}
+                    onChange={(e) => setTableNumber(e.target.value)}
+                    placeholder="z.B. Tisch 7"
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px',
+                      borderRadius: 12,
+                      background: 'rgba(0,0,0,0.4)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      color: '#FFF',
+                      fontSize: 14,
+                      fontWeight: 700,
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                <button
+                  onClick={() => handleServiceCallSubmit(callType)}
+                  disabled={submitServiceCall.isPending}
+                  style={{
+                    width: '100%',
+                    padding: '14px',
+                    borderRadius: 14,
+                    background: callType === 'bill' ? 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)' : 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
+                    color: '#FFF',
+                    border: 'none',
+                    fontSize: 14,
+                    fontWeight: 900,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    boxShadow: '0 6px 20px rgba(0,0,0,0.4)'
+                  }}
+                >
+                  <Bell size={16} />
+                  {submitServiceCall.isPending ? 'Sende Signal...' : (callType === 'bill' ? 'Rechnung jetzt anfordern' : 'Kellner an den Tisch rufen')}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Allergen Modal */}
       {selectedAllergen && (

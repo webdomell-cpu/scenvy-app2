@@ -1317,5 +1317,210 @@ export function useLayouts(tenantId) {
   })
 }
 
+// ════════════════════════════════════════════════════════
+// MANAGEMENT DASHBOARD: ORDERS & SERVICE CALLS (IN-MENU ORDERING)
+// ════════════════════════════════════════════════════════
+
+export function useRecordMenuScan() {
+  return useMutation({
+    mutationFn: async ({ tenantId, menuId }) => {
+      const today = new Date().toISOString().split('T')[0]
+      const scanId = `scan_${today}_${Math.random().toString(36).substring(2, 7)}`
+      const scanRecord = {
+        id: scanId,
+        tenant_id: tenantId || 'tenant-demo-1',
+        menu_id: menuId || 'demo',
+        date: today,
+        timestamp: new Date().toISOString()
+      }
+      try {
+        await addDoc(collection(db, 'scans'), scanRecord)
+      } catch (e) {
+        console.warn('Scan record notice:', e)
+      }
+      const existing = JSON.parse(localStorage.getItem(`demo_scans_${tenantId}`) || '[]')
+      existing.push(scanRecord)
+      localStorage.setItem(`demo_scans_${tenantId}`, JSON.stringify(existing.slice(-200)))
+      return scanRecord
+    }
+  })
+}
+
+export function useOrders(tenantId) {
+  const qc = useQueryClient()
+  return useQuery({
+    queryKey: ['orders', tenantId],
+    enabled: !!tenantId,
+    refetchInterval: 3000, // Live Polling every 3s for touch dashboard
+    queryFn: async () => {
+      let firestoreOrders = []
+      try {
+        const ordersRef = collection(db, 'orders')
+        let q = query(ordersRef, where('tenant_id', '==', tenantId))
+        const snap = await getDocs(q)
+        firestoreOrders = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      } catch (e) {
+        console.warn('Orders query notice:', e)
+      }
+
+      const stored = JSON.parse(localStorage.getItem(`demo_orders_${tenantId}`) || '[]')
+      const combined = [...firestoreOrders]
+      for (const s of stored) {
+        if (!combined.some(item => item.id === s.id)) {
+          combined.push(s)
+        }
+      }
+
+      // Sort newest first
+      return combined.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+    }
+  })
+}
+
+export function useSubmitOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ tenantId, menuId, tableNumber, items, notes, totalPrice }) => {
+      const orderPayload = {
+        id: `ord_${Date.now()}`,
+        tenant_id: tenantId || 'tenant-demo-1',
+        menu_id: menuId || 'demo',
+        table_number: tableNumber || 'Tisch 1',
+        items: items || [],
+        notes: notes || '',
+        total_price: totalPrice || '0.00 €',
+        status: 'pending', // pending -> accepted -> done
+        created_at: new Date().toISOString()
+      }
+
+      try {
+        await setDoc(doc(db, 'orders', orderPayload.id), orderPayload)
+      } catch (e) {
+        console.warn('Order save notice:', e)
+      }
+
+      const stored = JSON.parse(localStorage.getItem(`demo_orders_${orderPayload.tenant_id}`) || '[]')
+      stored.unshift(orderPayload)
+      localStorage.setItem(`demo_orders_${orderPayload.tenant_id}`, JSON.stringify(stored))
+
+      return orderPayload
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['orders', data.tenant_id] })
+    }
+  })
+}
+
+export function useUpdateOrderStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, tenantId, status }) => {
+      try {
+        await setDoc(doc(db, 'orders', id), { status, updated_at: new Date().toISOString() }, { merge: true })
+      } catch (e) {
+        console.warn('Order status update notice:', e)
+      }
+
+      const stored = JSON.parse(localStorage.getItem(`demo_orders_${tenantId}`) || '[]')
+      const idx = stored.findIndex(x => x.id === id)
+      if (idx >= 0) {
+        stored[idx].status = status
+        stored[idx].updated_at = new Date().toISOString()
+        localStorage.setItem(`demo_orders_${tenantId}`, JSON.stringify(stored))
+      }
+      return { id, tenantId, status }
+    },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['orders', res.tenantId] })
+    }
+  })
+}
+
+export function useServiceCalls(tenantId) {
+  return useQuery({
+    queryKey: ['service_calls', tenantId],
+    enabled: !!tenantId,
+    refetchInterval: 3000, // Live Polling every 3s
+    queryFn: async () => {
+      let firestoreCalls = []
+      try {
+        const callsRef = collection(db, 'service_calls')
+        let q = query(callsRef, where('tenant_id', '==', tenantId))
+        const snap = await getDocs(q)
+        firestoreCalls = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      } catch (e) {
+        console.warn('Service calls query notice:', e)
+      }
+
+      const stored = JSON.parse(localStorage.getItem(`demo_service_calls_${tenantId}`) || '[]')
+      const combined = [...firestoreCalls]
+      for (const s of stored) {
+        if (!combined.some(item => item.id === s.id)) {
+          combined.push(s)
+        }
+      }
+
+      return combined.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+    }
+  })
+}
+
+export function useSubmitServiceCall() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ tenantId, tableNumber, type, note }) => {
+      const callPayload = {
+        id: `call_${Date.now()}`,
+        tenant_id: tenantId || 'tenant-demo-1',
+        table_number: tableNumber || 'Tisch 1',
+        type: type || 'waiter', // 'waiter' (Kellner rufen) | 'bill' (Rechnung anfordern)
+        note: note || '',
+        status: 'pending',
+        created_at: new Date().toISOString()
+      }
+
+      try {
+        await setDoc(doc(db, 'service_calls', callPayload.id), callPayload)
+      } catch (e) {
+        console.warn('Service call save notice:', e)
+      }
+
+      const stored = JSON.parse(localStorage.getItem(`demo_service_calls_${callPayload.tenant_id}`) || '[]')
+      stored.unshift(callPayload)
+      localStorage.setItem(`demo_service_calls_${callPayload.tenant_id}`, JSON.stringify(stored))
+
+      return callPayload
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['service_calls', data.tenant_id] })
+    }
+  })
+}
+
+export function useUpdateServiceCallStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, tenantId, status }) => {
+      try {
+        await setDoc(doc(db, 'service_calls', id), { status, updated_at: new Date().toISOString() }, { merge: true })
+      } catch (e) {
+        console.warn('Service call status update notice:', e)
+      }
+
+      const stored = JSON.parse(localStorage.getItem(`demo_service_calls_${tenantId}`) || '[]')
+      const idx = stored.findIndex(x => x.id === id)
+      if (idx >= 0) {
+        stored[idx].status = status
+        stored[idx].updated_at = new Date().toISOString()
+        localStorage.setItem(`demo_service_calls_${tenantId}`, JSON.stringify(stored))
+      }
+      return { id, tenantId, status }
+    },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['service_calls', res.tenantId] })
+    }
+  })
+}
+
 
 

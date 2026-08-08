@@ -15,6 +15,7 @@ import ReelsAddonShowcase from './pages/ReelsAddonShowcase.jsx'
 import StyleGuide from './pages/StyleGuide.jsx'
 import WebsiteStudio from './pages/WebsiteStudio.jsx'
 import PublicCustomPage from './pages/PublicCustomPage.jsx'
+import OrderManagementDashboard from './pages/OrderManagementDashboard.jsx'
 
 // ─── Route guards ────────────────────────────────────────
 function Protected({ children, adminOnly = false }) {
@@ -71,6 +72,8 @@ function AppRoutes() {
       <Route path="/menu-reel/:menuId" element={<GuestMenuReel />} />
       <Route path="/p/:slug"       element={<PublicCustomPage />} />
       <Route path="/pages/:slug"   element={<PublicCustomPage />} />
+      <Route path="/live-dashboard/:tenantId" element={<OrderManagementDashboard />} />
+      <Route path="/management-dashboard" element={<Protected><OrderManagementDashboard /></Protected>} />
       <Route path="/dashboard"     element={<Protected><Dashboard /></Protected>} />
       <Route path="/website-studio" element={<Protected><WebsiteStudio /></Protected>} />
       <Route path="/menu-generator" element={<Protected><MenuGenerator /></Protected>} />

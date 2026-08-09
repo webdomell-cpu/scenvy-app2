@@ -70,6 +70,8 @@ function AppRoutes() {
       <Route path="/m/:menuId"     element={<GuestMenuReel />} />
       <Route path="/menu/:menuId"  element={<GuestMenuReel />} />
       <Route path="/menu-reel/:menuId" element={<GuestMenuReel />} />
+      <Route path="/location/:locationId" element={<GuestMenuReel isLocationView={true} />} />
+      <Route path="/loc/:locationId" element={<GuestMenuReel isLocationView={true} />} />
       <Route path="/p/:slug"       element={<PublicCustomPage />} />
       <Route path="/pages/:slug"   element={<PublicCustomPage />} />
       <Route path="/live-dashboard/:tenantId" element={<OrderManagementDashboard />} />

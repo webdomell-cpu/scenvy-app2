@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { C, grad } from '@/tokens'
 import { ScenvyLogoFull } from '@/components/ScenvyLogo'
 import { useAuth } from '@/lib/AuthContext'
-import { useTenant, useMenuReels, useSaveMenuReel, useDeleteMenuReel, useMedia, uploadMedia, formatDateTime } from '@/lib/db'
-import GuestMenuReel from '@/pages/GuestMenuReel'
+import { useTenant, useMenuReels, useSaveMenuReel, useDeleteMenuReel, useLocations, useSaveLocation, useDeleteLocation, useMedia, uploadMedia, formatDateTime } from '@/lib/db'
+import GuestMenuReel, { isScheduleActive, JaggedStar13 } from '@/pages/GuestMenuReel'
 import { copyToClipboard } from '@/storage'
-import { Sparkles, FileText, Upload, Edit3, Palette, Phone, Instagram, QrCode, Download, Share2, Copy, Trash2, Eye, Plus, ArrowRight, CheckCircle2, Lock, ShieldAlert, ArrowLeft, Maximize2, Minimize2 } from 'lucide-react'
+import { Sparkles, FileText, Upload, Edit3, Palette, Phone, Instagram, QrCode, Download, Share2, Copy, Trash2, Eye, Plus, ArrowRight, CheckCircle2, Lock, ShieldAlert, ArrowLeft, Maximize2, Minimize2, Clock, MapPin, ExternalLink, Calendar, Zap, Check, Globe } from 'lucide-react'
 
 export default function MenuGenerator({ embedded = false, initialTab }) {
   const nav = useNavigate()
@@ -14,14 +14,17 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
   const tenantId = user?.tenant_id
   const { data: tenant } = useTenant(tenantId)
   const { data: menuReels = [], isLoading: loadingReels } = useMenuReels(tenantId)
+  const { data: locations = [], isLoading: loadingLocations } = useLocations(tenantId)
   const { data: mediaItems = [] } = useMedia(tenantId)
   const saveMenuReel = useSaveMenuReel()
   const deleteMenuReel = useDeleteMenuReel()
+  const saveLocation = useSaveLocation()
+  const deleteLocation = useDeleteLocation()
 
   // Feature Flag gating
   const isFeatureEnabled = tenant?.features?.menu_reel_generator !== false
 
-  const [activeTab, setActiveTab] = useState(initialTab || 'create') // 'create' | 'list' | 'design' | 'settings'
+  const [activeTab, setActiveTab] = useState(initialTab || 'create') // 'create' | 'list' | 'locations' | 'design' | 'settings'
 
   React.useEffect(() => {
     if (initialTab) {
@@ -55,9 +58,356 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
   const [currentMenu, setCurrentMenu] = useState(null)
   const [selectedMenuForView, setSelectedMenuForView] = useState(null)
 
-  const notify = (msg) => {
-    setToast(msg)
-    setTimeout(() => setToast(null), 3000)
+  // Location & Highlight Management states
+  const [showLocationModal, setShowLocationModal] = useState(false)
+  const [editingLocId, setEditingLocId] = useState(null)
+  const [locForm, setLocForm] = useState({
+    name: '',
+    slug: '',
+    address: '',
+    zip: '',
+    city: 'München',
+    googleMapsUrl: '',
+    phone: '',
+    tablesCount: 15,
+    active: true,
+    highlight: {
+      enabled: true,
+      title: '🔥 Happy Hour & Tagesempfehlung',
+      text: '2-for-1 Signature Cocktails & Snack-Platte von 17:00–19:30 Uhr!',
+      startTime: '17:00',
+      endTime: '19:30',
+      badge: 'TAGES-HIGHLIGHT',
+      color: '#7C3AED'
+    }
+  })
+
+  // Schedule input states for current menu
+  const [scheduleEnabled, setScheduleEnabled] = useState(false)
+  const [scheduleStartTime, setScheduleStartTime] = useState('11:30')
+  const [scheduleEndTime, setScheduleEndTime] = useState('14:30')
+  const [scheduleLocationId, setScheduleLocationId] = useState('all')
+
+  // Article Master Table Editor filters & state
+  const [articleSearch, setArticleSearch] = useState('')
+  const [selectedCatFilter, setSelectedCatFilter] = useState('ALL')
+  const [dietFilter, setDietFilter] = useState('ALL') // 'ALL' | 'vegan' | 'vegetarian' | 'spicy' | 'glutenfree'
+
+  const updateArticleInMenu = (catId, itemId, field, value) => {
+    if (!currentMenu || !currentMenu.categories) return
+
+    let updatedCategories = [...currentMenu.categories]
+
+    // Moving item to another category
+    if (field === 'catId') {
+      let itemToMove = null
+      updatedCategories = updatedCategories.map(cat => {
+        if (cat.items?.some(i => i.id === itemId)) {
+          itemToMove = cat.items.find(i => i.id === itemId)
+          return { ...cat, items: cat.items.filter(i => i.id !== itemId) }
+        }
+        return cat
+      })
+
+      if (itemToMove) {
+        updatedCategories = updatedCategories.map(cat => {
+          if (cat.id === value) {
+            return { ...cat, items: [...(cat.items || []), itemToMove] }
+          }
+          return cat
+        })
+      }
+    } else {
+      // Standard inline field updates
+      updatedCategories = updatedCategories.map(cat => {
+        if (!cat.items) return cat
+        const newItems = cat.items.map(item => {
+          if (item.id === itemId) {
+            if (field === 'name') {
+              const nameObj = typeof item.name === 'object' ? { ...item.name, de: value } : value
+              return { ...item, name: nameObj }
+            }
+            if (field === 'description') {
+              const descObj = typeof item.description === 'object' ? { ...item.description, de: value } : value
+              return { ...item, description: descObj }
+            }
+            if (field === 'price') return { ...item, price: value }
+            if (field === 'spicy') return { ...item, spicy: value }
+            if (field === 'allergens') {
+              const arr = value ? value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean) : []
+              return { ...item, allergens: arr }
+            }
+            if (field === 'diet_vegan') {
+              let diet = Array.isArray(item.diet) ? [...item.diet] : []
+              if (value && !diet.includes('vegan')) diet.push('vegan')
+              if (!value) diet = diet.filter(d => d !== 'vegan')
+              return { ...item, diet, vegan: value }
+            }
+            if (field === 'diet_vegetarian') {
+              let diet = Array.isArray(item.diet) ? [...item.diet] : []
+              if (value && !diet.includes('vegetarian')) diet.push('vegetarian')
+              if (!value) diet = diet.filter(d => d !== 'vegetarian')
+              return { ...item, diet, vegetarian: value }
+            }
+            if (field === 'diet_glutenfree') {
+              let diet = Array.isArray(item.diet) ? [...item.diet] : []
+              if (value && !diet.includes('glutenfree')) diet.push('glutenfree')
+              if (!value) diet = diet.filter(d => d !== 'glutenfree')
+              return { ...item, diet, glutenFree: value }
+            }
+          }
+          return item
+        })
+        return { ...cat, items: newItems }
+      })
+    }
+
+    const newMenu = { ...currentMenu, categories: updatedCategories }
+    setCurrentMenu(newMenu)
+    try {
+      localStorage.setItem('scenvy_cached_menu', JSON.stringify(newMenu))
+    } catch (e) {}
+  }
+
+  const deleteArticleFromMenu = (itemId) => {
+    if (!currentMenu || !currentMenu.categories) return
+    const updatedCategories = currentMenu.categories.map(cat => ({
+      ...cat,
+      items: (cat.items || []).filter(i => i.id !== itemId)
+    }))
+    const newMenu = { ...currentMenu, categories: updatedCategories }
+    setCurrentMenu(newMenu)
+    try {
+      localStorage.setItem('scenvy_cached_menu', JSON.stringify(newMenu))
+    } catch (e) {}
+    notify('🗑️ Artikel gelöscht.')
+  }
+
+  const addNewArticleToMenu = (targetCatId) => {
+    if (!currentMenu || !currentMenu.categories?.length) {
+      addNewCategoryToMenu()
+      return
+    }
+    const catId = targetCatId || currentMenu.categories[0].id
+    const newItem = {
+      id: 'item_' + Date.now(),
+      name: { de: 'Neues Gericht / Getränk', en: 'New Item' },
+      description: { de: 'Frische Zutaten & hausgemachte Zubereitung...', en: 'Fresh ingredients...' },
+      price: '9.90 €',
+      allergens: [],
+      diet: [],
+      spicy: false
+    }
+
+    const updatedCategories = currentMenu.categories.map(cat => {
+      if (cat.id === catId) {
+        return { ...cat, items: [...(cat.items || []), newItem] }
+      }
+      return cat
+    })
+
+    const newMenu = { ...currentMenu, categories: updatedCategories }
+    setCurrentMenu(newMenu)
+    try {
+      localStorage.setItem('scenvy_cached_menu', JSON.stringify(newMenu))
+    } catch (e) {}
+    notify('✨ Neuer Artikel hinzugefügt!')
+  }
+
+  const addNewCategoryToMenu = () => {
+    if (!currentMenu) {
+      const newMenu = {
+        branding: { name: venue || 'Gourmet Bistro' },
+        categories: [
+          {
+            id: 'cat_' + Date.now(),
+            name: { de: 'Neue Kategorie', en: 'New Category' },
+            icon: '🍽️',
+            items: []
+          }
+        ]
+      }
+      setCurrentMenu(newMenu)
+      try {
+        localStorage.setItem('scenvy_cached_menu', JSON.stringify(newMenu))
+      } catch (e) {}
+      notify('✨ Neue Kategorie erstellt!')
+      return
+    }
+
+    const newCat = {
+      id: 'cat_' + Date.now(),
+      name: { de: 'Neue Kategorie', en: 'New Category' },
+      icon: '🍽️',
+      items: []
+    }
+    const newMenu = { ...currentMenu, categories: [...(currentMenu.categories || []), newCat] }
+    setCurrentMenu(newMenu)
+    try {
+      localStorage.setItem('scenvy_cached_menu', JSON.stringify(newMenu))
+    } catch (e) {}
+    notify('✨ Neue Kategorie erstellt!')
+  }
+
+  const updateCategoryInMenu = (catId, field, value) => {
+    if (!currentMenu || !currentMenu.categories) return
+    const updatedCategories = currentMenu.categories.map(cat => {
+      if (cat.id === catId) {
+        if (field === 'name') {
+          const nameObj = typeof cat.name === 'object' ? { ...cat.name, de: value } : value
+          return { ...cat, name: nameObj }
+        }
+        if (field === 'icon') {
+          return { ...cat, icon: value }
+        }
+      }
+      return cat
+    })
+    const newMenu = { ...currentMenu, categories: updatedCategories }
+    setCurrentMenu(newMenu)
+    try {
+      localStorage.setItem('scenvy_cached_menu', JSON.stringify(newMenu))
+    } catch (e) {}
+  }
+
+  const deleteCategoryFromMenu = (catId) => {
+    if (!currentMenu || !currentMenu.categories) return
+    if (!window.confirm('Soll diese Kategorie samt allen enthaltenen Artikeln gelöscht werden?')) return
+    const updatedCategories = currentMenu.categories.filter(cat => cat.id !== catId)
+    const newMenu = { ...currentMenu, categories: updatedCategories }
+    setCurrentMenu(newMenu)
+    try {
+      localStorage.setItem('scenvy_cached_menu', JSON.stringify(newMenu))
+    } catch (e) {}
+    notify('🗑️ Kategorie gelöscht.')
+  }
+
+  const exportArticlesToCSV = () => {
+    if (!currentMenu || !currentMenu.categories) return
+    let csv = 'Kategorie;Artikel Name;Beschreibung;Preis;Scharf;Vegan;Vegetarisch;Glutenfrei;Allergene\n'
+
+    currentMenu.categories.forEach(cat => {
+      const catName = (typeof cat.name === 'object' ? (cat.name.de || cat.name.en || '') : cat.name).replace(/;/g, ',')
+      ;(cat.items || []).forEach(item => {
+        const name = (typeof item.name === 'object' ? (item.name.de || item.name.en || '') : item.name).replace(/;/g, ',')
+        const desc = (typeof item.description === 'object' ? (item.description.de || item.description.en || '') : (item.description || '')).replace(/;/g, ',')
+        const price = (item.price || '').replace(/;/g, ',')
+        const spicy = item.spicy ? 'Ja' : 'Nein'
+        const vegan = (item.diet || []).includes('vegan') || item.vegan ? 'Ja' : 'Nein'
+        const veggie = (item.diet || []).includes('vegetarian') || item.vegetarian ? 'Ja' : 'Nein'
+        const glutenfree = (item.diet || []).includes('glutenfree') || item.glutenFree ? 'Ja' : 'Nein'
+        const allergens = Array.isArray(item.allergens) ? item.allergens.join(', ') : (item.allergens || '')
+
+        csv += `"${catName}";"${name}";"${desc}";"${price}";"${spicy}";"${vegan}";"${veggie}";"${glutenfree}";"${allergens}"\n`
+      })
+    })
+
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `artikelstamm_${(currentMenu.branding?.name || venue || 'speisekarte').toLowerCase().replace(/\s+/g, '_')}.csv`
+    a.click()
+    notify('📥 Artikelstamm-CSV heruntergeladen!')
+  }
+
+  const handleOpenNewLocationModal = () => {
+    setEditingLocId(null)
+    setLocForm({
+      name: '',
+      slug: '',
+      address: '',
+      zip: '',
+      city: 'München',
+      googleMapsUrl: '',
+      phone: '',
+      tablesCount: 15,
+      active: true,
+      highlight: {
+        enabled: true,
+        title: '🔥 Happy Hour & Tagesempfehlung',
+        text: '2-for-1 Signature Cocktails & Snack-Platte von 17:00–19:30 Uhr!',
+        startTime: '17:00',
+        endTime: '19:30',
+        startDate: '',
+        endDate: '',
+        badge: 'TAGES-HIGHLIGHT',
+        batchName: 'Batch 1 - Hauptstandort',
+        badgeShape: 'jagged_star_13',
+        color: '#7C3AED',
+        exactLocation: 'Hauptplatz 12, München',
+        bgImage: 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=1200&q=80',
+        price: '9,90 €'
+      }
+    })
+    setShowLocationModal(true)
+  }
+
+  const handleEditLocation = (loc) => {
+    setEditingLocId(loc.id)
+    const hl = loc.highlight || {}
+    setLocForm({
+      name: loc.name || '',
+      slug: loc.slug || (loc.name ? loc.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : ''),
+      address: loc.address || '',
+      zip: loc.zip || '',
+      city: loc.city || 'München',
+      googleMapsUrl: loc.googleMapsUrl || '',
+      phone: loc.phone || '',
+      tablesCount: loc.tablesCount || 15,
+      active: loc.active !== false,
+      highlight: {
+        enabled: hl.enabled !== false,
+        title: hl.title || '🔥 Happy Hour Specials',
+        text: hl.text || '',
+        startTime: hl.startTime || '12:00',
+        endTime: hl.endTime || '22:00',
+        startDate: hl.startDate || '',
+        endDate: hl.endDate || '',
+        badge: hl.badge || 'SPEZIAL',
+        batchName: hl.batchName || 'Batch 1',
+        badgeShape: hl.badgeShape || hl.starStyle || 'jagged_star_13',
+        color: hl.color || '#7C3AED',
+        exactLocation: hl.exactLocation || (loc.address ? `${loc.address}, ${loc.city || ''}`.trim() : ''),
+        bgImage: hl.bgImage || hl.image || '',
+        price: hl.price || ''
+      }
+    })
+    setShowLocationModal(true)
+  }
+
+  const handleSaveLocationSubmit = async (e) => {
+    e.preventDefault()
+    if (!locForm.name) {
+      notify('⚠️ Bitte gib einen Standortnamen ein.')
+      return
+    }
+
+    try {
+      await saveLocation.mutateAsync({
+        location: {
+          id: editingLocId || crypto.randomUUID(),
+          tenant_id: tenantId,
+          ...locForm
+        },
+        tenantId
+      })
+      notify(editingLocId ? '✅ Standort erfolgreich aktualisiert!' : '✨ Neuer Standort angelegt!')
+      setShowLocationModal(false)
+    } catch (err) {
+      console.error('Save location error:', err)
+      notify('⚠️ Fehler beim Speichern des Standorts.')
+    }
+  }
+
+  const handleDeleteLocation = async (id) => {
+    if (!window.confirm('Möchtest du diesen Standort wirklich löschen?')) return
+    try {
+      await deleteLocation.mutateAsync({ id, tenantId })
+      notify('🗑️ Standort gelöscht.')
+    } catch (err) {
+      notify('⚠️ Fehler beim Löschen.')
+    }
   }
 
   // Caching mechanism: Restore last generated menu on mount
@@ -375,12 +725,29 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
             </span>
           </div>
 
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={() => setActiveTab('create')} style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: activeTab === 'create' ? C.purple : 'transparent', color: activeTab === 'create' ? C.white : C.muted, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+          <div style={{ display: 'flex', gap: 6, background: '#12121A', padding: 4, borderRadius: 12, border: `1px solid ${C.border}`, flexWrap: 'wrap' }}>
+            <button onClick={() => setActiveTab('create')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'create' ? C.purple : 'transparent', color: activeTab === 'create' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
               🚀 SNAP Generator
             </button>
-            <button onClick={() => setActiveTab('list')} style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: activeTab === 'list' ? C.purple : 'transparent', color: activeTab === 'list' ? C.white : C.muted, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-              📋 Meine Menü-Reels ({menuReels.length})
+            <button onClick={() => setActiveTab('articles')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'articles' ? C.purple : 'transparent', color: activeTab === 'articles' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              📊 Artikelstamm & Editor
+              {currentMenu?.categories?.length > 0 && (
+                <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 10, background: activeTab === 'articles' ? '#FFF' : `${C.purple}33`, color: activeTab === 'articles' ? C.purple : C.pink, fontWeight: 800 }}>
+                  {currentMenu.categories.reduce((acc, c) => acc + (c.items?.length || 0), 0)}
+                </span>
+              )}
+            </button>
+            <button onClick={() => setActiveTab('list')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'list' ? C.purple : 'transparent', color: activeTab === 'list' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+              📋 Digital Menus ({menuReels.length})
+            </button>
+            <button onClick={() => setActiveTab('locations')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'locations' ? C.purple : 'transparent', color: activeTab === 'locations' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+              📍 Standorte & Zeitplanung ({locations.length})
+            </button>
+            <button onClick={() => setActiveTab('design')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'design' ? C.purple : 'transparent', color: activeTab === 'design' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+              🎨 Branding
+            </button>
+            <button onClick={() => setActiveTab('settings')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'settings' ? C.purple : 'transparent', color: activeTab === 'settings' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+              ⚙️ Einstellungen
             </button>
           </div>
         </div>
@@ -395,12 +762,29 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
               🍽️ SCENVY MENU — Digitale Speisekarte & SNAP AI
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, background: C.card, padding: 4, borderRadius: 12, border: `1px solid ${C.border}` }}>
-            <button onClick={() => setActiveTab('create')} style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: activeTab === 'create' ? C.purple : 'transparent', color: activeTab === 'create' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+          <div style={{ display: 'flex', gap: 6, background: C.card, padding: 4, borderRadius: 12, border: `1px solid ${C.border}`, flexWrap: 'wrap' }}>
+            <button onClick={() => setActiveTab('create')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'create' ? C.purple : 'transparent', color: activeTab === 'create' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
               🚀 SNAP Generator
             </button>
-            <button onClick={() => setActiveTab('list')} style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: activeTab === 'list' ? C.purple : 'transparent', color: activeTab === 'list' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
-              📋 Digital Menus ({menuReels.length})
+            <button onClick={() => setActiveTab('articles')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'articles' ? C.purple : 'transparent', color: activeTab === 'articles' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              📊 Artikelstamm & Editor
+              {currentMenu?.categories?.length > 0 && (
+                <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 10, background: activeTab === 'articles' ? '#FFF' : `${C.purple}33`, color: activeTab === 'articles' ? C.purple : C.pink, fontWeight: 800 }}>
+                  {currentMenu.categories.reduce((acc, c) => acc + (c.items?.length || 0), 0)}
+                </span>
+              )}
+            </button>
+            <button onClick={() => setActiveTab('list')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'list' ? C.purple : 'transparent', color: activeTab === 'list' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+              📋 Menus ({menuReels.length})
+            </button>
+            <button onClick={() => setActiveTab('locations')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'locations' ? C.purple : 'transparent', color: activeTab === 'locations' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+              📍 Standorte & Zeitplanung ({locations.length})
+            </button>
+            <button onClick={() => setActiveTab('design')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'design' ? C.purple : 'transparent', color: activeTab === 'design' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+              🎨 Branding
+            </button>
+            <button onClick={() => setActiveTab('settings')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'settings' ? C.purple : 'transparent', color: activeTab === 'settings' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+              ⚙️ Settings
             </button>
           </div>
         </div>
@@ -416,6 +800,25 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
                 <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
                   Verwandle Speisekarten-Fotos, Dokumente oder PDF in ein interaktives, mobil-optimiertes Digital Menu.
                 </div>
+              </div>
+            )}
+
+            {currentMenu && currentMenu.categories?.length > 0 && (
+              <div style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.18), rgba(236,72,153,0.18))', border: `1px solid ${C.purple}`, borderRadius: 16, padding: '14px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ fontSize: 24 }}>✨</div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: C.white }}>
+                      Extrahiertes Menü aktiv ({currentMenu.categories.reduce((acc, c) => acc + (c.items?.length || 0), 0)} Artikel in {currentMenu.categories.length} Kategorien)
+                    </div>
+                    <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+                      Möchtest du Gerichte, Preise, Allergene, Schärfegrade oder Kategorien in der Tabellenansicht nachbearbeiten?
+                    </div>
+                  </div>
+                </div>
+                <button onClick={() => setActiveTab('articles')} style={{ padding: '8px 16px', borderRadius: 10, background: C.purple, color: C.white, border: 'none', fontWeight: 800, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                  📊 Artikelstamm-Editor Öffnen <ArrowRight size={14} />
+                </button>
               </div>
             )}
 
@@ -676,6 +1079,432 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
               </div>
             </div>
           </div>
+        ) : activeTab === 'articles' ? (
+          /* Article Master Table & Database Editor Tab */
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: C.white, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  📊 Artikelstamm & Tabellen-Editor
+                </div>
+                <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
+                  Verwalte alle extrahierten Kategorien, Gerichte, Preise, Allergene & Schärfegrade in einer zentralen Tabelle. Änderungen werden sofort übernommen.
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button onClick={() => addNewArticleToMenu()} style={{ padding: '10px 16px', borderRadius: 10, background: C.purple, color: C.white, border: 'none', fontWeight: 800, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Plus size={16} /> Neuer Artikel
+                </button>
+                <button onClick={addNewCategoryToMenu} style={{ padding: '10px 16px', borderRadius: 10, background: C.card2, border: `1px solid ${C.border}`, color: C.white, fontWeight: 800, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  📁 Neue Kategorie
+                </button>
+                <button onClick={exportArticlesToCSV} style={{ padding: '10px 16px', borderRadius: 10, background: `${C.pink}22`, border: `1px solid ${C.pink}44`, color: C.pink, fontWeight: 800, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  📥 CSV Export
+                </button>
+                {currentMenu && (
+                  <button onClick={() => handleSaveEditedMenu(currentMenu)} style={{ padding: '10px 18px', borderRadius: 10, background: 'linear-gradient(135deg, #10B981, #059669)', color: C.white, border: 'none', fontWeight: 800, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)' }}>
+                    💾 Speisekarte Aktualisieren & Live Speichern
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {!currentMenu || !currentMenu.categories?.length ? (
+              <div style={{ padding: 48, textAlign: 'center', color: C.muted, background: C.card, borderRadius: 20, border: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 44, marginBottom: 12 }}>📊</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: C.white, marginBottom: 6 }}>Noch keine Speisekarte geladen oder generiert</div>
+                <div style={{ fontSize: 13, maxWidth: 480, margin: '0 auto 20px', lineHeight: 1.5 }}>
+                  Lade ein PDF oder Foto im SNAP Generator hoch, um deinen Artikelstamm automatisch zu befüllen, oder erstelle den ersten Eintrag manuell.
+                </div>
+                <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+                  <button onClick={() => setActiveTab('create')} style={{ padding: '10px 20px', borderRadius: 10, background: C.purple, color: C.white, border: 'none', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
+                    🚀 Zum SNAP AI Generator
+                  </button>
+                  <button onClick={addNewCategoryToMenu} style={{ padding: '10px 20px', borderRadius: 10, background: C.card2, border: `1px solid ${C.border}`, color: C.white, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                    + Erste Kategorie Anlegen
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                {/* Stats Header Bar */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
+                  <div style={{ background: C.card, padding: 14, borderRadius: 14, border: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 11, color: C.muted, fontWeight: 800, textTransform: 'uppercase' }}>GESAMT ARTIKEL</div>
+                    <div style={{ fontSize: 24, fontWeight: 900, color: C.purple, marginTop: 2 }}>
+                      {currentMenu.categories.reduce((acc, c) => acc + (c.items?.length || 0), 0)}
+                    </div>
+                  </div>
+                  <div style={{ background: C.card, padding: 14, borderRadius: 14, border: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 11, color: C.muted, fontWeight: 800, textTransform: 'uppercase' }}>KATEGORIEN</div>
+                    <div style={{ fontSize: 24, fontWeight: 900, color: C.pink, marginTop: 2 }}>
+                      {currentMenu.categories.length}
+                    </div>
+                  </div>
+                  <div style={{ background: C.card, padding: 14, borderRadius: 14, border: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 11, color: C.muted, fontWeight: 800, textTransform: 'uppercase' }}>🌱 VEGAN / VEGGIE</div>
+                    <div style={{ fontSize: 24, fontWeight: 900, color: '#34D399', marginTop: 2 }}>
+                      {currentMenu.categories.reduce((acc, c) => acc + (c.items?.filter(i => (i.diet || []).includes('vegan') || (i.diet || []).includes('vegetarian') || i.vegan || i.vegetarian).length || 0), 0)}
+                    </div>
+                  </div>
+                  <div style={{ background: C.card, padding: 14, borderRadius: 14, border: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 11, color: C.muted, fontWeight: 800, textTransform: 'uppercase' }}>🌶️ SCHARF</div>
+                    <div style={{ fontSize: 24, fontWeight: 900, color: '#F87171', marginTop: 2 }}>
+                      {currentMenu.categories.reduce((acc, c) => acc + (c.items?.filter(i => i.spicy).length || 0), 0)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filters Row */}
+                <div style={{ background: C.card, padding: 16, borderRadius: 16, border: `1px solid ${C.border}`, marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ flex: 1, minWidth: 240, position: 'relative' }}>
+                      <input value={articleSearch} onChange={(e) => setArticleSearch(e.target.value)} placeholder="🔍 Artikel nach Name, Beschreibung, Preis oder Allergen durchsuchen..." style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} />
+                    </div>
+
+                    {/* Diet Quick Filter Pills */}
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {[
+                        { id: 'ALL', label: 'Alle' },
+                        { id: 'vegan', label: '🌱 Vegan' },
+                        { id: 'vegetarian', label: '🧀 Veggie' },
+                        { id: 'spicy', label: '🌶️ Scharf' },
+                        { id: 'glutenfree', label: '🌾 Glutenfrei' }
+                      ].map(f => (
+                        <button key={f.id} onClick={() => setDietFilter(f.id)} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: dietFilter === f.id ? C.purple : C.card2, color: dietFilter === f.id ? C.white : C.muted, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Category Pills Filter */}
+                  <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }} className="hide-scrollbar">
+                    <button onClick={() => setSelectedCatFilter('ALL')} style={{ padding: '6px 12px', borderRadius: 8, border: `1px solid ${selectedCatFilter === 'ALL' ? C.purple : C.border}`, background: selectedCatFilter === 'ALL' ? `${C.purple}22` : C.bg, color: selectedCatFilter === 'ALL' ? C.white : C.muted, fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      📂 Alle Kategorien ({currentMenu.categories.reduce((a, c) => a + (c.items?.length || 0), 0)})
+                    </button>
+                    {currentMenu.categories.map(cat => {
+                      const cName = typeof cat.name === 'object' ? (cat.name.de || cat.name.en || '') : cat.name
+                      return (
+                        <button key={cat.id} onClick={() => setSelectedCatFilter(cat.id)} style={{ padding: '6px 12px', borderRadius: 8, border: `1px solid ${selectedCatFilter === cat.id ? C.purple : C.border}`, background: selectedCatFilter === cat.id ? `${C.purple}22` : C.bg, color: selectedCatFilter === cat.id ? C.white : C.muted, fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span>{cat.icon || '🍽️'}</span>
+                          <span>{cName}</span>
+                          <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 6, background: C.card2, color: C.pink }}>
+                            {cat.items?.length || 0}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Master Article Table */}
+                <div style={{ background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: '#0D0D14', borderBottom: `1px solid ${C.border}`, color: C.muted, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                          <th style={{ padding: '14px 16px', width: 40 }}>#</th>
+                          <th style={{ padding: '14px 16px', width: 180 }}>KATEGORIE</th>
+                          <th style={{ padding: '14px 16px', width: 220 }}>GERICHT / ARTIKEL NAME</th>
+                          <th style={{ padding: '14px 16px', minWidth: 260 }}>BESCHREIBUNG</th>
+                          <th style={{ padding: '14px 16px', width: 120 }}>PREIS (€)</th>
+                          <th style={{ padding: '14px 16px', width: 160 }}>EIGENSCHAFTEN</th>
+                          <th style={{ padding: '14px 16px', width: 110 }}>ALLERGENE</th>
+                          <th style={{ padding: '14px 16px', width: 80, textAlign: 'center' }}>AKTION</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          // Flatten items from all categories
+                          let flatList = []
+                          currentMenu.categories.forEach(cat => {
+                            if (selectedCatFilter !== 'ALL' && cat.id !== selectedCatFilter) return
+                            const catName = typeof cat.name === 'object' ? (cat.name.de || cat.name.en || '') : cat.name
+
+                            ;(cat.items || []).forEach(item => {
+                              const itemName = typeof item.name === 'object' ? (item.name.de || item.name.en || '') : (item.name || '')
+                              const itemDesc = typeof item.description === 'object' ? (item.description.de || item.description.en || '') : (item.description || item.desc || '')
+                              const itemPrice = item.price || ''
+                              const isVegan = (item.diet || []).includes('vegan') || item.vegan
+                              const isVeggie = (item.diet || []).includes('vegetarian') || item.vegetarian
+                              const isGlutenfree = (item.diet || []).includes('glutenfree') || item.glutenFree
+                              const isSpicy = !!item.spicy
+                              const allergensStr = Array.isArray(item.allergens) ? item.allergens.join(', ') : (item.allergens || '')
+
+                              // Filter matching
+                              if (articleSearch) {
+                                const q = articleSearch.toLowerCase()
+                                const matchName = itemName.toLowerCase().includes(q)
+                                const matchDesc = itemDesc.toLowerCase().includes(q)
+                                const matchCat = catName.toLowerCase().includes(q)
+                                const matchPrice = itemPrice.toLowerCase().includes(q)
+                                const matchAllergen = allergensStr.toLowerCase().includes(q)
+                                if (!matchName && !matchDesc && !matchCat && !matchPrice && !matchAllergen) return
+                              }
+
+                              if (dietFilter === 'vegan' && !isVegan) return
+                              if (dietFilter === 'vegetarian' && !isVeggie) return
+                              if (dietFilter === 'spicy' && !isSpicy) return
+                              if (dietFilter === 'glutenfree' && !isGlutenfree) return
+
+                              flatList.push({
+                                catId: cat.id,
+                                catName,
+                                catIcon: cat.icon || '🍽️',
+                                item,
+                                itemId: item.id,
+                                itemName,
+                                itemDesc,
+                                itemPrice,
+                                isVegan,
+                                isVeggie,
+                                isGlutenfree,
+                                isSpicy,
+                                allergensStr
+                              })
+                            })
+                          })
+
+                          if (flatList.length === 0) {
+                            return (
+                              <tr>
+                                <td colSpan={8} style={{ padding: 32, textAlign: 'center', color: C.muted }}>
+                                  Keine Artikel gefunden für die aktuellen Filter.
+                                </td>
+                              </tr>
+                            )
+                          }
+
+                          return flatList.map((row, idx) => (
+                            <tr key={row.itemId} style={{ borderBottom: `1px solid ${C.border}`, background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                              <td style={{ padding: '12px 16px', color: C.muted, fontWeight: 700 }}>
+                                {idx + 1}
+                              </td>
+
+                              {/* Category Dropdown Selection */}
+                              <td style={{ padding: '12px 16px' }}>
+                                <select value={row.catId} onChange={(e) => updateArticleInMenu(row.catId, row.itemId, 'catId', e.target.value)} style={{ width: '100%', padding: '6px 8px', borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 12, outline: 'none' }}>
+                                  {currentMenu.categories.map(c => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.icon || '🍽️'} {typeof c.name === 'object' ? (c.name.de || c.name.en || '') : c.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+
+                              {/* Article Name */}
+                              <td style={{ padding: '12px 16px' }}>
+                                <input value={row.itemName} onChange={(e) => updateArticleInMenu(row.catId, row.itemId, 'name', e.target.value)} style={{ width: '100%', padding: '6px 10px', borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, fontWeight: 700, outline: 'none' }} placeholder="Artikelname eingeben..." />
+                              </td>
+
+                              {/* Article Description */}
+                              <td style={{ padding: '12px 16px' }}>
+                                <input value={row.itemDesc} onChange={(e) => updateArticleInMenu(row.catId, row.itemId, 'description', e.target.value)} style={{ width: '100%', padding: '6px 10px', borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, outline: 'none' }} placeholder="Beschreibung..." />
+                              </td>
+
+                              {/* Price */}
+                              <td style={{ padding: '12px 16px' }}>
+                                <input value={row.itemPrice} onChange={(e) => updateArticleInMenu(row.catId, row.itemId, 'price', e.target.value)} style={{ width: '100%', padding: '6px 10px', borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: '#38BDF8', fontSize: 13, fontWeight: 800, outline: 'none' }} placeholder="0.00 €" />
+                              </td>
+
+                              {/* Diet & Attribute Toggles */}
+                              <td style={{ padding: '12px 16px' }}>
+                                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                  <button onClick={() => updateArticleInMenu(row.catId, row.itemId, 'spicy', !row.isSpicy)} style={{ padding: '3px 6px', borderRadius: 6, border: 'none', background: row.isSpicy ? 'rgba(239,68,68,0.2)' : C.bg, color: row.isSpicy ? '#F87171' : C.muted, fontSize: 11, cursor: 'pointer' }} title="🌶️ Scharf">
+                                    🌶️
+                                  </button>
+                                  <button onClick={() => updateArticleInMenu(row.catId, row.itemId, 'diet_vegan', !row.isVegan)} style={{ padding: '3px 6px', borderRadius: 6, border: 'none', background: row.isVegan ? 'rgba(16,185,129,0.2)' : C.bg, color: row.isVegan ? '#34D399' : C.muted, fontSize: 11, cursor: 'pointer' }} title="🌱 Vegan">
+                                    🌱
+                                  </button>
+                                  <button onClick={() => updateArticleInMenu(row.catId, row.itemId, 'diet_vegetarian', !row.isVeggie)} style={{ padding: '3px 6px', borderRadius: 6, border: 'none', background: row.isVeggie ? 'rgba(245,158,11,0.2)' : C.bg, color: row.isVeggie ? '#FBBF24' : C.muted, fontSize: 11, cursor: 'pointer' }} title="🧀 Veggie">
+                                    🧀
+                                  </button>
+                                  <button onClick={() => updateArticleInMenu(row.catId, row.itemId, 'diet_glutenfree', !row.isGlutenfree)} style={{ padding: '3px 6px', borderRadius: 6, border: 'none', background: row.isGlutenfree ? 'rgba(139,92,246,0.2)' : C.bg, color: row.isGlutenfree ? '#A78BFA' : C.muted, fontSize: 11, cursor: 'pointer' }} title="🌾 Glutenfrei">
+                                    🌾
+                                  </button>
+                                </div>
+                              </td>
+
+                              {/* Allergens Input */}
+                              <td style={{ padding: '12px 16px' }}>
+                                <input value={row.allergensStr} onChange={(e) => updateArticleInMenu(row.catId, row.itemId, 'allergens', e.target.value)} placeholder="z.B. A, C, G" style={{ width: '100%', padding: '6px 8px', borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 11, outline: 'none' }} />
+                              </td>
+
+                              {/* Delete Action */}
+                              <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                                <button onClick={() => deleteArticleFromMenu(row.itemId)} style={{ padding: '6px', borderRadius: 8, background: `${C.pink}11`, border: `1px solid ${C.pink}33`, color: C.pink, cursor: 'pointer' }} title="Artikel aus Tabelle löschen">
+                                  <Trash2 size={14} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Table Footer Bar */}
+                  <div style={{ padding: '12px 20px', background: '#0D0D14', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                    <button onClick={() => addNewArticleToMenu()} style={{ padding: '8px 14px', borderRadius: 8, background: C.purple, color: C.white, border: 'none', fontWeight: 800, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Plus size={14} /> + Artikel Hinzufügen
+                    </button>
+                    <div style={{ fontSize: 11, color: C.muted }}>
+                      💡 Tipp: Korrigierte Rechtschreibfehler & geänderte Preise werden automatisch in deine digitale Speisekarte übernommen.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Category Structure Manager Section */}
+                <div style={{ marginTop: 28, background: C.card, borderRadius: 18, border: `1px solid ${C.border}`, padding: 22 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <div>
+                      <div style={{ fontSize: 16, fontWeight: 900, color: C.white }}>📁 Kategorien-Struktur Verwalten</div>
+                      <div style={{ fontSize: 12, color: C.muted }}>Passe Kategorie-Namen und Icons an oder lösche leere Gruppen.</div>
+                    </div>
+                    <button onClick={addNewCategoryToMenu} style={{ padding: '8px 14px', borderRadius: 8, background: C.card2, border: `1px solid ${C.border}`, color: C.white, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+                      + Neue Kategorie
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                    {currentMenu.categories.map((cat) => {
+                      const cName = typeof cat.name === 'object' ? (cat.name.de || cat.name.en || '') : cat.name
+                      return (
+                        <div key={cat.id} style={{ background: C.bg, borderRadius: 12, padding: 12, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <input value={cat.icon || '🍽️'} onChange={(e) => updateCategoryInMenu(cat.id, 'icon', e.target.value)} style={{ width: 36, height: 36, textAlign: 'center', fontSize: 18, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.white, outline: 'none' }} title="Icon/Emoji" />
+                          <input value={cName} onChange={(e) => updateCategoryInMenu(cat.id, 'name', e.target.value)} style={{ flex: 1, padding: 8, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, fontWeight: 700, outline: 'none' }} placeholder="Kategorie Name..." />
+                          <button onClick={() => deleteCategoryFromMenu(cat.id)} style={{ padding: 8, borderRadius: 8, background: `${C.pink}11`, border: `1px solid ${C.pink}33`, color: C.pink, cursor: 'pointer' }} title="Kategorie löschen">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : activeTab === 'locations' ? (
+          /* Locations & Time Schedule Tab */
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: C.white }}>📍 Standorte, Zeitplanung & Highlights</div>
+                <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
+                  Verknüpfe Speisekarten mit Standorten, steuere zeitbasierte Menü-Anzeigen & erstelle Standort-Highlight Banner.
+                </div>
+              </div>
+              <button onClick={handleOpenNewLocationModal} style={{ padding: '10px 18px', borderRadius: 10, background: `linear-gradient(135deg, ${C.purple}, ${C.pink})`, color: C.white, border: 'none', fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 6px 20px rgba(124, 58, 237, 0.4)' }}>
+                <Plus size={16} /> Neuer Standort
+              </button>
+            </div>
+
+            {/* Standorte Grid */}
+            {loadingLocations ? (
+              <div style={{ padding: 40, textAlign: 'center', color: C.muted }}>Lade Standorte...</div>
+            ) : locations.length === 0 ? (
+              <div style={{ padding: 40, textAlign: 'center', color: C.muted, background: C.card, borderRadius: 16, border: `1px solid ${C.border}` }}>
+                Keine Standorte angelegt. Klicke auf "+ Neuer Standort", um deinen ersten Gastronomie-Standort mit zeitgesteuerter Speisekarte zu erstellen.
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 20, marginBottom: 32 }}>
+                {locations.map((loc) => {
+                  const locLink = `${window.location.origin}/location/${loc.slug || loc.id}`
+                  const highlight = loc.highlight || {}
+
+                  return (
+                    <div key={loc.id} style={{ background: C.card, borderRadius: 18, border: `1px solid ${C.border}`, padding: 22, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <div>
+                        {/* Header Row */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                          <div>
+                            <div style={{ fontSize: 18, fontWeight: 900, color: C.white, display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <MapPin size={18} color={C.pink} /> {loc.name}
+                            </div>
+                            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{loc.address || 'Keine Adresse'}, {loc.city || 'München'}</div>
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 800, padding: '4px 10px', borderRadius: 20, background: loc.active !== false ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: loc.active !== false ? '#34D399' : '#F87171', border: `1px solid ${loc.active !== false ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}` }}>
+                            {loc.active !== false ? '🟢 Aktiv' : '⚪ Inaktiv'}
+                          </span>
+                        </div>
+
+                        {/* Location Direct URL Box */}
+                        <div style={{ background: '#0A0A10', borderRadius: 12, padding: 12, border: `1px solid ${C.border}`, marginBottom: 16 }}>
+                          <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 4 }}>🔗 STANDORT-LINK & QR-ZIEL</div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: C.purple, wordBreak: 'break-all', marginBottom: 8 }}>{locLink}</div>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button onClick={() => { copyToClipboard(locLink); notify('📋 Standortlink kopiert!') }} style={{ padding: '6px 12px', borderRadius: 8, background: C.card2, border: `1px solid ${C.border}`, color: C.white, fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <Copy size={12} /> Kopieren
+                            </button>
+                            <a href={locLink} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', padding: '6px 12px', borderRadius: 8, background: `${C.purple}22`, border: `1px solid ${C.purple}44`, color: C.purple, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <ExternalLink size={12} /> Vorschau Öffnen
+                            </a>
+                          </div>
+                        </div>
+
+                        {/* Highlight Banner Status Box */}
+                        <div style={{ background: highlight.enabled !== false ? 'rgba(124, 58, 237, 0.1)' : C.bg, borderRadius: 12, padding: 14, border: `1px solid ${highlight.enabled !== false ? `${C.purple}44` : C.border}`, marginBottom: 16 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                            <span style={{ fontSize: 11, fontWeight: 800, color: highlight.enabled !== false ? C.pink : C.muted, textTransform: 'uppercase', letterSpacing: 0.5, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <Zap size={12} /> Standort-Highlight Banner
+                            </span>
+                            <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 10, background: highlight.enabled !== false ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255,255,255,0.06)', color: highlight.enabled !== false ? '#34D399' : C.muted }}>
+                              {highlight.enabled !== false ? 'AKTIV' : 'DEAKTIVIERT'}
+                            </span>
+                          </div>
+
+                          {highlight.enabled !== false ? (
+                            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+                                  <span style={{ padding: '2px 8px', borderRadius: 12, background: '#FFF', color: highlight.color || C.purple, fontSize: 10, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                    {(highlight.badgeShape || 'jagged_star_13') === 'jagged_star_13' && <JaggedStar13 size={14} fill="#F59E0B" stroke="#B45309" />}
+                                    {highlight.badge || highlight.batchName || 'HIGHLIGHT'}
+                                  </span>
+                                  {highlight.price && (
+                                    <span style={{ padding: '2px 8px', borderRadius: 10, background: '#F59E0B', color: '#000', fontSize: 10, fontWeight: 900 }}>
+                                      {highlight.price}
+                                    </span>
+                                  )}
+                                </div>
+                                <div style={{ fontSize: 13, fontWeight: 800, color: C.white }}>{highlight.title || 'Kein Titel'}</div>
+                                {highlight.text && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{highlight.text}</div>}
+                                <div style={{ fontSize: 10, fontWeight: 700, color: C.pink, marginTop: 6, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                                  <Clock size={11} />
+                                  {highlight.startDate && highlight.endDate ? `${highlight.startDate} bis ${highlight.endDate} • ` : ''}
+                                  {highlight.startTime || '11:00'} – {highlight.endTime || '23:00'} Uhr
+                                  {highlight.exactLocation && <span>• 📍 {highlight.exactLocation}</span>}
+                                </div>
+                              </div>
+                              {(highlight.bgImage || highlight.image) && (
+                                <img src={highlight.bgImage || highlight.image} alt="" style={{ width: 54, height: 54, borderRadius: 10, objectFit: 'cover', flexShrink: 0, border: `1px solid ${C.border}` }} />
+                              )}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: 11, color: C.muted }}>
+                              Kein aktiver Highlight-Banner. Klicke auf "Bearbeiten", um Happy Hour, Mittagsdeals oder Specials einzustellen.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => handleEditLocation(loc)} style={{ flex: 1, padding: '10px 14px', borderRadius: 10, background: C.purple, color: C.white, border: 'none', fontWeight: 800, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                          <Edit3 size={14} /> Standort & Highlight Bearbeiten
+                        </button>
+                        <button onClick={() => handleDeleteLocation(loc.id)} style={{ padding: '10px', borderRadius: 10, background: `${C.pink}11`, border: `1px solid ${C.pink}33`, color: C.pink, cursor: 'pointer' }} title="Standort löschen">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         ) : activeTab === 'settings' ? (
           /* Settings Tab */
           <div>
@@ -834,6 +1663,255 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Location & Highlight Modal */}
+      {showLocationModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 24, width: '100%', maxWidth: 640, padding: 28, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: C.white }}>
+                  {editingLocId ? '✏️ Standort & Highlight Bearbeiten' : '📍 Neuer Gastronomie-Standort'}
+                </div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+                  Konfiguriere Standortdaten, QR-Slug und zeitgesteuerte Tagesangebote.
+                </div>
+              </div>
+              <button onClick={() => setShowLocationModal(false)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 22, fontWeight: 700 }}>✕</button>
+            </div>
+
+            <form onSubmit={handleSaveLocationSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Basic Fields */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>STANDORT NAME *</label>
+                  <input value={locForm.name} onChange={(e) => setLocForm({ ...locForm, name: e.target.value })} placeholder="z.B. Hauptplatz München" style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} required />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>URL SLUG (z.B. muenchen-hauptplatz)</label>
+                  <input value={locForm.slug} onChange={(e) => setLocForm({ ...locForm, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })} placeholder="muenchen-hauptplatz" style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>STRASSE & HAUSNUMMER</label>
+                  <input value={locForm.address} onChange={(e) => setLocForm({ ...locForm, address: e.target.value })} placeholder="Marienplatz 12" style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>PLZ</label>
+                  <input value={locForm.zip} onChange={(e) => setLocForm({ ...locForm, zip: e.target.value })} placeholder="80331" style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>STADT</label>
+                  <input value={locForm.city} onChange={(e) => setLocForm({ ...locForm, city: e.target.value })} placeholder="München" style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>GOOGLE MAPS LINK</label>
+                  <input value={locForm.googleMapsUrl} onChange={(e) => setLocForm({ ...locForm, googleMapsUrl: e.target.value })} placeholder="https://maps.google.com/..." style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>TELEFONNUMMER</label>
+                  <input value={locForm.phone} onChange={(e) => setLocForm({ ...locForm, phone: e.target.value })} placeholder="+49 89 12345678" style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} />
+                </div>
+              </div>
+
+              {/* Highlight Settings Section */}
+              <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 16, marginTop: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: C.white, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Zap size={16} color={C.pink} /> Standort-Highlight & Aktions-Banner Konfigurieren
+                    </div>
+                    <div style={{ fontSize: 11, color: C.muted }}>Erstelle aufmerksamkeitsstarke Tagesangebote mit 13-Zack Stern, Sonderpreis & Hintergrundbild.</div>
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 800, cursor: 'pointer', color: C.white }}>
+                    <input type="checkbox" checked={locForm.highlight?.enabled !== false} onChange={(e) => setLocForm({ ...locForm, highlight: { ...locForm.highlight, enabled: e.target.checked } })} style={{ accentColor: C.purple, width: 16, height: 16 }} />
+                    Aktivieren
+                  </label>
+                </div>
+
+                {locForm.highlight?.enabled !== false && (
+                  <div style={{ background: C.bg, borderRadius: 16, border: `1px solid ${C.border}`, padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    
+                    {/* Row 1: Batch Name & Badge Label */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 4 }}>BATCH / ZIEL-GRUPPE NAME</label>
+                        <input value={locForm.highlight?.batchName || ''} onChange={(e) => setLocForm({ ...locForm, highlight: { ...locForm.highlight, batchName: e.target.value } })} placeholder="z.B. Batch 1 - Hauptstandort" style={{ width: '100%', padding: 8, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 12 }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 4 }}>BADGE TEXT (TAG / LABEL)</label>
+                        <input value={locForm.highlight?.badge || ''} onChange={(e) => setLocForm({ ...locForm, highlight: { ...locForm.highlight, badge: e.target.value } })} placeholder="TAGES-HIGHLIGHT" style={{ width: '100%', padding: 8, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 12 }} />
+                      </div>
+                    </div>
+
+                    {/* Row 2: Banner Title & Special Price */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 4 }}>BANNER TITEL *</label>
+                        <input value={locForm.highlight?.title || ''} onChange={(e) => setLocForm({ ...locForm, highlight: { ...locForm.highlight, title: e.target.value } })} placeholder="z.B. 🔥 Happy Hour Specials & Aperitivo" style={{ width: '100%', padding: 8, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 12, fontWeight: 700 }} required />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 4 }}>SONDERPREIS / RABATT</label>
+                        <input value={locForm.highlight?.price || ''} onChange={(e) => setLocForm({ ...locForm, highlight: { ...locForm.highlight, price: e.target.value } })} placeholder="z.B. 9,90 € oder -20%" style={{ width: '100%', padding: 8, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: '#FBBF24', fontSize: 12, fontWeight: 800 }} />
+                      </div>
+                    </div>
+
+                    {/* Row 3: Description Text */}
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 4 }}>BESCHREIBUNG / DETAILS (TEXT)</label>
+                      <textarea value={locForm.highlight?.text || ''} onChange={(e) => setLocForm({ ...locForm, highlight: { ...locForm.highlight, text: e.target.value } })} placeholder="z.B. Alle Cocktails & Antipasti Platten zum Aktionspreis. Nur solange der Vorrat reicht!" rows={2} style={{ width: '100%', padding: 8, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 12, outline: 'none', resize: 'vertical' }} />
+                    </div>
+
+                    {/* Row 4: Badge Shape Selector (Stars & Shapes) & Exact Location */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12 }}>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 4 }}>STERN / BADGE FORM (13-ZACK STERN)</label>
+                        <select value={locForm.highlight?.badgeShape || locForm.highlight?.starStyle || 'jagged_star_13'} onChange={(e) => setLocForm({ ...locForm, highlight: { ...locForm.highlight, badgeShape: e.target.value } })} style={{ width: '100%', padding: 8, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 12 }}>
+                          <option value="jagged_star_13">💥 13-Zackiger Stern (Sehr Zackiger Stern)</option>
+                          <option value="starburst">❇️ Zacken-Burst Badge</option>
+                          <option value="star">⭐ Klassischer Stern</option>
+                          <option value="sparkles">🌟 Magic Sparkles</option>
+                          <option value="flame">🔥 Fire Deal</option>
+                          <option value="tag">🏷️ Angebotsschild</option>
+                          <option value="medal">🎖️ Auszeichnungs-Medaille</option>
+                          <option value="crown">👑 Royal Crown</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 4 }}>EXAKTER STANDORT / BEREICH</label>
+                        <input value={locForm.highlight?.exactLocation || ''} onChange={(e) => setLocForm({ ...locForm, highlight: { ...locForm.highlight, exactLocation: e.target.value } })} placeholder="z.B. Terrasse & Lounge Bar" style={{ width: '100%', padding: 8, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 12 }} />
+                      </div>
+                    </div>
+
+                    {/* Row 5: Exact Start Date, End Date, Start Time & End Time */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
+                      <div>
+                        <label style={{ fontSize: 10, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 3 }}>STARTDATUM</label>
+                        <input type="date" value={locForm.highlight?.startDate || ''} onChange={(e) => setLocForm({ ...locForm, highlight: { ...locForm.highlight, startDate: e.target.value } })} style={{ width: '100%', padding: 6, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 11 }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 10, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 3 }}>ENDDATUM</label>
+                        <input type="date" value={locForm.highlight?.endDate || ''} onChange={(e) => setLocForm({ ...locForm, highlight: { ...locForm.highlight, endDate: e.target.value } })} style={{ width: '100%', padding: 6, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 11 }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 10, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 3 }}>STARTZEIT</label>
+                        <input type="time" value={locForm.highlight?.startTime || '17:00'} onChange={(e) => setLocForm({ ...locForm, highlight: { ...locForm.highlight, startTime: e.target.value } })} style={{ width: '100%', padding: 6, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 11 }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 10, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 3 }}>ENDZEIT</label>
+                        <input type="time" value={locForm.highlight?.endTime || '19:30'} onChange={(e) => setLocForm({ ...locForm, highlight: { ...locForm.highlight, endTime: e.target.value } })} style={{ width: '100%', padding: 6, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 11 }} />
+                      </div>
+                    </div>
+
+                    {/* Row 6: Color & Background Image */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 12 }}>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 4 }}>BANNER FARBE</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <input type="color" value={locForm.highlight?.color || '#7C3AED'} onChange={(e) => setLocForm({ ...locForm, highlight: { ...locForm.highlight, color: e.target.value } })} style={{ width: 42, height: 36, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'transparent' }} />
+                          <div style={{ fontSize: 11, fontWeight: 700, color: C.white }}>{locForm.highlight?.color || '#7C3AED'}</div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                          <label style={{ fontSize: 11, fontWeight: 800, color: C.muted }}>HINTERGRUNDBILD (URL oder PRESET)</label>
+                          <button type="button" onClick={() => setShowMediaModal(true)} style={{ fontSize: 10, color: C.purple, fontWeight: 700, background: `${C.purple}22`, border: `1px solid ${C.purple}44`, borderRadius: 6, padding: '2px 6px', cursor: 'pointer' }}>
+                            🖼️ Mediathek
+                          </button>
+                        </div>
+                        <input value={locForm.highlight?.bgImage || ''} onChange={(e) => setLocForm({ ...locForm, highlight: { ...locForm.highlight, bgImage: e.target.value } })} placeholder="https://images.unsplash.com/photo-..." style={{ width: '100%', padding: 8, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 11 }} />
+                        
+                        {/* Quick Image Presets */}
+                        <div style={{ display: 'flex', gap: 6, marginTop: 6, overflowX: 'auto', paddingBottom: 2 }}>
+                          {[
+                            { name: '🍹 Cocktails', url: 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=1200&q=80' },
+                            { name: '🥩 Gourmet', url: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80' },
+                            { name: '🍔 Burger', url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=1200&q=80' },
+                            { name: '🍕 Pizza', url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1200&q=80' },
+                            { name: '☕ Kaffee', url: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1200&q=80' }
+                          ].map((preset) => (
+                            <button key={preset.name} type="button" onClick={() => setLocForm({ ...locForm, highlight: { ...locForm.highlight, bgImage: preset.url } })} style={{ padding: '3px 8px', borderRadius: 6, background: locForm.highlight?.bgImage === preset.url ? C.purple : C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 10, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                              {preset.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Banner Live Preview */}
+                    <div style={{ borderTop: `1px dashed ${C.border}`, paddingTop: 12, marginTop: 4 }}>
+                      <div style={{ fontSize: 10, color: C.muted, fontWeight: 800, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        ✨ LIVE-VORSCHAU FÜR BREADCRUMB / GAST:
+                      </div>
+                      <div style={{
+                        padding: 14,
+                        borderRadius: 16,
+                        position: 'relative',
+                        overflow: 'hidden',
+                        background: locForm.highlight?.bgImage
+                          ? `linear-gradient(135deg, rgba(15,15,26,0.85) 0%, rgba(15,15,26,0.95) 100%), url(${locForm.highlight.bgImage}) center/cover no-repeat`
+                          : `linear-gradient(135deg, ${locForm.highlight?.color || C.purple}, #EC4899)`,
+                        color: '#FFF',
+                        boxShadow: `0 8px 24px ${locForm.highlight?.color || C.purple}44`,
+                        border: '1px solid rgba(255,255,255,0.3)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 12
+                      }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+                            <span style={{ padding: '2px 8px', borderRadius: 16, background: '#FFF', color: locForm.highlight?.color || C.purple, fontSize: 10, fontWeight: 900, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              {(locForm.highlight?.badgeShape || 'jagged_star_13') === 'jagged_star_13' && <JaggedStar13 size={15} fill="#F59E0B" stroke="#B45309" />}
+                              {(locForm.highlight?.badgeShape) === 'starburst' && <span>💥</span>}
+                              {(locForm.highlight?.badgeShape) === 'star' && <span>⭐</span>}
+                              {(locForm.highlight?.badgeShape) === 'sparkles' && <span>🌟</span>}
+                              {(locForm.highlight?.badgeShape) === 'flame' && <span>🔥</span>}
+                              {(locForm.highlight?.badgeShape) === 'tag' && <span>🏷️</span>}
+                              <span>{locForm.highlight?.badge || 'HIGHLIGHT'}</span>
+                            </span>
+                            <span style={{ fontSize: 10, fontWeight: 800, opacity: 0.95, background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: 8 }}>
+                              ⏰ {locForm.highlight?.startDate ? `${locForm.highlight.startDate} bis ${locForm.highlight.endDate} • ` : ''}{locForm.highlight?.startTime} – {locForm.highlight?.endTime} Uhr
+                            </span>
+                            {locForm.highlight?.exactLocation && (
+                              <span style={{ fontSize: 10, opacity: 0.9, background: 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: 8 }}>
+                                📍 {locForm.highlight.exactLocation}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 14, fontWeight: 900 }}>{locForm.highlight?.title || 'Banner Titel'}</div>
+                          {locForm.highlight?.text && <div style={{ fontSize: 11, opacity: 0.92, marginTop: 2 }}>{locForm.highlight.text}</div>}
+                        </div>
+
+                        {locForm.highlight?.price && (
+                          <div style={{ background: '#F59E0B', color: '#000', padding: '4px 10px', borderRadius: 12, fontWeight: 900, fontSize: 13, transform: 'rotate(-3deg)', flexShrink: 0, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                            {locForm.highlight.price}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+                <button type="submit" style={{ flex: 1, padding: '12px 20px', borderRadius: 12, background: C.purple, color: C.white, border: 'none', fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>
+                  💾 Standort Speichern
+                </button>
+                <button type="button" onClick={() => setShowLocationModal(false)} style={{ padding: '12px 20px', borderRadius: 12, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>
+                  Abbrechen
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

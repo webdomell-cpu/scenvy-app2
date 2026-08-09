@@ -193,8 +193,52 @@ export function useLocations(tenantId) {
 
       const stored = localStorage.getItem(`demo_locations_${tenantId}`)
       return stored ? JSON.parse(stored) : [
-        { id: 'dt-demo', tenant_id: tenantId, name: 'DT-Demo', city: 'Berlin', country: 'DE', active: true },
-        { id: 'loc1', tenant_id: tenantId, name: 'Main Venue', city: 'Berlin', country: 'DE', active: true }
+        {
+          id: 'loc1',
+          tenant_id: tenantId,
+          name: 'Hauptplatz München',
+          slug: 'muenchen-hauptplatz',
+          address: 'Marienplatz 12',
+          city: 'München',
+          zip: '80331',
+          country: 'DE',
+          googleMapsUrl: 'https://maps.google.com/?q=Marienplatz+12+München',
+          phone: '+49 89 1234567',
+          tablesCount: 18,
+          active: true,
+          highlight: {
+            enabled: true,
+            title: '🔥 Happy Hour Special',
+            text: 'Alle Aperitifs 2-for-1 & Frisches Focaccia aufs Haus zwischen 17:00 und 19:30 Uhr!',
+            startTime: '11:00',
+            endTime: '23:00',
+            badge: 'Tages-Highlight',
+            color: '#7C3AED'
+          }
+        },
+        {
+          id: 'loc2',
+          tenant_id: tenantId,
+          name: 'Filiale Berlin Ku\'Damm',
+          slug: 'berlin-kudamm',
+          address: 'Kurfürstendamm 180',
+          city: 'Berlin',
+          zip: '10707',
+          country: 'DE',
+          googleMapsUrl: 'https://maps.google.com/?q=Kurfuerstendamm+180+Berlin',
+          phone: '+49 30 9876543',
+          tablesCount: 24,
+          active: true,
+          highlight: {
+            enabled: true,
+            title: '⭐ Mittagsmenü & Business Lunch',
+            text: 'Hauptgericht inkl. Espresso für nur 12,90 € – täglich bis 14:30 Uhr',
+            startTime: '11:30',
+            endTime: '14:30',
+            badge: 'LUNCH DEAL',
+            color: '#10B981'
+          }
+        }
       ]
     },
   })
@@ -211,11 +255,25 @@ export function useSaveLocation() {
         id: location.id || crypto.randomUUID(),
         tenant_id: finalTenantId,
         name: location.name || 'Neuer Standort',
+        slug: location.slug || (location.name ? location.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'standort'),
         address: location.address || '',
         zip: location.zip || '',
         city: location.city || 'Berlin',
         country: location.country || 'DE',
+        googleMapsUrl: location.googleMapsUrl || location.maps_url || '',
+        phone: location.phone || '',
+        tablesCount: location.tablesCount || location.tables_count || 10,
         active: location.active !== false,
+        defaultMenuId: location.defaultMenuId || '',
+        highlight: location.highlight || {
+          enabled: false,
+          title: '',
+          text: '',
+          startTime: '12:00',
+          endTime: '22:00',
+          badge: 'SPEZIAL',
+          color: '#8B5CF6'
+        },
         updated_at: new Date().toISOString()
       }
 
@@ -255,6 +313,44 @@ export function useDeleteLocation() {
     onSuccess: (tenantId) =>
       qc.invalidateQueries({ queryKey: ['locations', tenantId] }),
   })
+}
+
+export async function fetchLocationData(locationId) {
+  if (!locationId) return null
+  try {
+    const snap = await getDoc(doc(db, 'locations', locationId))
+    if (snap.exists()) return snap.data()
+  } catch (e) {
+    console.warn('fetchLocationData notice:', e)
+  }
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key.startsWith('demo_locations_')) {
+      const items = JSON.parse(localStorage.getItem(key) || '[]')
+      const found = items.find(l => l.id === locationId || l.slug === locationId)
+      if (found) return found
+    }
+  }
+
+  return {
+    id: locationId,
+    name: 'Hauptplatz München',
+    city: 'München',
+    address: 'Marienplatz 12, 80331 München',
+    googleMapsUrl: 'https://maps.google.com/?q=Marienplatz+12+München',
+    phone: '+49 89 1234567',
+    active: true,
+    highlight: {
+      enabled: true,
+      title: '🔥 Happy Hour & Tagesempfehlung',
+      text: '2-for-1 Signature Spritz & Frische Steinofen-Pizza von 17:00–19:30 Uhr!',
+      startTime: '11:00',
+      endTime: '23:00',
+      badge: 'TOP HIGHLIGHT',
+      color: '#7C3AED'
+    }
+  }
 }
 
 // ════════════════════════════════════════════════════════

@@ -1,15 +1,69 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { fetchMenuReel, useSubmitOrder, useSubmitServiceCall, useRecordMenuScan } from '@/lib/db'
-import { Phone, MessageCircle, MapPin, Instagram, Globe, Sparkles, ChevronUp, ArrowLeft, Edit3, Check, Plus, Trash2, Image, ShieldAlert, Download, QrCode, Share2, Copy, ShoppingCart, Bell, Receipt, Send, X, Minus, UtensilsCrossed } from 'lucide-react'
+import { fetchMenuReel, fetchLocationData, useSubmitOrder, useSubmitServiceCall, useRecordMenuScan } from '@/lib/db'
+import { Phone, MessageCircle, MapPin, Instagram, Globe, Sparkles, ChevronUp, ArrowLeft, Edit3, Check, Plus, Trash2, Image, ShieldAlert, Download, QrCode, Share2, Copy, ShoppingCart, Bell, Receipt, Send, X, Minus, UtensilsCrossed, Clock, ExternalLink, Calendar } from 'lucide-react'
 import { copyToClipboard } from '@/storage'
 import JSZip from 'jszip'
 
-export default function GuestMenuReel({ initialMenu, isPreview = false, onSaveMenu }) {
-  const { menuId } = useParams()
+export function JaggedStar13({ size = 22, fill = '#FFD700', stroke = '#B45309' }) {
+  const points = []
+  const numPoints = 13
+  const outerRadius = size / 2
+  const innerRadius = size * 0.38
+  const cx = size / 2
+  const cy = size / 2
+
+  for (let i = 0; i < numPoints * 2; i++) {
+    const radius = i % 2 === 0 ? outerRadius : innerRadius
+    const angle = (i * Math.PI) / numPoints - Math.PI / 2
+    const x = (cx + radius * Math.cos(angle)).toFixed(2)
+    const y = (cy + radius * Math.sin(angle)).toFixed(2)
+    points.push(`${x},${y}`)
+  }
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }}>
+      <polygon points={points.join(' ')} fill={fill} stroke={stroke} strokeWidth="1" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function isScheduleActive(schedule) {
+  if (!schedule || schedule.enabled === false) return true
+  const now = new Date()
+
+  // Date Check (startDate & endDate format YYYY-MM-DD)
+  if (schedule.startDate) {
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    if (todayStr < schedule.startDate) return false
+  }
+  if (schedule.endDate) {
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    if (todayStr > schedule.endDate) return false
+  }
+
+  // Time Check
+  const currentMin = now.getHours() * 60 + now.getMinutes()
+  const [startH, startM] = (schedule.startTime || '00:00').split(':').map(Number)
+  const [endH, endM] = (schedule.endTime || '23:59').split(':').map(Number)
+
+  const startMin = startH * 60 + (startM || 0)
+  const endMin = endH * 60 + (endM || 0)
+
+  if (startMin <= endMin) {
+    return currentMin >= startMin && currentMin <= endMin
+  } else {
+    return currentMin >= startMin || currentMin <= endMin
+  }
+}
+
+export default function GuestMenuReel({ initialMenu, isPreview = false, onSaveMenu, isLocationView = false }) {
+  const { menuId, locationId } = useParams()
   const nav = useNavigate()
 
   const [menu, setMenu] = useState(initialMenu || null)
+  const [locationData, setLocationData] = useState(null)
+  const [showHighlightBanner, setShowHighlightBanner] = useState(true)
   const [loading, setLoading] = useState(!initialMenu)
   const [lang, setLang] = useState('de') // 'de' | 'en'
   const [activeCat, setActiveCat] = useState('')
@@ -60,6 +114,31 @@ export default function GuestMenuReel({ initialMenu, isPreview = false, onSaveMe
   }
 
   useEffect(() => {
+    if (locationId || isLocationView) {
+      setLoading(true)
+      const locTarget = locationId || 'loc1'
+      fetchLocationData(locTarget).then((loc) => {
+        setLocationData(loc)
+        const sample = getSampleMenu()
+        if (loc) {
+          sample.branding = {
+            ...sample.branding,
+            name: loc.name || sample.branding?.name,
+            address: `${loc.address || ''}, ${loc.zip || ''} ${loc.city || ''}`.trim(),
+            phone: loc.phone || sample.branding?.phone
+          }
+        }
+        setMenu(sample)
+        setActiveCat('cat_1')
+        setLoading(false)
+      }).catch(() => {
+        setMenu(getSampleMenu())
+        setActiveCat('cat_1')
+        setLoading(false)
+      })
+      return
+    }
+
     if (initialMenu) {
       setMenu(initialMenu)
       setLoading(false)
@@ -93,7 +172,7 @@ export default function GuestMenuReel({ initialMenu, isPreview = false, onSaveMe
       setLoading(false)
       recordScan.mutate({ tenantId: 'tenant-demo-1', menuId: menuId || 'demo' })
     }
-  }, [menuId, initialMenu])
+  }, [menuId, locationId, isLocationView, initialMenu])
 
   // Cart Helper Functions
   const addToCart = (item) => {
@@ -372,9 +451,138 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
             {branding.name || 'Gourmet Restaurant'}
           </h1>
           {branding.address && (
-            <div style={{ fontSize: 12, color: '#A1A1AA', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 14 }}>
+            <div style={{ fontSize: 12, color: '#A1A1AA', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 8 }}>
               <MapPin size={13} color={secondaryColor} /> {branding.address}
+              {locationData?.googleMapsUrl && (
+                <a href={locationData.googleMapsUrl} target="_blank" rel="noreferrer" style={{ color: primaryColor, textDecoration: 'none', fontWeight: 700, marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                  Maps <ExternalLink size={10} />
+                </a>
+              )}
             </div>
+          )}
+
+          {/* Schedule Status Badge */}
+          {menu?.schedule?.enabled && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 20, background: isScheduleActive(menu.schedule) ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)', border: `1px solid ${isScheduleActive(menu.schedule) ? '#10B981' : '#F59E0B'}`, color: isScheduleActive(menu.schedule) ? '#34D399' : '#FBBF24', fontSize: 11, fontWeight: 800, marginTop: 4, marginBottom: 10 }}>
+              <Clock size={13} />
+              <span>
+                {isScheduleActive(menu.schedule)
+                  ? `Zeitgesteuert: Aktiv bis ${menu.schedule.endTime || '23:59'} Uhr`
+                  : `Inaktiv (Geplant: ${menu.schedule.startTime} – ${menu.schedule.endTime} Uhr)`}
+              </span>
+            </div>
+          )}
+
+          {/* Standort-Highlight / Zeitbasiertes Tagesangebot Banner */}
+          {showHighlightBanner && (locationData?.highlight?.enabled || menu?.schedule?.highlight?.enabled) && (
+            (() => {
+              const hl = locationData?.highlight || menu?.schedule?.highlight
+              const activeNow = isScheduleActive(hl)
+              if (!activeNow || !hl?.title) return null
+
+              const bgImg = hl.bgImage || hl.image
+              const shape = hl.badgeShape || hl.starStyle || 'jagged_star_13'
+              const badgeLabel = hl.badge || hl.batchName || 'TAGES-HIGHLIGHT'
+              const primaryClr = hl.color || '#7C3AED'
+
+              return (
+                <div style={{
+                  maxWidth: 660,
+                  margin: '14px auto 0',
+                  padding: bgImg ? '16px 20px' : '14px 18px',
+                  borderRadius: 20,
+                  position: 'relative',
+                  overflow: 'hidden',
+                  background: bgImg
+                    ? `linear-gradient(135deg, rgba(15,15,26,0.85) 0%, rgba(15,15,26,0.95) 100%), url(${bgImg}) center/cover no-repeat`
+                    : `linear-gradient(135deg, ${primaryClr}, #EC4899)`,
+                  color: '#FFF',
+                  boxShadow: `0 12px 35px ${primaryClr}55`,
+                  border: '1.5px solid rgba(255,255,255,0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 16,
+                  textAlign: 'left'
+                }}>
+                  {/* Subtle decorative glow overlay */}
+                  <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, background: 'rgba(255,255,255,0.12)', borderRadius: '50%', blur: '20px', pointerEvents: 'none' }} />
+
+                  <div style={{ flex: 1, zIndex: 2 }}>
+                    {/* Top Badges & Meta Row */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                      {/* Badge Name with Star / Shape Icon */}
+                      <span style={{ padding: '3px 10px', borderRadius: 20, background: '#FFF', color: primaryClr, fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0.5, display: 'inline-flex', alignItems: 'center', gap: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.25)' }}>
+                        {shape === 'jagged_star_13' && <JaggedStar13 size={18} fill="#F59E0B" stroke="#B45309" />}
+                        {shape === 'starburst' && <span style={{ fontSize: 13 }}>💥</span>}
+                        {shape === 'star' && <span style={{ fontSize: 13 }}>⭐</span>}
+                        {shape === 'sparkles' && <span style={{ fontSize: 13 }}>🌟</span>}
+                        {shape === 'flame' && <span style={{ fontSize: 13 }}>🔥</span>}
+                        {shape === 'tag' && <span style={{ fontSize: 13 }}>🏷️</span>}
+                        {shape === 'medal' && <span style={{ fontSize: 13 }}>🎖️</span>}
+                        {shape === 'crown' && <span style={{ fontSize: 13 }}>👑</span>}
+                        <span>{badgeLabel}</span>
+                      </span>
+
+                      {/* Date & Time Info */}
+                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.92)', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(0,0,0,0.35)', padding: '3px 8px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.15)' }}>
+                        <Clock size={12} />
+                        {hl.startDate && hl.endDate ? `${hl.startDate} bis ${hl.endDate} • ` : hl.startDate ? `Ab ${hl.startDate} • ` : ''}
+                        {hl.startTime || '11:00'} – {hl.endTime || '23:00'} Uhr
+                      </span>
+
+                      {/* Exact Location or Batch Name */}
+                      {(hl.exactLocation || locationData?.name) && (
+                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.9)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.18)', padding: '3px 8px', borderRadius: 12 }}>
+                          <MapPin size={11} /> {hl.exactLocation || locationData?.name}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Banner Title */}
+                    <div style={{ fontSize: 16, fontWeight: 900, color: '#FFF', textShadow: '0 2px 10px rgba(0,0,0,0.5)', lineHeight: 1.25 }}>
+                      {hl.title}
+                    </div>
+
+                    {/* Description Text */}
+                    {hl.text && (
+                      <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.94)', marginTop: 4, lineHeight: 1.35, fontWeight: 500 }}>
+                        {hl.text}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Side: Price Sticker & Close Button */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, zIndex: 2, flexShrink: 0 }}>
+                    {/* Price Sticker */}
+                    {hl.price && (
+                      <div style={{
+                        background: 'linear-gradient(135deg, #F59E0B, #F59E0B)',
+                        color: '#000',
+                        padding: '6px 12px',
+                        borderRadius: 14,
+                        fontWeight: 900,
+                        fontSize: 15,
+                        textAlign: 'center',
+                        boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
+                        border: '2px solid #FFF',
+                        transform: 'rotate(-3deg)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center'
+                      }}>
+                        <span style={{ fontSize: 8.5, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 800, color: '#78350F', lineHeight: 1 }}>Sonderpreis</span>
+                        <span style={{ fontSize: 15, fontWeight: 900, marginTop: 1 }}>{hl.price}</span>
+                      </div>
+                    )}
+
+                    <button onClick={() => setShowHighlightBanner(false)} style={{ background: 'rgba(255,255,255,0.22)', border: 'none', color: '#FFF', width: 28, height: 28, borderRadius: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, backdropFilter: 'blur(4px)' }} title="Banner schließen">
+                      <X size={15} />
+                    </button>
+                  </div>
+                </div>
+              )
+            })()
           )}
 
           {/* Quick Contact Buttons */}

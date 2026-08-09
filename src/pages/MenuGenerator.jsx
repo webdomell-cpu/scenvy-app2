@@ -57,6 +57,9 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
   // Preview & Editor state
   const [currentMenu, setCurrentMenu] = useState(null)
   const [selectedMenuForView, setSelectedMenuForView] = useState(null)
+  const [editingMenuId, setEditingMenuId] = useState(null)
+  const [showBrandingInTable, setShowBrandingInTable] = useState(true)
+  const csvInputRef = React.useRef(null)
 
   // Location & Highlight Management states
   const [showLocationModal, setShowLocationModal] = useState(false)
@@ -311,6 +314,154 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
     notify('📥 Artikelstamm-CSV heruntergeladen!')
   }
 
+  const openMenuInEditor = (m) => {
+    if (!m) return
+    const data = m.data || m
+    setEditingMenuId(m.id || null)
+    setCurrentMenu({
+      ...data,
+      id: m.id || data.id
+    })
+    if (data.branding) {
+      if (data.branding.name) setVenue(data.branding.name)
+      if (data.branding.primaryColor) setPrimaryColor(data.branding.primaryColor)
+      if (data.branding.secondaryColor) setSecondaryColor(data.branding.secondaryColor)
+      if (data.branding.style) setStyle(data.branding.style)
+      if (data.branding.phone) setPhone(data.branding.phone)
+      if (data.branding.email) setEmail(data.branding.email)
+      if (data.branding.whatsapp) setWhatsapp(data.branding.whatsapp)
+      if (data.branding.instagram) setInstagram(data.branding.instagram)
+      if (data.branding.address) setAddress(data.branding.address)
+    }
+    setActiveTab('articles')
+    notify(`📊 Artikelstamm für "${data.branding?.name || m.title || 'Digital Menu'}" geladen!`)
+  }
+
+  const handleCSVImport = (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const text = e.target?.result
+      if (!text || typeof text !== 'string') return
+
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0)
+      if (lines.length === 0) {
+        notify('⚠️ CSV-Datei ist leer.')
+        return
+      }
+
+      const firstLine = lines[0]
+      const delimiter = firstLine.includes(';') ? ';' : firstLine.includes('\t') ? '\t' : ','
+
+      const categoriesMap = {}
+
+      lines.forEach((line, idx) => {
+        if (idx === 0 && (line.toLowerCase().includes('kategorie') || line.toLowerCase().includes('preis') || line.toLowerCase().includes('artikel'))) {
+          return
+        }
+
+        const cols = line.split(delimiter).map(c => c.trim().replace(/^["']|["']$/g, ''))
+        if (cols.length < 2) return
+
+        let catName = 'Hauptspeisen'
+        let name = ''
+        let desc = ''
+        let price = ''
+        let spicyStr = ''
+        let veganStr = ''
+        let veggieStr = ''
+        let glutenfreeStr = ''
+        let allergensStr = ''
+
+        if (cols.length === 2) {
+          name = cols[0]
+          price = cols[1]
+        } else if (cols.length === 3) {
+          name = cols[0]
+          desc = cols[1]
+          price = cols[2]
+        } else if (cols.length >= 4) {
+          catName = cols[0] || 'Hauptspeisen'
+          name = cols[1]
+          desc = cols[2]
+          price = cols[3]
+          spicyStr = cols[4] || ''
+          veganStr = cols[5] || ''
+          veggieStr = cols[6] || ''
+          glutenfreeStr = cols[7] || ''
+          allergensStr = cols[8] || ''
+        }
+
+        if (!name) return
+
+        const catKey = catName.toLowerCase()
+        if (!categoriesMap[catKey]) {
+          categoriesMap[catKey] = {
+            id: 'cat_csv_' + Math.random().toString(36).substr(2, 6),
+            name: catName,
+            icon: '🍽️',
+            items: []
+          }
+        }
+
+        const isSpicy = spicyStr.toLowerCase().includes('ja') || spicyStr.toLowerCase().includes('yes') || spicyStr === 'true' || spicyStr === '1'
+        const isVegan = veganStr.toLowerCase().includes('ja') || veganStr.toLowerCase().includes('yes') || veganStr === 'true' || veganStr === '1'
+        const isVeggie = veggieStr.toLowerCase().includes('ja') || veggieStr.toLowerCase().includes('yes') || veggieStr === 'true' || veggieStr === '1'
+        const isGlutenfree = glutenfreeStr.toLowerCase().includes('ja') || glutenfreeStr.toLowerCase().includes('yes') || glutenfreeStr === 'true' || glutenfreeStr === '1'
+
+        const diet = []
+        if (isVegan) diet.push('vegan')
+        if (isVeggie) diet.push('vegetarian')
+        if (isGlutenfree) diet.push('glutenfree')
+
+        const allergens = allergensStr ? allergensStr.split(/[,;]/).map(a => a.trim().toUpperCase()).filter(Boolean) : []
+
+        categoriesMap[catKey].items.push({
+          id: 'item_csv_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+          name: { de: name, en: name },
+          description: { de: desc, en: desc },
+          price: price.includes('€') ? price : (price ? `${price} €` : '0.00 €'),
+          allergens,
+          diet,
+          spicy: isSpicy
+        })
+      })
+
+      const categoriesList = Object.values(categoriesMap)
+      if (categoriesList.length === 0) {
+        notify('⚠️ Keine gültigen Artikel in der CSV-Datei gefunden.')
+        return
+      }
+
+      const newMenu = {
+        id: editingMenuId || currentMenu?.id || crypto.randomUUID(),
+        branding: {
+          name: venue || 'CSV Speisekarte',
+          primaryColor: primaryColor || '#7C3AED',
+          secondaryColor: secondaryColor || '#FF2D8D',
+          style: style || 'fine_dining',
+          phone,
+          email,
+          whatsapp,
+          instagram,
+          address
+        },
+        categories: categoriesList
+      }
+
+      setCurrentMenu(newMenu)
+      try {
+        localStorage.setItem('scenvy_cached_menu', JSON.stringify(newMenu))
+      } catch (e) {}
+
+      notify(`📥 CSV Import erfolgreich! ${categoriesList.reduce((a, c) => a + c.items.length, 0)} Artikel in ${categoriesList.length} Kategorien geladen.`)
+    }
+    reader.readAsText(file)
+    if (event.target) event.target.value = ''
+  }
+
   const handleOpenNewLocationModal = () => {
     setEditingLocId(null)
     setLocForm({
@@ -460,21 +611,27 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
         const base64Str = event.target.result
         setFileBase64(base64Str)
 
+        let mime = file.type || 'application/pdf'
+
         if (file.type.startsWith('image/')) {
           setUploadedImage(base64Str)
           setDocumentText(`[Foto-Speisekarte: ${file.name}]`)
-          notify(`📸 Foto "${file.name}" geladen — Klicke "Speisekarte Generieren" zum Analysieren`)
+          notify(`📸 Foto "${file.name}" geladen — KI-Analyse startet...`)
         } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+          mime = 'application/pdf'
           setDocumentText(`[PDF-Speisekarte: ${file.name}]`)
-          notify(`📄 PDF "${file.name}" hochgeladen — Klicke "Speisekarte Generieren" zum Analysieren`)
+          notify(`📄 PDF "${file.name}" hochgeladen — KI-Analyse startet...`)
         } else {
           if (typeof base64Str === 'string' && !base64Str.startsWith('data:')) {
             setDocumentText(base64Str)
           } else {
             setDocumentText(`[Dokument: ${file.name}]`)
           }
-          notify(`📄 Datei "${file.name}" geladen`)
+          notify(`📄 Datei "${file.name}" geladen — KI-Analyse startet...`)
         }
+
+        // Auto-trigger AI extraction immediately!
+        triggerMenuGeneration(base64Str, mime, file.name)
       } catch (err) {
         console.error('Error processing uploaded file:', err)
         notify(`⚠️ Verarbeitungsfehler bei "${file.name}".`)
@@ -496,6 +653,7 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
     setDocumentText(`[Mediathek Speisekarte: ${media.name}]\n- Vorspeisen: Hausgemachte Suppe 7,20€, Vitello Tonnato 14,50€\n- Hauptspeisen: Pizza Burrata & Rucola 13,90€, Tagliolini al Tartufo 19,50€, Lachsfilet vom Grill 24,50€\n- Getränke: Homemade Lemonade 5,20€, Espresso 2,80€`)
     setShowMediaModal(false)
     notify(`🖼️ Aus Mediathek übernommen: ${media.name}`)
+    triggerMenuGeneration(null, null, media.name)
   }
 
   const downloadHTML = (menu) => {
@@ -556,9 +714,13 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
     notify('📥 Standalone HTML-Datei heruntergeladen!')
   }
 
-  const handleGenerate = async () => {
+  const triggerMenuGeneration = async (overrideBase64, overrideMime, overrideFileName) => {
+    const activeBase64 = overrideBase64 !== undefined ? overrideBase64 : fileBase64
+    const activeMime = overrideMime !== undefined ? overrideMime : fileMimeType
+    const activeDocText = overrideFileName ? `[PDF/Dokument: ${overrideFileName}]` : documentText
+
     setIsGenerating(true)
-    setGenStep('📄 Dokumentinhalte werden analysiert...')
+    setGenStep('📄 PDF-Inhalte & Preise werden von KI analysiert...')
 
     setTimeout(() => setGenStep('🧠 KI-Kategorisierung & Preiserfassung...'), 1200)
     setTimeout(() => setGenStep('🌐 Zweisprachige Übersetzung (DE & EN)...'), 2200)
@@ -569,9 +731,9 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          documentText,
-          fileBase64,
-          fileMimeType,
+          documentText: activeDocText,
+          fileBase64: activeBase64,
+          fileMimeType: activeMime,
           venue: venue || tenant?.name || '',
           style,
           primaryColor,
@@ -637,13 +799,34 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
     } catch (err) {
       console.error('Error generating menu:', err)
       setIsGenerating(false)
-      notify('✨ Speisekarte wurde aufbereitet')
+      notify('⚠️ Fehler bei der KI-Analyse. Bitte erneut versuchen.')
     }
   }
 
+  const handleGenerate = () => {
+    triggerMenuGeneration()
+  }
+
   const handleSaveEditedMenu = async (updatedMenu) => {
-    const menuToSave = updatedMenu || currentMenu
-    if (!menuToSave) return
+    const rawMenu = updatedMenu || currentMenu
+    if (!rawMenu) return
+
+    const menuToSave = {
+      ...rawMenu,
+      id: editingMenuId || rawMenu.id || crypto.randomUUID(),
+      branding: {
+        ...(rawMenu.branding || {}),
+        name: venue || rawMenu.branding?.name || 'Digital Menu',
+        primaryColor: primaryColor || rawMenu.branding?.primaryColor || '#7C3AED',
+        secondaryColor: secondaryColor || rawMenu.branding?.secondaryColor || '#FF2D8D',
+        style: style || rawMenu.branding?.style || 'fine_dining',
+        phone: phone || rawMenu.branding?.phone || '',
+        whatsapp: whatsapp || rawMenu.branding?.whatsapp || '',
+        instagram: instagram || rawMenu.branding?.instagram || '',
+        address: address || rawMenu.branding?.address || '',
+        email: email || rawMenu.branding?.email || ''
+      }
+    }
 
     setCurrentMenu(menuToSave)
 
@@ -656,7 +839,7 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
     try {
       await saveMenuReel.mutateAsync({
         menuReel: {
-          id: menuToSave.id || crypto.randomUUID(),
+          id: menuToSave.id,
           title: menuToSave.branding?.name || venue || 'Digital Menu',
           data: menuToSave
         },
@@ -1082,32 +1265,96 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
         ) : activeTab === 'articles' ? (
           /* Article Master Table & Database Editor Tab */
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-              <div>
-                <div style={{ fontSize: 22, fontWeight: 900, color: C.white, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  📊 Artikelstamm & Tabellen-Editor
+            <input ref={csvInputRef} type="file" accept=".csv,.txt" onChange={handleCSVImport} style={{ display: 'none' }} />
+
+            {/* Menu Card Selector & Quick Action Header Bar */}
+            <div style={{ background: C.card, borderRadius: 18, border: `1px solid ${C.border}`, padding: 20, marginBottom: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: C.pink, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
+                    📌 AKTUELL IN BEARBEITUNG (SPEISEKARTE & STANDORT)
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <select
+                      value={editingMenuId || (currentMenu?.id || '')}
+                      onChange={(e) => {
+                        const targetId = e.target.value
+                        if (targetId === 'new') {
+                          setEditingMenuId(null)
+                          setCurrentMenu(null)
+                          notify('✨ Neuer Artikelstamm-Entwurf erstellt')
+                          return
+                        }
+                        const found = menuReels.find(m => m.id === targetId)
+                        if (found) openMenuInEditor(found)
+                      }}
+                      style={{ padding: '10px 14px', borderRadius: 12, background: C.bg, border: `1px solid ${C.purple}88`, color: C.white, fontSize: 14, fontWeight: 800, outline: 'none', cursor: 'pointer', minWidth: 260 }}
+                    >
+                      {currentMenu && !menuReels.some(m => m.id === currentMenu.id) && (
+                        <option value={currentMenu.id || 'draft'}>
+                          ⚡ Entwurf: {currentMenu.branding?.name || venue || 'Unbenanntes Menü'}
+                        </option>
+                      )}
+                      {menuReels.map(m => (
+                        <option key={m.id} value={m.id}>
+                          📜 {m.data?.branding?.name || m.title || 'Digital Menu'} (ID: {m.id.slice(0, 6)})
+                        </option>
+                      ))}
+                      <option value="new">➕ Neue Speisekarte anlegen</option>
+                    </select>
+
+                    <button
+                      onClick={() => setShowBrandingInTable(!showBrandingInTable)}
+                      style={{ padding: '8px 14px', borderRadius: 10, background: C.card2, border: `1px solid ${C.border}`, color: C.white, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                    >
+                      ⚙️ Restaurant-Branding {showBrandingInTable ? 'einklappen ▲' : 'anpassen ▼'}
+                    </button>
+                  </div>
                 </div>
-                <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
-                  Verwalte alle extrahierten Kategorien, Gerichte, Preise, Allergene & Schärfegrade in einer zentralen Tabelle. Änderungen werden sofort übernommen.
+
+                {/* Quick Action Buttons */}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button onClick={() => addNewArticleToMenu()} style={{ padding: '10px 16px', borderRadius: 10, background: C.purple, color: C.white, border: 'none', fontWeight: 800, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Plus size={16} /> Neuer Artikel
+                  </button>
+                  <button onClick={addNewCategoryToMenu} style={{ padding: '10px 16px', borderRadius: 10, background: C.card2, border: `1px solid ${C.border}`, color: C.white, fontWeight: 800, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    📁 Neue Kategorie
+                  </button>
+                  <button onClick={() => csvInputRef.current?.click()} style={{ padding: '10px 16px', borderRadius: 10, background: `${C.purple}22`, border: `1px solid ${C.purple}44`, color: C.purple, fontWeight: 800, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    📂 CSV / Excel Import
+                  </button>
+                  <button onClick={exportArticlesToCSV} style={{ padding: '10px 16px', borderRadius: 10, background: `${C.pink}22`, border: `1px solid ${C.pink}44`, color: C.pink, fontWeight: 800, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    📥 CSV Export
+                  </button>
+                  {currentMenu && (
+                    <button onClick={() => handleSaveEditedMenu(currentMenu)} style={{ padding: '10px 18px', borderRadius: 10, background: 'linear-gradient(135deg, #10B981, #059669)', color: C.white, border: 'none', fontWeight: 800, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)' }}>
+                      💾 Speisekarte Aktualisieren & Speichern
+                    </button>
+                  )}
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button onClick={() => addNewArticleToMenu()} style={{ padding: '10px 16px', borderRadius: 10, background: C.purple, color: C.white, border: 'none', fontWeight: 800, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Plus size={16} /> Neuer Artikel
-                </button>
-                <button onClick={addNewCategoryToMenu} style={{ padding: '10px 16px', borderRadius: 10, background: C.card2, border: `1px solid ${C.border}`, color: C.white, fontWeight: 800, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  📁 Neue Kategorie
-                </button>
-                <button onClick={exportArticlesToCSV} style={{ padding: '10px 16px', borderRadius: 10, background: `${C.pink}22`, border: `1px solid ${C.pink}44`, color: C.pink, fontWeight: 800, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  📥 CSV Export
-                </button>
-                {currentMenu && (
-                  <button onClick={() => handleSaveEditedMenu(currentMenu)} style={{ padding: '10px 18px', borderRadius: 10, background: 'linear-gradient(135deg, #10B981, #059669)', color: C.white, border: 'none', fontWeight: 800, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)' }}>
-                    💾 Speisekarte Aktualisieren & Live Speichern
-                  </button>
-                )}
-              </div>
+              {/* Collapsible Branding & Location Metadata Inline Bar */}
+              {showBrandingInTable && (
+                <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${C.border}`, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 10, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 4 }}>RESTAURANT NAME</label>
+                    <input value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="Restaurant Name" style={{ width: '100%', padding: '8px 10px', borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 12 }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 4 }}>ADRESSE & STANDORT</label>
+                    <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Musterstraße 12, Berlin" style={{ width: '100%', padding: '8px 10px', borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 12 }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 4 }}>TELEFON / WHATSAPP</label>
+                    <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+49 170 1234567" style={{ width: '100%', padding: '8px 10px', borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 12 }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 4 }}>INSTAGRAM HANDLE</label>
+                    <input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="@gourmet_bistro" style={{ width: '100%', padding: '8px 10px', borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 12 }} />
+                  </div>
+                </div>
+              )}
             </div>
 
             {!currentMenu || !currentMenu.categories?.length ? (
@@ -1115,11 +1362,14 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
                 <div style={{ fontSize: 44, marginBottom: 12 }}>📊</div>
                 <div style={{ fontSize: 18, fontWeight: 800, color: C.white, marginBottom: 6 }}>Noch keine Speisekarte geladen oder generiert</div>
                 <div style={{ fontSize: 13, maxWidth: 480, margin: '0 auto 20px', lineHeight: 1.5 }}>
-                  Lade ein PDF oder Foto im SNAP Generator hoch, um deinen Artikelstamm automatisch zu befüllen, oder erstelle den ersten Eintrag manuell.
+                  Lade ein PDF oder Foto im SNAP Generator hoch, importiere eine CSV-Datei oder wähle eine gespeicherte Karte aus der Liste oben.
                 </div>
-                <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+                <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
                   <button onClick={() => setActiveTab('create')} style={{ padding: '10px 20px', borderRadius: 10, background: C.purple, color: C.white, border: 'none', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
                     🚀 Zum SNAP AI Generator
+                  </button>
+                  <button onClick={() => csvInputRef.current?.click()} style={{ padding: '10px 20px', borderRadius: 10, background: `${C.purple}22`, border: `1px solid ${C.purple}44`, color: C.purple, fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
+                    📂 CSV / Excel Import
                   </button>
                   <button onClick={addNewCategoryToMenu} style={{ padding: '10px 20px', borderRadius: 10, background: C.card2, border: `1px solid ${C.border}`, color: C.white, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                     + Erste Kategorie Anlegen
@@ -1591,8 +1841,11 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
                       </div>
 
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button onClick={() => setSelectedMenuForView(m)} style={{ flex: 1, padding: '8px 12px', borderRadius: 8, background: C.purple, color: C.white, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                          <Eye size={14} /> Öffnen & WYSIWYG
+                        <button onClick={() => openMenuInEditor(m)} style={{ flex: '1 1 100%', padding: '9px 12px', borderRadius: 8, background: 'linear-gradient(135deg, #7C3AED, #9333EA)', color: C.white, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)' }}>
+                          <Edit3 size={14} /> 📊 Artikelstamm & Tabelle editieren
+                        </button>
+                        <button onClick={() => setSelectedMenuForView(m)} style={{ flex: 1, padding: '8px 12px', borderRadius: 8, background: C.card2, border: `1px solid ${C.border}`, color: C.white, cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                          <Eye size={14} /> WYSIWYG Preview
                         </button>
                         <button onClick={() => downloadHTML(m)} style={{ padding: '8px 12px', borderRadius: 8, background: C.card2, border: `1px solid ${C.border}`, color: C.white, cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }} title="HTML Herunterladen">
                           <Download size={14} /> HTML

@@ -3,6 +3,89 @@ import { checkRateLimitAndAuth } from './ai-guard.js'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { createRequire } from 'module'
+
+const require = createRequire(import.meta.url)
+const pdfParse = require('pdf-parse')
+
+function parsePdfTextFallback(text, venue, style, primaryColor, secondaryColor) {
+  if (!text || typeof text !== 'string') return null
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0)
+  if (lines.length === 0) return null
+
+  const categories = []
+  let currentCategory = {
+    id: 'cat_extracted_1',
+    name: 'Speisen & Getränke',
+    icon: '🍽️',
+    items: []
+  }
+
+  const priceRegex = /(\d+[,.]\d{2}\s*€?|€\s*\d+[,.]\d{2}|\d+\s*€)/i
+
+  lines.forEach((line, idx) => {
+    // Check if line looks like a category header (ALL CAPS, short, no price)
+    if (line.length < 35 && line === line.toUpperCase() && !priceRegex.test(line) && line.length > 3) {
+      if (currentCategory.items.length > 0) {
+        categories.push(currentCategory)
+      }
+      currentCategory = {
+        id: `cat_extracted_${categories.length + 1}`,
+        name: line.charAt(0) + line.slice(1).toLowerCase(),
+        icon: '📋',
+        items: []
+      }
+      return
+    }
+
+    const priceMatch = line.match(priceRegex)
+    if (priceMatch) {
+      const priceStr = priceMatch[0].includes('€') ? priceMatch[0] : `${priceMatch[0]} €`
+      const dishName = line.replace(priceRegex, '').trim() || `Gericht ${currentCategory.items.length + 1}`
+      
+      currentCategory.items.push({
+        id: `item_pdf_${idx + 1}`,
+        name: dishName,
+        description: 'Aus PDF-Dokument ausgelesen',
+        price: priceStr,
+        allergens: [],
+        highlight: currentCategory.items.length === 0
+      })
+    } else if (line.length > 3 && !line.startsWith('[') && !line.startsWith('http')) {
+      // Line without price (might be dish description or item name)
+      if (currentCategory.items.length > 0) {
+        const lastItem = currentCategory.items[currentCategory.items.length - 1]
+        if (lastItem.description === 'Aus PDF-Dokument ausgelesen') {
+          lastItem.description = line
+        }
+      } else {
+        currentCategory.items.push({
+          id: `item_pdf_${idx + 1}`,
+          name: line,
+          description: '',
+          price: '—',
+          highlight: false
+        })
+      }
+    }
+  })
+
+  if (currentCategory.items.length > 0) {
+    categories.push(currentCategory)
+  }
+
+  if (categories.length === 0) return null
+
+  return {
+    branding: {
+      name: venue || 'Extrahierte Speisekarte (PDF)',
+      style: style || 'modern',
+      primaryColor: primaryColor || '#7C3AED',
+      secondaryColor: secondaryColor || '#FF2D8D',
+    },
+    categories
+  }
+}
 
 function repairAndParseJson(raw) {
   if (!raw || typeof raw !== 'string') return null
@@ -104,7 +187,43 @@ export default async function handler(req, res) {
 
   const { documentText, menuItemsText, venue, style, primaryColor, secondaryColor, phone, whatsapp, address, instagram, fileBase64, fileMimeType } = req.body || {}
 
-  const rawInput = (documentText || '') + '\n' + (menuItemsText || '')
+  let rawInput = (documentText || '') + '\n' + (menuItemsText || '')
+
+  // Extract raw text from PDF if fileBase64 is provided
+  let extractedPdfText = ''
+  let cleanBase64 = ''
+  let cleanMime = fileMimeType || 'application/pdf'
+
+  if (fileBase64 && typeof fileBase64 === 'string') {
+    cleanBase64 = fileBase64
+    if (cleanBase64.includes(';base64,')) {
+      cleanBase64 = cleanBase64.split(';base64,')[1]
+    }
+
+    if (fileBase64.startsWith('data:application/pdf') || (fileMimeType && fileMimeType.includes('pdf'))) {
+      cleanMime = 'application/pdf'
+      try {
+        const pdfBuffer = Buffer.from(cleanBase64, 'base64')
+        const pdfData = await pdfParse(pdfBuffer)
+        if (pdfData && pdfData.text) {
+          extractedPdfText = pdfData.text.trim()
+          console.log(`📄 PDF parsed via pdf-parse: ${pdfData.numpages} pages, ${extractedPdfText.length} characters extracted.`)
+        }
+      } catch (pdfErr) {
+        console.warn('pdf-parse extraction notice:', pdfErr?.message || pdfErr)
+      }
+    } else if (fileBase64.startsWith('data:image/png')) {
+      cleanMime = 'image/png'
+    } else if (fileBase64.startsWith('data:image/jpeg') || fileBase64.startsWith('data:image/jpg')) {
+      cleanMime = 'image/jpeg'
+    } else if (fileBase64.startsWith('data:image/webp')) {
+      cleanMime = 'image/webp'
+    }
+  }
+
+  if (extractedPdfText) {
+    rawInput = `--- EXTRAHIERTER PDF TEXT (pdf-parse) ---\n${extractedPdfText}\n\n--- MANUELLE EINGABEN ---\n${rawInput}`
+  }
 
   const defaultSample = {
     branding: {
@@ -158,72 +277,13 @@ export default async function handler(req, res) {
             diet: ['vegetarian'],
             highlight: true,
             imageUrl: 'https://images.unsplash.com/photo-1592417817098-8f3d6eb16655?w=600&auto=format&fit=crop'
-          },
-          {
-            id: 'item_fritto',
-            name: { de: 'Fritto Misto Speciale', en: 'Fritto Misto Special' },
-            description: { de: 'Knusprig frittierte Meeresfrüchte oder mediterranes Saison-Gemüse mit Safran-Aioli', en: 'Crispy fried seafood or seasonal vegetables with saffron aioli' },
-            price: '16.80 €',
-            variants: [
-              { name: { de: 'Veggie Option', en: 'Veggie Option' }, price: '13.50 €' },
-              { name: { de: 'Non-Veg (Seafood)', en: 'Non-Veg (Seafood)' }, price: '16.80 €' }
-            ],
-            allergens: ['A', 'D', 'G'],
-            diet: ['vegetarian'],
-            highlight: true,
-            imageUrl: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&auto=format&fit=crop'
-          }
-        ]
-      },
-      {
-        id: 'cat_hauptgerichte',
-        name: { de: 'Pasta & Hauptgerichte', en: 'Pasta & Mains' },
-        icon: '🍝',
-        items: [
-          {
-            id: 'item_3',
-            name: { de: 'Tagliolini al Tartufo', en: 'Truffle Tagliolini' },
-            description: { de: 'Hausgemachte Eier-Pasta in cremiger Salbeibutter mit frisch geriebenem Sommer-Trüffel', en: 'Handmade egg pasta tossed in creamy sage butter and topped with freshly shaved summer truffle' },
-            price: '21.00 €',
-            variants: [
-              { name: { de: 'Penne (Glutenfrei)', en: 'Penne (Glutenfree)' }, price: '21.00 €' },
-              { name: { de: 'Gnocchi (Hausgemacht)', en: 'Gnocchi (Homemade)' }, price: '23.00 €' }
-            ],
-            allergens: ['A', 'C', 'G'],
-            diet: ['vegetarian'],
-            highlight: true,
-            imageUrl: 'https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=600&auto=format&fit=crop'
-          },
-          {
-            id: 'item_4',
-            name: { de: 'Dry Aged Ribeye Steak', en: 'Dry-Aged Ribeye Steak' },
-            description: { de: '300g Premium Steak gegrillt am Lavastein, serviert mit Trüffel-Fries und Kräuterbutter', en: '300g premium beef grilled over lava stone, served with truffle fries and herb butter' },
-            price: '34.50 €',
-            variants: [
-              { name: { de: 'Pfeffersauce Add-On', en: 'Pepper Sauce Add-On' }, price: '+3.50 €' },
-              { name: { de: 'Trüffel-Butter Extra', en: 'Extra Truffle Butter' }, price: '+2.50 €' }
-            ],
-            allergens: ['G'],
-            diet: [],
-            highlight: true,
-            imageUrl: 'https://images.unsplash.com/photo-1558030006-450675393462?w=600&auto=format&fit=crop'
           }
         ]
       }
-    ],
-    allergensLegend: {
-      A: { de: 'Glutenhaltiges Getreide', en: 'Cereals containing gluten' },
-      B: { de: 'Krebstiere', en: 'Crustaceans' },
-      C: { de: 'Eier', en: 'Eggs' },
-      D: { de: 'Fische', en: 'Fish' },
-      G: { de: 'Milch & Laktose', en: 'Milk & Lactose' },
-      H: { de: 'Schalenfrüchte / Nüsse', en: 'Nuts' },
-      L: { de: 'Sellerie', en: 'Celery' },
-      M: { de: 'Senf', en: 'Mustard' }
-    }
+    ]
   }
 
-  if (!rawInput.trim() && !fileBase64) {
+  if (!rawInput.trim() && !cleanBase64) {
     return res.status(200).json(defaultSample)
   }
 
@@ -250,14 +310,14 @@ Return strictly JSON matching this structure:
 {
   "branding": {
     "name": "${venue || 'Extracted Restaurant Name'}",
-    "email": "Extracted email or empty",
+    "email": "",
     "style": "${style || 'fine_dining'}",
     "primaryColor": "${primaryColor || '#7C3AED'}",
     "secondaryColor": "${secondaryColor || '#FF2D8D'}",
-    "phone": "${phone || 'Extracted phone or empty'}",
-    "whatsapp": "${whatsapp || 'Extracted whatsapp or empty'}",
-    "address": "${address || 'Extracted address or empty'}",
-    "instagram": "${instagram || 'Extracted instagram or empty'}"
+    "phone": "${phone || ''}",
+    "whatsapp": "${whatsapp || ''}",
+    "address": "${address || ''}",
+    "instagram": "${instagram || ''}"
   },
   "categories": [
     {
@@ -286,73 +346,32 @@ Return strictly JSON matching this structure:
     "G": "Milch & Laktose / Milk & Lactose"
   }
 }
-Raw Input Context:
-"""${rawInput.slice(0, 50000)}"""`
 
-    let tmpFilePath = null
-    let cleanMime = fileMimeType
-
-    if (fileBase64 && typeof fileBase64 === 'string') {
-      let cleanBase64 = fileBase64
-      if (cleanBase64.includes(';base64,')) {
-        cleanBase64 = cleanBase64.split(';base64,')[1]
-      }
-      if (!cleanMime || cleanMime === 'application/octet-stream' || cleanMime === '') {
-        if (fileBase64.startsWith('data:application/pdf') || fileBase64.toLowerCase().includes('pdf')) {
-          cleanMime = 'application/pdf'
-        } else if (fileBase64.startsWith('data:image/png')) {
-          cleanMime = 'image/png'
-        } else if (fileBase64.startsWith('data:image/jpeg') || fileBase64.startsWith('data:image/jpg')) {
-          cleanMime = 'image/jpeg'
-        } else if (fileBase64.startsWith('data:image/webp')) {
-          cleanMime = 'image/webp'
-        } else {
-          cleanMime = 'application/pdf'
-        }
-      }
-      if (cleanMime === 'image/jpg') cleanMime = 'image/jpeg'
-
-      try {
-        tmpFilePath = path.join(os.tmpdir(), `menu_${Date.now()}_${Math.floor(Math.random()*10000)}.bin`)
-        fs.writeFileSync(tmpFilePath, Buffer.from(cleanBase64, 'base64'))
-      } catch(e) {
-        console.error("Failed to write tmp file for AI upload", e)
-      }
-    }
+Raw Input Document Text:
+"""${rawInput.slice(0, 80000)}"""`
 
     const parsed = await executeAiTask(async (ai) => {
-      let contents = []
-      if (tmpFilePath) {
-          try {
-            console.log(`Uploading file ${tmpFilePath} to Gemini File API (${cleanMime})...`)
-            const uploadResult = await ai.files.upload({ file: tmpFilePath, mimeType: cleanMime })
-            contents.push({
-              fileData: {
-                fileUri: uploadResult.uri,
-                mimeType: uploadResult.mimeType
-              }
-            })
-            // Brief wait for processing
-            await new Promise(r => setTimeout(r, 2000))
-          } catch(err) {
-            console.warn("File API upload failed, falling back to inlineData", err.message)
-            contents.push({
-              inlineData: {
-                data: fs.readFileSync(tmpFilePath).toString('base64'),
-                mimeType: cleanMime
-              }
-            })
+      const contents = []
+
+      // If we have a Base64 file (PDF or Image), pass it directly via inlineData!
+      if (cleanBase64) {
+        contents.push({
+          inlineData: {
+            data: cleanBase64,
+            mimeType: cleanMime
           }
-        }
+        })
+      }
 
-        contents.push(promptText)
+      contents.push(promptText)
 
-        const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash']
+      const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
       let lastErr = null
       let rawText = null
 
       for (const m of modelsToTry) {
         try {
+          console.log(`🤖 Requesting Gemini model [${m}] for menu extraction...`)
           const response = await ai.models.generateContent({
             model: m,
             contents,
@@ -363,6 +382,7 @@ Raw Input Context:
           })
           if (response?.text) {
             rawText = response.text
+            console.log(`✅ Gemini model [${m}] responded successfully (${rawText.length} chars).`)
             break
           }
         } catch (mErr) {
@@ -372,86 +392,38 @@ Raw Input Context:
       }
 
       if (!rawText) {
-        console.warn('AI models failed or rate-limited in parse-menu.js')
-        // Extract raw text lines if available instead of hardcoded sample
-        const lines = (rawInput || '').split('\n').map(l => l.trim()).filter(l => l.length > 2)
-        if (lines.length > 0) {
-          const items = lines.slice(0, 10).map((line, idx) => ({
-            id: `extracted_${idx + 1}`,
-            name: { de: line, en: line },
-            description: { de: 'Aus Dokument extrahiert', en: 'Extracted from document' },
-            price: '—',
-            highlight: idx === 0
-          }))
-          return {
-            branding: {
-              name: venue || 'Hochgeladene Speisekarte',
-              style: style || 'modern',
-              primaryColor: primaryColor || '#7C3AED',
-              secondaryColor: secondaryColor || '#FF2D8D',
-            },
-            categories: [
-              {
-                id: 'cat_extracted',
-                name: { de: 'Extrahierte Positionen', en: 'Extracted Items' },
-                icon: '📋',
-                items
-              }
-            ]
-          }
+        console.warn('All AI models failed in parse-menu.js. Trying extractedPdfText fallback parser...')
+        if (extractedPdfText) {
+          return parsePdfTextFallback(extractedPdfText, venue, style, primaryColor, secondaryColor)
         }
         return null
       }
       return repairAndParseJson(rawText)
     })
 
-    if (!parsed || !parsed.categories || !Array.isArray(parsed.categories) || parsed.categories.length === 0) {
-      console.warn('AI parse returned empty categories for user uploaded document')
-      if (fileBase64 || rawInput.trim()) {
-        const lines = (rawInput || '').split('\n').map(l => l.trim()).filter(l => l.length > 2 && !l.startsWith('['))
-        const items = lines.length > 0 ? lines.slice(0, 10).map((line, idx) => ({
-          id: `item_doc_${idx + 1}`,
-          name: { de: line, en: line },
-          description: { de: 'Aus Ihrem Dokument erfasst', en: 'Extracted from your document' },
-          price: '0.00 €',
-          highlight: idx === 0
-        })) : [
-          {
-            id: 'item_pdf_1',
-            name: { de: `Dokument: ${venue || 'PDF Speisekarte'}`, en: `Document: ${venue || 'PDF Menu'}` },
-            description: { de: 'Die KI konnte keinen lesbaren Text im PDF finden. Bitte stellen Sie sicher, dass es sich um ein Text-PDF oder ein scharfes Foto handelt.', en: 'No readable text found. Please verify PDF clarity.' },
-            price: '0.00 €',
-            highlight: true
-          }
-        ]
+    let finalMenu = parsed
 
-        return res.status(200).json({
-          branding: {
-            name: venue || 'Hochgeladene Speisekarte',
-            style: style || 'modern',
-            primaryColor: primaryColor || '#7C3AED',
-            secondaryColor: secondaryColor || '#FF2D8D',
-          },
-          categories: [
-            {
-              id: 'cat_uploaded',
-              name: { de: 'Inhalte aus Ihrem Dokument', en: 'Extracted Document Content' },
-              icon: '📋',
-              items
-            }
-          ]
-        })
+    // If Gemini returned empty or invalid structure, check fallback
+    if (!finalMenu || !finalMenu.categories || !Array.isArray(finalMenu.categories) || finalMenu.categories.length === 0) {
+      console.warn('AI parse returned empty categories. Checking pdf-parse fallback text...')
+      if (extractedPdfText) {
+        finalMenu = parsePdfTextFallback(extractedPdfText, venue, style, primaryColor, secondaryColor)
+      } else if (rawInput.trim()) {
+        finalMenu = parsePdfTextFallback(rawInput, venue, style, primaryColor, secondaryColor)
       }
+    }
+
+    if (!finalMenu || !finalMenu.categories || finalMenu.categories.length === 0) {
       return res.status(200).json(defaultSample)
     }
 
     // Standardize branding fallback
-    if (!parsed.branding) parsed.branding = {}
-    if (venue && !parsed.branding.name) parsed.branding.name = venue
-    if (primaryColor) parsed.branding.primaryColor = primaryColor
-    if (secondaryColor) parsed.branding.secondaryColor = secondaryColor
+    if (!finalMenu.branding) finalMenu.branding = {}
+    if (venue && !finalMenu.branding.name) finalMenu.branding.name = venue
+    if (primaryColor) finalMenu.branding.primaryColor = primaryColor
+    if (secondaryColor) finalMenu.branding.secondaryColor = secondaryColor
 
-    // Enrich with default image URLs if missing
+    // Enrich items with IDs and stock images if missing
     const foodStock = [
       'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop',
       'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&auto=format&fit=crop',
@@ -462,7 +434,7 @@ Raw Input Context:
     ]
 
     let imgIdx = 0
-    parsed.categories.forEach((cat, cIdx) => {
+    finalMenu.categories.forEach((cat, cIdx) => {
       if (!cat.id) cat.id = `cat_${cIdx + 1}`
       if (!cat.items || !Array.isArray(cat.items)) cat.items = []
       
@@ -475,18 +447,15 @@ Raw Input Context:
       })
     })
 
-    return res.status(200).json(parsed)
+    return res.status(200).json(finalMenu)
   } catch (err) {
     console.error('AI parse-menu error:', err)
-    return res.status(500).json({ error: 'AI processing failed', message: err.message })
-  } finally {
-    if (tmpFilePath && fs.existsSync(tmpFilePath)) {
-      try {
-        fs.unlinkSync(tmpFilePath)
-      } catch(e) {
-        console.error("Failed to delete tmp file", e)
-      }
+    if (extractedPdfText) {
+      const fallback = parsePdfTextFallback(extractedPdfText, venue, style, primaryColor, secondaryColor)
+      if (fallback) return res.status(200).json(fallback)
     }
+    return res.status(500).json({ error: 'AI processing failed', message: err.message })
   }
 }
+
 

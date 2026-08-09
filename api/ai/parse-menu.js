@@ -3,10 +3,6 @@ import { checkRateLimitAndAuth } from './ai-guard.js'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import { createRequire } from 'module'
-
-const require = createRequire(import.meta.url)
-const pdfParse = require('pdf-parse')
 
 function parsePdfTextFallback(text, venue, style, primaryColor, secondaryColor) {
   if (!text || typeof text !== 'string') return null
@@ -204,10 +200,13 @@ export default async function handler(req, res) {
       cleanMime = 'application/pdf'
       try {
         const pdfBuffer = Buffer.from(cleanBase64, 'base64')
+        const { createRequire } = await import('module')
+        const req = createRequire(import.meta.url)
+        const pdfParse = req('pdf-parse')
         const pdfData = await pdfParse(pdfBuffer)
         if (pdfData && pdfData.text) {
           extractedPdfText = pdfData.text.trim()
-          console.log(`📄 PDF parsed via pdf-parse: ${pdfData.numpages} pages, ${extractedPdfText.length} characters extracted.`)
+          console.log(`📄 PDF parsed via pdf-parse: ${pdfData.numpages || '?'} pages, ${extractedPdfText.length} characters extracted.`)
         }
       } catch (pdfErr) {
         console.warn('pdf-parse extraction notice:', pdfErr?.message || pdfErr)

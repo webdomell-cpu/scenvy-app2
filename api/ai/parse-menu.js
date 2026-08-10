@@ -413,6 +413,20 @@ Raw Input Document Text:
     }
 
     if (!finalMenu || !finalMenu.categories || finalMenu.categories.length === 0) {
+      if (cleanBase64 || rawInput.trim()) {
+        return res.status(200).json({
+          branding: {
+            name: venue || 'Speisekarte',
+            style: style || 'fine_dining',
+            primaryColor: primaryColor || '#7C3AED',
+            secondaryColor: secondaryColor || '#FF2D8D',
+            phone: phone || '',
+            address: address || ''
+          },
+          categories: [],
+          warning: 'Keine Speisen oder Kategorien im hochgeladenen Dokument erkannt. Bitte prüfe die Datei oder erstelle Artikel manuell im Artikelstamm-Editor.'
+        })
+      }
       return res.status(200).json(defaultSample)
     }
 

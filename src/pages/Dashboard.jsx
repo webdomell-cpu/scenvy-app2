@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { C, grad } from '@/tokens'
+import { C, grad, applyTheme } from '@/tokens'
 import { ScenvyLogoFull, ScenvyLogoIcon } from '@/components/ScenvyLogo'
 import { copyToClipboard, downloadQR, qrImageUrl, getGuestUrl } from '@/storage'
 import { useAuth } from '@/lib/AuthContext'
@@ -16,8 +16,49 @@ import {
 import { AppLauncherBar } from '@/components/AppLauncherBar'
 import { launchSubdomainModule } from '@/lib/sso'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import { Home, Film, MapPin, BarChart2, Sparkles, Settings, Menu, QrCode, Eye, MousePointer, Video, Plus, Trash2, RefreshCw, Copy, LogOut, Upload, Link, X, Image, ExternalLink, CreditCard as Edit2, Download, Globe, Save, Mail, Shield, Library, Building2, Phone, Utensils, Tv, ConciergeBell, Layers } from 'lucide-react'
+import { Home, Film, MapPin, BarChart2, Sparkles, Settings, Menu, QrCode, Eye, MousePointer, Video, Plus, Trash2, RefreshCw, Copy, LogOut, Upload, Link, X, Image, ExternalLink, CreditCard as Edit2, Download, Globe, Save, Mail, Shield, Library, Building2, Phone, Utensils, Tv, ConciergeBell, Layers, Sun, Moon, ChevronDown, ChevronRight, HelpCircle, Calendar, Zap, FileText, CheckCircle, Palette } from 'lucide-react'
 import MenuGenerator from '@/pages/MenuGenerator'
+import OrderManagementDashboard from '@/pages/OrderManagementDashboard'
+
+// ── InfoTooltip Component ──────────────────────────────────
+export function InfoTooltip({ text }) {
+  const [show, setShow] = useState(false)
+  if (!text) return null
+  return (
+    <span
+      style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', marginLeft: 6, cursor: 'help' }}
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+      onClick={(e) => { e.stopPropagation(); setShow(s => !s) }}
+    >
+      <HelpCircle size={14} style={{ color: C.purple, opacity: 0.85, transition: 'opacity 0.2s' }} />
+      {show && (
+        <span style={{
+          position: 'absolute',
+          bottom: '125%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 230,
+          padding: '8px 12px',
+          borderRadius: 8,
+          background: C.card2,
+          color: C.white,
+          border: `1px solid ${C.purple}44`,
+          fontSize: 11,
+          fontWeight: 500,
+          lineHeight: 1.4,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          zIndex: 999,
+          pointerEvents: 'none',
+          whiteSpace: 'normal',
+          textAlign: 'left'
+        }}>
+          {text}
+        </span>
+      )}
+    </span>
+  )
+}
 
 // ── i18n ─────────────────────────────────────────────────
 const T = {
@@ -355,45 +396,71 @@ function ReelModal({ reel, locs, tenantId, onClose, onSave, notify, mediaItems }
 
 
 // ── Sidebar ───────────────────────────────────────────────
-function Sidebar({ page, setPage, open, setOpen, t, user, logout, tenant }) {
+function Sidebar({ page, setPage, moduleTab, setModuleTab, open, setOpen, t, user, logout, tenant, themeMode, setThemeMode }) {
   const nav = useNavigate()
   
   const tenantItems = [
-    { id: 'overview', name: 'Übersicht', icon: <Home size={18}/> },
-    { id: 'locations', name: 'Standorte', icon: <MapPin size={18}/> },
-    { id: 'qr', name: 'QR-Codes & Tags', icon: <QrCode size={18}/> },
-    { id: 'media', name: 'Mediathek', icon: <Library size={18}/> },
-    { id: 'analytics', name: 'Analytics', icon: <BarChart2 size={18}/> },
-    { id: 'company', name: 'Firmendaten', icon: <Building2 size={18}/> },
-    { id: 'settings', name: 'Einstellungen', icon: <Settings size={18}/> },
+    { id: 'overview', name: 'Übersicht', icon: <Home size={16}/> },
+    { id: 'locations', name: 'Standorte', icon: <MapPin size={16}/> },
+    { id: 'qr', name: 'QR-Codes & Tags', icon: <QrCode size={16}/> },
+    { id: 'media', name: 'Mediathek', icon: <Library size={16}/> },
+    { id: 'analytics', name: 'Analytics', icon: <BarChart2 size={16}/> },
+    { id: 'company', name: 'Firmendaten', icon: <Building2 size={16}/> },
+    { id: 'settings', name: 'Einstellungen', icon: <Settings size={16}/> },
   ]
 
+  const moduleSubItems = {
+    reels: [
+      { id: 'feed', label: 'Reel Feed', icon: <Film size={13}/> },
+      { id: 'ai_prompter', label: 'KI Generator', icon: <Sparkles size={13}/> },
+      { id: 'planner', label: 'Content Planer', icon: <Calendar size={13}/> },
+      { id: 'settings', label: 'Einstellungen', icon: <Settings size={13}/> }
+    ],
+    menu_generator: [
+      { id: 'create', label: 'SNAP KI Speisekarte', icon: <Sparkles size={13}/> },
+      { id: 'list', label: 'Digitale Menüs', icon: <Layers size={13}/> },
+      { id: 'design', label: 'Branding & Templates', icon: <Palette size={13}/> },
+      { id: 'settings', label: 'Einstellungen', icon: <Settings size={13}/> }
+    ],
+    board: [
+      { id: 'overview', label: 'Screen Flotte', icon: <Tv size={13}/> },
+      { id: 'playlists', label: 'Signage Playlists', icon: <Layers size={13}/> },
+      { id: 'settings', label: 'Display Pairings', icon: <Settings size={13}/> }
+    ],
+    host: [
+      { id: 'overview', label: 'Tisch-Ruf & Services', icon: <ConciergeBell size={13}/> },
+      { id: 'guestbook', label: 'Gästemappe', icon: <Layers size={13}/> },
+      { id: 'reviews', label: 'Bewertungen', icon: <Sparkles size={13}/> }
+    ]
+  }
+
   const allModuleItems = [
-    { id: 'reels', modKey: 'flow', name: 'SCENVY FLOW', sub: 'Reels & Video-Feed', badge: 'CONTENT', icon: <Film size={18}/>, color: '#8B5CF6' },
-    { id: 'menu_generator', modKey: 'menu', name: 'SCENVY MENU', sub: 'Digitale Speisekarten', badge: 'KI SNAP', icon: <Utensils size={18}/>, color: '#F97316' },
-    { id: 'board', modKey: 'board', name: 'SCENVY BOARD', sub: 'Digital Signage TV', badge: 'DISPLAY', icon: <Tv size={18}/>, color: '#3B82F6' },
-    { id: 'host', modKey: 'host', name: 'SCENVY HOST', sub: 'Gäste-Concierge', badge: 'SERVICE', icon: <ConciergeBell size={18}/>, color: '#10B981' },
+    { id: 'reels', modKey: 'flow', name: 'SCENVY FLOW', sub: 'Reels & Video-Feed', badge: 'CONTENT', icon: <Film size={16}/>, color: '#8B5CF6' },
+    { id: 'menu_generator', modKey: 'menu', name: 'SCENVY MENU', sub: 'Digitale Speisekarten', badge: 'KI SNAP', icon: <Utensils size={16}/>, color: '#F97316' },
+    { id: 'board', modKey: 'board', name: 'SCENVY BOARD', sub: 'Digital Signage TV', badge: 'DISPLAY', icon: <Tv size={16}/>, color: '#3B82F6' },
+    { id: 'host', modKey: 'host', name: 'SCENVY HOST', sub: 'Gäste-Concierge', badge: 'SERVICE', icon: <ConciergeBell size={16}/>, color: '#10B981' },
   ]
-  const mods = tenant?.modules || { flow: true, menu: true, board: false, host: false }
-  const moduleItems = allModuleItems.filter(m => mods[m.modKey])
+
+  const mods = tenant?.modules || { flow: true, menu: true, board: true, host: true }
+  const moduleItems = allModuleItems.filter(m => mods[m.modKey] !== false)
 
   return (
     <div style={{
-      width: open ? 250 : 68,
+      width: open ? 230 : 64,
       background: C.card,
       borderRight: `1px solid ${C.border}`,
       flexShrink: 0,
       display: 'flex',
       flexDirection: 'column',
-      transition: 'width .3s cubic-bezier(0.16, 1, 0.3, 1)',
+      transition: 'width .25s cubic-bezier(0.16, 1, 0.3, 1)',
       height: '100vh',
       overflow: 'hidden',
       zIndex: 50,
-      boxShadow: '4px 0 24px rgba(0,0,0,0.3)'
+      boxShadow: '4px 0 24px rgba(0,0,0,0.2)'
     }}>
       {/* Top Logo Header */}
       <div style={{
-        padding: open ? '18px 20px 14px' : '18px 10px 14px',
+        padding: open ? '14px 16px' : '14px 8px',
         borderBottom: `1px solid ${C.border}`,
         display: 'flex',
         alignItems: 'center',
@@ -401,29 +468,29 @@ function Sidebar({ page, setPage, open, setOpen, t, user, logout, tenant }) {
         flexShrink: 0,
         background: C.bg
       }}>
-        {open ? <ScenvyLogoFull height={48} tagline={false} /> : <ScenvyLogoIcon size={44} />}
+        {open ? <ScenvyLogoFull height={42} tagline={false} /> : <ScenvyLogoIcon size={38} />}
       </div>
 
-      {/* Scrollable Navigation Area with Custom Scrollbar */}
+      {/* Scrollable Navigation Area */}
       <nav 
         className="scenvy-sidebar-scroll"
         style={{
-          padding: '12px 10px',
+          padding: '10px 8px',
           flex: 1,
           minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          gap: 12
+          gap: 10
         }}
       >
         <style>{`
           .scenvy-sidebar-scroll::-webkit-scrollbar {
-            width: 5px;
+            width: 4px;
           }
           .scenvy-sidebar-scroll::-webkit-scrollbar-track {
-            background: rgba(15, 23, 42, 0.4);
+            background: rgba(15, 23, 42, 0.1);
           }
           .scenvy-sidebar-scroll::-webkit-scrollbar-thumb {
             background: rgba(139, 92, 246, 0.3);
@@ -437,8 +504,8 @@ function Sidebar({ page, setPage, open, setOpen, t, user, logout, tenant }) {
         {/* Section 1: Mandant / Tenant Basis */}
         <div>
           {open && (
-            <div style={{ fontSize: 10, color: C.muted, fontWeight: 800, letterSpacing: 1.5, padding: '0 8px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span>🏢</span> TENANT PLATTFORM
+            <div style={{ fontSize: 9, color: C.muted, fontWeight: 800, letterSpacing: 1.2, padding: '0 6px 6px', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Building2 size={11} color={C.purple} /> TENANT PLATTFORM
             </div>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -453,9 +520,9 @@ function Sidebar({ page, setPage, open, setOpen, t, user, logout, tenant }) {
                     width: '100%',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 10,
-                    padding: open ? '7px 10px' : '7px 0',
-                    borderRadius: 8,
+                    gap: 8,
+                    padding: open ? '6px 9px' : '6px 0',
+                    borderRadius: 7,
                     border: 'none',
                     cursor: 'pointer',
                     background: isActive ? `${C.purple}22` : 'transparent',
@@ -463,7 +530,8 @@ function Sidebar({ page, setPage, open, setOpen, t, user, logout, tenant }) {
                     justifyContent: open ? 'flex-start' : 'center',
                     fontFamily: 'inherit',
                     textAlign: 'left',
-                    lineHeight: 1.25,
+                    lineHeight: 1.2,
+                    fontSize: 12,
                     transition: 'all 0.15s ease',
                     borderLeft: isActive ? `3px solid ${C.purple}` : '3px solid transparent'
                   }}
@@ -474,7 +542,7 @@ function Sidebar({ page, setPage, open, setOpen, t, user, logout, tenant }) {
                     {item.icon}
                   </span>
                   {open && (
-                    <span style={{ fontSize: 13, fontWeight: isActive ? 700 : 500, flex: 1, lineHeight: 1.25 }}>
+                    <span style={{ fontSize: 12, fontWeight: isActive ? 700 : 500, flex: 1 }}>
                       {item.name}
                     </span>
                   )}
@@ -484,83 +552,159 @@ function Sidebar({ page, setPage, open, setOpen, t, user, logout, tenant }) {
           </div>
         </div>
 
-        {/* Section 2: SCENVY Sub-Brands & Modules */}
+        {/* Section 2: SCENVY Sub-Brands & Modules with Accordion Folding Submenus */}
         <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
           {open && (
-            <div style={{ fontSize: 10, color: C.pink, fontWeight: 800, letterSpacing: 1.5, padding: '0 8px 8px', display: 'flex', alignItems: 'center', justifyBetween: 'space-between' }}>
-              <span>🚀 GEBUCHTE MODULE</span>
+            <div style={{ fontSize: 9, color: C.pink, fontWeight: 800, letterSpacing: 1.2, padding: '0 6px 6px', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Layers size={11} color={C.pink} /> GEBUCHTE MODULE
             </div>
           )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {moduleItems.map(item => {
-              const isActive = page === item.id
+              const isModuleActive = page === item.id || (page === 'menu' && item.id === 'menu_generator')
+              const subItems = moduleSubItems[item.id] || []
+
               return (
-                <button
-                  key={item.id}
-                  onClick={() => setPage(item.id)}
-                  title={!open ? `${item.name} (${item.badge})` : undefined}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: open ? '8px 10px' : '8px 0',
-                    borderRadius: 10,
-                    border: `1px solid ${isActive ? `${item.color}66` : 'rgba(255,255,255,0.06)'}`,
-                    cursor: 'pointer',
-                    background: isActive ? `${item.color}22` : C.card2,
-                    color: isActive ? C.white : C.muted,
-                    justifyContent: open ? 'flex-start' : 'center',
-                    fontFamily: 'inherit',
-                    textAlign: 'left',
-                    boxShadow: isActive ? `0 4px 16px ${item.color}22` : 'none',
-                    lineHeight: 1.25,
-                    transition: 'all 0.2s ease',
-                    position: 'relative'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.borderColor = `${item.color}44`
-                      e.currentTarget.style.transform = 'translateY(-1px)'
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'
-                      e.currentTarget.style.transform = 'none'
-                    }
-                  }}
-                >
-                  <span style={{ color: item.color, flexShrink: 0, display: 'flex', alignItems: 'center', padding: open ? 0 : '0 12px' }}>
-                    {item.icon}
-                  </span>
-                  {open && (
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: C.white, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span>{item.name}</span>
-                        <span style={{ fontSize: 8, padding: '2px 5px', borderRadius: 4, background: `${item.color}33`, color: item.color, fontWeight: 800 }}>
-                          {item.badge}
-                        </span>
+                <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <button
+                    onClick={() => {
+                      setPage(item.id)
+                    }}
+                    title={!open ? `${item.name} (${item.badge})` : undefined}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: open ? '7px 9px' : '7px 0',
+                      borderRadius: 8,
+                      border: `1px solid ${isModuleActive ? `${item.color}66` : 'rgba(255,255,255,0.05)'}`,
+                      cursor: 'pointer',
+                      background: isModuleActive ? `${item.color}22` : C.card2,
+                      color: isModuleActive ? C.white : C.muted,
+                      justifyContent: open ? 'flex-start' : 'center',
+                      fontFamily: 'inherit',
+                      textAlign: 'left',
+                      boxShadow: isModuleActive ? `0 4px 14px ${item.color}18` : 'none',
+                      lineHeight: 1.2,
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <span style={{ color: item.color, flexShrink: 0, display: 'flex', alignItems: 'center', padding: open ? 0 : '0 10px' }}>
+                      {item.icon}
+                    </span>
+                    {open && (
+                      <div style={{ flex: 1, overflow: 'hidden' }}>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: C.white, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span>{item.name}</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ fontSize: 8, padding: '1px 4px', borderRadius: 4, background: `${item.color}33`, color: item.color, fontWeight: 800 }}>
+                              {item.badge}
+                            </span>
+                            {subItems.length > 0 && (
+                              isModuleActive ? <ChevronDown size={12} color={item.color} /> : <ChevronRight size={12} color={C.muted} />
+                            )}
+                          </span>
+                        </div>
                       </div>
-                      <div style={{ fontSize: 10, color: C.muted, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {item.sub}
-                      </div>
+                    )}
+                  </button>
+
+                  {/* Unfolded Sub-Items Accordion */}
+                  {open && isModuleActive && subItems.length > 0 && (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 2,
+                      paddingLeft: 12,
+                      marginLeft: 12,
+                      borderLeft: `2px solid ${item.color}44`,
+                      marginTop: 2,
+                      marginBottom: 4,
+                      animation: 'fadeUp 0.2s ease'
+                    }}>
+                      {subItems.map(sub => {
+                        const isSubActive = moduleTab === sub.id
+                        return (
+                          <button
+                            key={sub.id}
+                            onClick={() => {
+                              if (setModuleTab) setModuleTab(sub.id)
+                            }}
+                            style={{
+                              width: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '5px 8px',
+                              borderRadius: 6,
+                              border: 'none',
+                              cursor: 'pointer',
+                              background: isSubActive ? `${item.color}28` : 'transparent',
+                              color: isSubActive ? C.white : C.muted,
+                              fontSize: 11,
+                              fontWeight: isSubActive ? 800 : 500,
+                              textAlign: 'left',
+                              transition: 'all 0.12s ease'
+                            }}
+                            onMouseEnter={(e) => { if (!isSubActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                            onMouseLeave={(e) => { if (!isSubActive) e.currentTarget.style.background = 'transparent' }}
+                          >
+                            <span style={{ color: isSubActive ? item.color : C.muted, display: 'flex', alignItems: 'center' }}>
+                              {sub.icon}
+                            </span>
+                            <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {sub.label}
+                            </span>
+                          </button>
+                        )
+                      })}
                     </div>
                   )}
-                </button>
+                </div>
               )
             })}
           </div>
         </div>
       </nav>
 
-      {/* Bottom Footer Actions */}
-      <div style={{ padding: '10px 12px', borderTop: `1px solid ${C.border}`, flexShrink: 0, background: C.bg, display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {/* Bottom Footer Actions: Theme Toggle & Sidebar Collapse */}
+      <div style={{ padding: '8px 10px', borderTop: `1px solid ${C.border}`, flexShrink: 0, background: C.bg, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {open && (
+          <button
+            onClick={() => setThemeMode && setThemeMode(m => m === 'dark' ? 'light' : 'dark')}
+            title="Design-Modus umschalten (Hell / Dunkel)"
+            style={{
+              width: '100%',
+              padding: '6px 8px',
+              borderRadius: 8,
+              border: `1px solid ${C.border}`,
+              background: C.card2,
+              color: C.white,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontFamily: 'inherit',
+              fontSize: 11,
+              fontWeight: 700
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {themeMode === 'dark' ? <Sun size={14} color="#F59E0B" /> : <Moon size={14} color="#8B5CF6" />}
+              <span>{themeMode === 'dark' ? 'Helles Design' : 'Dunkles Design'}</span>
+            </span>
+            <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: `${C.purple}22`, color: C.purple, fontWeight: 800 }}>
+              {(themeMode || 'dark').toUpperCase()}
+            </span>
+          </button>
+        )}
+
         <button
           onClick={() => setOpen(o => !o)}
           style={{
             width: '100%',
-            padding: '8px',
+            padding: '7px',
             borderRadius: 8,
             border: `1px solid ${C.border}`,
             background: C.card,
@@ -571,11 +715,11 @@ function Sidebar({ page, setPage, open, setOpen, t, user, logout, tenant }) {
             justifyContent: 'center',
             gap: 8,
             fontFamily: 'inherit',
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: 700
           }}
         >
-          <Menu size={16}/>
+          <Menu size={15}/>
           {open && <span>Sidebar Einklappen</span>}
         </button>
       </div>
@@ -596,18 +740,41 @@ function Overview({ setPage, reels, locs, t }) {
       </div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:28}}>
         {[
-          {label:t.nav.locations, value:locs.length,    delta:`${locs.filter(l=>l.active).length} aktiv`,   icon:<MapPin size={18} color={C.purple}/>,      color:C.purple},
-          {label:'Live Reels',    value:liveCount,       delta:`von ${reels.length} Reels`,                  icon:<Video size={18} color={C.green}/>,        color:C.green},
-          {label:t.scans,         value:totalScans.toLocaleString(), delta:`${t.thisWeek}`,                  icon:<QrCode size={18} color={C.blue}/>,        color:C.blue},
-          {label:'Content',       value:reels.length,    delta:`${reels.filter(r=>r.status==='draft').length} Entwürfe`, icon:<Film size={18} color={C.pink}/>, color:C.pink},
+          {value:locs.length, icon:<MapPin size={26} color={C.purple}/>, color:C.purple},
+          {value:liveCount, icon:<Video size={26} color={C.green}/>, color:C.green},
+          {value:totalScans.toLocaleString(), icon:<QrCode size={26} color={C.blue}/>, color:C.blue},
+          {value:reels.length, icon:<Film size={26} color={C.pink}/>, color:C.pink},
         ].map((s,i)=>(
-          <div key={i} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:20}}>
-            <div style={{display:'flex',justifyContent:'space-between',marginBottom:14}}>
-              <span style={{fontSize:12,color:C.muted}}>{s.label}</span>
-              <div style={{width:36,height:36,borderRadius:10,background:`${s.color}22`,display:'flex',alignItems:'center',justifyContent:'center'}}>{s.icon}</div>
+          <div key={i} style={{
+            height: 125,
+            boxSizing: 'border-box',
+            background: 'rgba(255, 255, 255, 0.03)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            border: `1px solid ${s.color}33`,
+            borderRadius: 16,
+            padding: '20px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: `0 8px 32px -6px ${s.color}25`
+          }}>
+            <div style={{fontSize:40, fontWeight:900, color:C.white, textShadow:`0 0 20px ${s.color}55`}}>
+              {s.value}
             </div>
-            <div style={{fontSize:28,fontWeight:800,marginBottom:4}}>{s.value}</div>
-            <div style={{fontSize:12,color:C.green}}>{s.delta}</div>
+            <div style={{
+              width: 52,
+              height: 52,
+              borderRadius: 14,
+              background: `${s.color}22`,
+              border: `1px solid ${s.color}44`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backdropFilter: 'blur(8px)'
+            }}>
+              {s.icon}
+            </div>
           </div>
         ))}
       </div>
@@ -654,44 +821,48 @@ function ModuleSubHeader({ activeModule, activeTab, setActiveTab, reelsCount = 0
   let config = null
   if (activeModule === 'reels') {
     config = {
-      badge: '🎬 SCENVY FLOW',
+      badgeName: 'SCENVY FLOW',
       badgeColor: C.purple,
+      badgeIcon: <Film size={14} color={C.purple} />,
       tabs: [
-        { id: 'feed', label: '🎬 Reel Feed & Galerie', badge: reelsCount ? `${reelsCount}` : null },
-        { id: 'ai_prompter', label: '✨ KI Prompter & Generator' },
-        { id: 'planner', label: '📅 Reel Planer & Timetable' },
-        { id: 'settings', label: '⚙️ Einstellungen' }
+        { id: 'feed', label: 'Reel Feed', icon: <Film size={14}/>, badge: reelsCount ? `${reelsCount}` : null },
+        { id: 'ai_prompter', label: 'KI Generator', icon: <Sparkles size={14}/> },
+        { id: 'planner', label: 'Planer', icon: <Calendar size={14}/> },
+        { id: 'settings', label: 'Einstellungen', icon: <Settings size={14}/> }
       ]
     }
   } else if (activeModule === 'menu_generator' || activeModule === 'menu') {
     config = {
-      badge: '🍽️ SCENVY MENU',
+      badgeName: 'SCENVY MENU',
       badgeColor: C.orange,
+      badgeIcon: <Utensils size={14} color={C.orange} />,
       tabs: [
-        { id: 'create', label: '🚀 SNAP KI Speisekarte' },
-        { id: 'list', label: '📋 Digitale Menüs' },
-        { id: 'design', label: '🎨 Branding & Templates' },
-        { id: 'settings', label: '⚙️ Einstellungen' }
+        { id: 'create', label: 'SNAP KI Speisekarte', icon: <Sparkles size={14}/> },
+        { id: 'list', label: 'Digitale Menüs', icon: <Layers size={14}/> },
+        { id: 'design', label: 'Branding & Templates', icon: <Palette size={14}/> },
+        { id: 'settings', label: 'Einstellungen', icon: <Settings size={14}/> }
       ]
     }
   } else if (activeModule === 'board') {
     config = {
-      badge: '📺 SCENVY BOARD',
+      badgeName: 'SCENVY BOARD',
       badgeColor: C.blue,
+      badgeIcon: <Tv size={14} color={C.blue} />,
       tabs: [
-        { id: 'overview', label: '📺 Screen Übersicht' },
-        { id: 'playlists', label: '⏱ Signage Playlists' },
-        { id: 'settings', label: '⚙️ Display Pairings' }
+        { id: 'overview', label: 'Screen Übersicht', icon: <Tv size={14}/> },
+        { id: 'playlists', label: 'Signage Playlists', icon: <Layers size={14}/> },
+        { id: 'settings', label: 'Display Pairings', icon: <Settings size={14}/> }
       ]
     }
   } else if (activeModule === 'host') {
     config = {
-      badge: '🏨 SCENVY HOST',
+      badgeName: 'SCENVY HOST',
       badgeColor: C.green,
+      badgeIcon: <ConciergeBell size={14} color={C.green} />,
       tabs: [
-        { id: 'overview', label: '🛎️ Tisch-Ruf & Services' },
-        { id: 'guestbook', label: '📖 Digitale Gästemappe' },
-        { id: 'reviews', label: '⭐ Feedback & Bewertungen' }
+        { id: 'overview', label: 'Tisch-Ruf & Services', icon: <ConciergeBell size={14}/> },
+        { id: 'guestbook', label: 'Gästemappe', icon: <Layers size={14}/> },
+        { id: 'reviews', label: 'Bewertungen', icon: <Sparkles size={14}/> }
       ]
     }
   }
@@ -700,10 +871,10 @@ function ModuleSubHeader({ activeModule, activeTab, setActiveTab, reelsCount = 0
 
   return (
     <div style={{
-      background: 'rgba(15, 23, 42, 0.9)',
+      background: 'rgba(15, 23, 42, 0.95)',
       backdropFilter: 'blur(12px)',
       borderBottom: `1px solid ${C.border}`,
-      padding: '10px 28px',
+      padding: '8px 24px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -712,18 +883,21 @@ function ModuleSubHeader({ activeModule, activeTab, setActiveTab, reelsCount = 0
       zIndex: 20
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <span style={{
+        <div style={{
           fontSize: 11,
           fontWeight: 900,
           color: config.badgeColor,
-          background: `${config.badgeColor}22`,
+          background: `${config.badgeColor}18`,
           padding: '5px 12px',
           borderRadius: 8,
-          border: `1px solid ${config.badgeColor}44`,
-          letterSpacing: 1
+          border: `1px solid ${config.badgeColor}33`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6
         }}>
-          {config.badge}
-        </span>
+          {config.badgeIcon}
+          <span>{config.badgeName}</span>
+        </div>
         <div style={{ height: 16, width: 1, background: C.border }} />
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {config.tabs.map(tab => {
@@ -733,31 +907,26 @@ function ModuleSubHeader({ activeModule, activeTab, setActiveTab, reelsCount = 0
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 style={{
-                  padding: '7px 14px',
-                  borderRadius: 9,
-                  border: isActive ? `1px solid ${config.badgeColor}66` : '1px solid transparent',
-                  background: isActive ? `${config.badgeColor}25` : 'transparent',
-                  color: isActive ? C.white : C.muted,
-                  fontWeight: isActive ? 700 : 500,
-                  fontSize: 12,
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 6,
+                  padding: '5px 12px',
+                  borderRadius: 8,
+                  border: `1px solid ${isActive ? config.badgeColor : 'transparent'}`,
+                  background: isActive ? `${config.badgeColor}22` : 'transparent',
+                  color: isActive ? C.white : C.muted,
+                  fontSize: 12,
+                  fontWeight: isActive ? 800 : 600,
+                  cursor: 'pointer',
                   transition: 'all 0.15s ease'
                 }}
               >
+                <span style={{ color: isActive ? config.badgeColor : C.muted, display: 'flex', alignItems: 'center' }}>
+                  {tab.icon}
+                </span>
                 <span>{tab.label}</span>
                 {tab.badge && (
-                  <span style={{
-                    fontSize: 10,
-                    padding: '1px 6px',
-                    borderRadius: 10,
-                    background: isActive ? config.badgeColor : C.card2,
-                    color: C.white,
-                    fontWeight: 800
-                  }}>
+                  <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 10, background: config.badgeColor, color: '#fff', fontWeight: 800 }}>
                     {tab.badge}
                   </span>
                 )}
@@ -2023,42 +2192,7 @@ function BoardShowcase({ user, tenant }) {
 function HostShowcase() {
   return (
     <div>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 11, color: C.green, fontWeight: 800, letterSpacing: 2, marginBottom: 4 }}>GEBUCHTES MODUL</div>
-        <div style={{ fontSize: 26, fontWeight: 900 }}>🏨 SCENVY HOST — Digital Guest Concierge & Services</div>
-        <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
-          Mache Zimmer, Tische und Lounges mit digitalen Gäste-Services, Raum-Bestellungen und Feedback-Loops erreichbar.
-        </div>
-      </div>
-
-      <div style={{ background: C.card, borderRadius: 20, border: `1px solid ${C.border}`, padding: 32, textAlign: 'center', maxWidth: 680, margin: '40px auto 0' }}>
-        <div style={{ width: 64, height: 64, borderRadius: '50%', background: `${C.green}22`, color: C.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-          <ConciergeBell size={32} />
-        </div>
-        <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Modul "SCENVY HOST" aktiv</div>
-        <div style={{ fontSize: 13, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>
-          Digitale Gästemappe, Room-Service Bestellungen, Tisch-Rufknöpfe & automatisches Gäste-Feedback über QR-Codes am Platz.
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, textAlign: 'left', marginBottom: 28 }}>
-          <div style={{ background: C.bg, padding: 14, borderRadius: 12, border: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginBottom: 4 }}>🔔 Service-Ruf</div>
-            <div style={{ fontSize: 11, color: C.muted }}>Gäste rufen Kellner oder Zimmerservice mit 1-Klick am Handy</div>
-          </div>
-          <div style={{ background: C.bg, padding: 14, borderRadius: 12, border: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginBottom: 4 }}>📖 Gästemappe</div>
-            <div style={{ fontSize: 11, color: C.muted }}>WLAN, Infos, Ausflugstipps & Hausordnung immer aktuell</div>
-          </div>
-          <div style={{ background: C.bg, padding: 14, borderRadius: 12, border: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginBottom: 4 }}>⭐ Live-Bewertung</div>
-            <div style={{ fontSize: 11, color: C.muted }}>Google-Bewertungen steigern, indem Feedback direkt erfasst wird</div>
-          </div>
-        </div>
-
-        <button style={{ padding: '12px 28px', borderRadius: 12, background: C.green, color: C.white, border: 'none', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
-          🛎️ Service-Tische & QR-Aufsteller konfigurieren
-        </button>
-      </div>
+      <OrderManagementDashboard />
     </div>
   )
 }
@@ -2421,6 +2555,15 @@ export default function Dashboard() {
   const [moduleTab, setModuleTab] = useState('feed')
   const [open,      setOpen]      = useState(true)
   const [lang,      setLang]      = useState(() => localStorage.getItem('scenvy_lang')||'de')
+  const [themeMode, setThemeModeState] = useState(() => localStorage.getItem('scenvy_theme') || 'dark')
+
+  const setThemeMode = (newModeOrFn) => {
+    setThemeModeState(prev => {
+      const next = typeof newModeOrFn === 'function' ? newModeOrFn(prev) : newModeOrFn
+      applyTheme(next)
+      return next
+    })
+  }
   const [toast,     setToast]     = useState(null)
 
   // Reset or initialize subTab whenever module page changes
@@ -2483,11 +2626,9 @@ export default function Dashboard() {
       )}
 
       <div style={{display:'flex',flex:1,overflow:'hidden'}}>
-        <Sidebar page={page} setPage={handleSetPage} open={open} setOpen={setOpen} t={t} user={user} logout={logout} tenant={tenant}/>
+        <Sidebar page={page} setPage={handleSetPage} moduleTab={moduleTab} setModuleTab={setModuleTab} open={open} setOpen={setOpen} t={t} user={user} logout={logout} tenant={tenant} themeMode={themeMode} setThemeMode={setThemeMode}/>
 
       <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
-        {/* SCENVY Ecosystem Module Switcher Bar */}
-        <AppLauncherBar user={user} tenant={tenant} activePage={page} setPage={handleSetPage} />
 
         {/* Top bar */}
         <div style={{height:60,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 24px',justifyContent:'space-between',flexShrink:0,background:C.bg}}>
@@ -2566,14 +2707,6 @@ export default function Dashboard() {
             </button>
           </div>
         </div>
-
-        {/* Second Line Sub-Header for Active Module */}
-        <ModuleSubHeader
-          activeModule={page}
-          activeTab={moduleTab}
-          setActiveTab={setModuleTab}
-          reelsCount={reels.length}
-        />
 
         <div style={{flex:1,overflowY:'auto',padding:28}}>
           {page==='overview'  && <Overview   setPage={handleSetPage} reels={reels} locs={locs} t={t}/>}

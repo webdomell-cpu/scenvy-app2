@@ -11,9 +11,9 @@ export async function getSsoLaunchUrl(targetDomain, user, tenant) {
     'app.scenvy.de': 'https://app.scenvy.de'
   }
 
-  const baseUrl = domainMap[targetDomain] || (targetDomain.startsWith('http') ? targetDomain : `https://${targetDomain}`)
+  const baseUrl = domainMap[targetDomain] || (targetDomain?.startsWith('http') ? targetDomain : `https://${targetDomain}`)
   const uid = user?.uid || user?.id || 'guest_user'
-  const tenantId = tenant?.id || user?.tenant_id || 'tenant_default'
+  const tenantId = tenant?.id || user?.tenant_id || user?.tenant?.id || 'tenant_default'
   const role = user?.role || 'tenant_owner'
   const email = user?.email || ''
 
@@ -51,10 +51,17 @@ export async function getSsoLaunchUrl(targetDomain, user, tenant) {
 }
 
 export async function launchSubdomainModule(targetDomain, user, tenant, openInNewTab = true) {
-  const url = await getSsoLaunchUrl(targetDomain, user, tenant)
-  if (openInNewTab) {
-    window.open(url, '_blank')
-  } else {
-    window.location.href = url
+  try {
+    const url = await getSsoLaunchUrl(targetDomain, user, tenant)
+    if (openInNewTab) {
+      const win = window.open(url, '_blank')
+      if (!win) {
+        window.location.href = url
+      }
+    } else {
+      window.location.href = url
+    }
+  } catch (err) {
+    console.warn('launchSubdomainModule notice:', err)
   }
 }

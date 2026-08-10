@@ -1,4 +1,4 @@
-export const C = {
+export const darkTheme = {
   bg: '#0B0F14',
   card: '#121821',
   card2: '#1A2230',
@@ -19,6 +19,52 @@ export const C = {
   white: '#FFFFFF',
   muted: '#A0A8B8',
   dim: '#64748B',
+}
+
+export const lightTheme = {
+  bg: '#F8FAFC',
+  card: '#FFFFFF',
+  card2: '#F1F5F9',
+  border: 'rgba(0, 0, 0, 0.12)',
+  flow: '#8B5CF6',
+  purple: '#7C3AED',
+  purpleL: '#8B5CF6',
+  pink: '#DB2777',
+  menu: '#EA580C',
+  orange: '#EA580C',
+  board: '#2563EB',
+  blue: '#2563EB',
+  host: '#059669',
+  green: '#059669',
+  store: '#DB2777',
+  link: '#0891B2',
+  magic: '#D97706',
+  white: '#0F172A',
+  muted: '#475569',
+  dim: '#64748B',
+}
+
+export const C = { ...darkTheme }
+
+export function applyTheme(mode) {
+  const isLight = mode === 'light'
+  const target = isLight ? lightTheme : darkTheme
+  Object.assign(C, target)
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('scenvy_theme', mode)
+    document.documentElement.classList.toggle('light-theme', isLight)
+    document.documentElement.style.colorScheme = mode
+    document.body.style.backgroundColor = C.bg
+    document.body.style.color = C.white
+  }
+}
+
+// Initial theme load
+if (typeof window !== 'undefined') {
+  const saved = localStorage.getItem('scenvy_theme')
+  if (saved === 'light') {
+    applyTheme('light')
+  }
 }
 
 export const SG_TOKENS = {

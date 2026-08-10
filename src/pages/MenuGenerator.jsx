@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/AuthContext'
 import { useTenant, useMenuReels, useSaveMenuReel, useDeleteMenuReel, useLocations, useSaveLocation, useDeleteLocation, useMedia, uploadMedia, formatDateTime } from '@/lib/db'
 import GuestMenuReel, { isScheduleActive, JaggedStar13 } from '@/pages/GuestMenuReel'
 import { copyToClipboard } from '@/storage'
-import { Sparkles, FileText, Upload, Edit3, Palette, Phone, Instagram, QrCode, Download, Share2, Copy, Trash2, Eye, Plus, ArrowRight, CheckCircle2, Lock, ShieldAlert, ArrowLeft, Maximize2, Minimize2, Clock, MapPin, ExternalLink, Calendar, Zap, Check, Globe } from 'lucide-react'
+import { Sparkles, FileText, Upload, Edit3, Palette, Phone, Instagram, QrCode, Download, Share2, Copy, Trash2, Eye, Plus, ArrowRight, CheckCircle2, Lock, ShieldAlert, ArrowLeft, Maximize2, Minimize2, Clock, MapPin, ExternalLink, Calendar, Zap, Check, Globe, Utensils, Layers, Settings } from 'lucide-react'
 
 export default function MenuGenerator({ embedded = false, initialTab }) {
   const nav = useNavigate()
@@ -36,6 +36,8 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
   const [genStep, setGenStep] = useState('')
   const [toast, setToast] = useState(null)
   const [showMediaModal, setShowMediaModal] = useState(false)
+  const [mediaModalPurpose, setMediaModalPurpose] = useState('menu_source') // 'menu_source' | 'location_highlight'
+  const [localMedia, setLocalMedia] = useState([])
   const [isEditorFullscreen, setIsEditorFullscreen] = useState(false)
 
   // Input states
@@ -646,6 +648,23 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
   }
 
   const handleSelectFromMedia = (media) => {
+    if (mediaModalPurpose === 'location_highlight') {
+      if (media.url) {
+        setLocForm(prev => ({
+          ...prev,
+          highlight: {
+            ...(prev.highlight || {}),
+            bgImage: media.url
+          }
+        }))
+        notify(`🖼️ Highlight-Hintergrundbild übernommen: ${media.name || 'Mediathek-Bild'}`)
+      } else {
+        notify('⚠️ Das gewählte Element enthält keine Bild-URL.')
+      }
+      setShowMediaModal(false)
+      return
+    }
+
     setFileName(media.name || 'Mediathek-Datei')
     if (media.url && (media.type === 'image' || media.url.startsWith('data:image'))) {
       setUploadedImage(media.url)
@@ -761,6 +780,10 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
         notify('⚠️ Die KI konnte das Dokument nicht vollständig parsen. Bitte prüfe die Lesbarkeit oder erstelle Einträge manuell.')
         setIsGenerating(false)
         return
+      }
+
+      if (parsedMenu.warning) {
+        notify(`⚠️ ${parsedMenu.warning}`)
       }
 
       // Auto-populate branding contact details from AI if detected
@@ -936,43 +959,6 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
         </div>
       )}
 
-      {/* Internal Sub-Tabs when embedded inside Dashboard */}
-      {embedded && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottom: `1px solid ${C.border}`, paddingBottom: 16 }}>
-          <div>
-            <div style={{ fontSize: 11, color: C.pink, fontWeight: 800, letterSpacing: 2, marginBottom: 4 }}>GEBUCHTES MODUL</div>
-            <div style={{ fontSize: 24, fontWeight: 900, display: 'flex', alignItems: 'center', gap: 8 }}>
-              🍽️ SCENVY MENU — Digitale Speisekarte & SNAP AI
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 6, background: C.card, padding: 4, borderRadius: 12, border: `1px solid ${C.border}`, flexWrap: 'wrap' }}>
-            <button onClick={() => setActiveTab('create')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'create' ? C.purple : 'transparent', color: activeTab === 'create' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
-              🚀 SNAP Generator
-            </button>
-            <button onClick={() => setActiveTab('articles')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'articles' ? C.purple : 'transparent', color: activeTab === 'articles' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-              📊 Artikelstamm & Editor
-              {currentMenu?.categories?.length > 0 && (
-                <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 10, background: activeTab === 'articles' ? '#FFF' : `${C.purple}33`, color: activeTab === 'articles' ? C.purple : C.pink, fontWeight: 800 }}>
-                  {currentMenu.categories.reduce((acc, c) => acc + (c.items?.length || 0), 0)}
-                </span>
-              )}
-            </button>
-            <button onClick={() => setActiveTab('list')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'list' ? C.purple : 'transparent', color: activeTab === 'list' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
-              📋 Menus ({menuReels.length})
-            </button>
-            <button onClick={() => setActiveTab('locations')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'locations' ? C.purple : 'transparent', color: activeTab === 'locations' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
-              📍 Standorte & Zeitplanung ({locations.length})
-            </button>
-            <button onClick={() => setActiveTab('design')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'design' ? C.purple : 'transparent', color: activeTab === 'design' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
-              🎨 Branding
-            </button>
-            <button onClick={() => setActiveTab('settings')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'settings' ? C.purple : 'transparent', color: activeTab === 'settings' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
-              ⚙️ Settings
-            </button>
-          </div>
-        </div>
-      )}
-
       <div style={{ padding: embedded ? 0 : 28, maxWidth: 1280, margin: '0 auto' }}>
         {activeTab === 'create' ? (
           <div>
@@ -1030,7 +1016,7 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
                         <label style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>
                           SPEISEKARTEN-UPLOAD (PDF, FOTO, PNG, JPG, DOCX)
                         </label>
-                        <button onClick={() => setShowMediaModal(true)} style={{ fontSize: 11, color: C.purple, fontWeight: 700, background: `${C.purple}22`, border: `1px solid ${C.purple}44`, borderRadius: 6, padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <button onClick={() => { setMediaModalPurpose('menu_source'); setShowMediaModal(true) }} style={{ fontSize: 11, color: C.purple, fontWeight: 700, background: `${C.purple}22`, border: `1px solid ${C.purple}44`, borderRadius: 6, padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                           🖼️ Aus Mediathek
                         </button>
                       </div>
@@ -1741,13 +1727,37 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
                       </div>
 
                       {/* Action Buttons */}
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => handleEditLocation(loc)} style={{ flex: 1, padding: '10px 14px', borderRadius: 10, background: C.purple, color: C.white, border: 'none', fontWeight: 800, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                          <Edit3 size={14} /> Standort & Highlight Bearbeiten
-                        </button>
-                        <button onClick={() => handleDeleteLocation(loc.id)} style={{ padding: '10px', borderRadius: 10, background: `${C.pink}11`, border: `1px solid ${C.pink}33`, color: C.pink, cursor: 'pointer' }} title="Standort löschen">
-                          <Trash2 size={14} />
-                        </button>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <a
+                          href={`/live-dashboard/${tenantId}?location=${loc.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            padding: '10px 14px',
+                            borderRadius: 10,
+                            background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                            color: '#FFF',
+                            textDecoration: 'none',
+                            fontWeight: 800,
+                            fontSize: 12,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                            boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)'
+                          }}
+                        >
+                          <Bell size={14} /> 🛎️ Live-Service Dashboard für diesen Standort
+                        </a>
+
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button onClick={() => handleEditLocation(loc)} style={{ flex: 1, padding: '10px 14px', borderRadius: 10, background: C.purple, color: C.white, border: 'none', fontWeight: 800, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                            <Edit3 size={14} /> Bearbeiten
+                          </button>
+                          <button onClick={() => handleDeleteLocation(loc.id)} style={{ padding: '10px', borderRadius: 10, background: `${C.pink}11`, border: `1px solid ${C.pink}33`, color: C.pink, cursor: 'pointer' }} title="Standort löschen">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )
@@ -1884,25 +1894,65 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
 
       {/* Select From Mediathek Modal */}
       {showMediaModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 20, width: '100%', maxWidth: 640, padding: 24, maxHeight: '85vh', overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(10px)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: C.card, border: `1px solid ${C.purple}55`, borderRadius: 20, width: '100%', maxWidth: 680, padding: 24, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 25px 60px rgba(0,0,0,0.8)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div>
-                <div style={{ fontSize: 18, fontWeight: 800 }}>🖼️ Mediathek durchsuchen</div>
-                <div style={{ fontSize: 12, color: C.muted }}>Wähle ein hochgeladenes Speisekarten-Foto oder PDF aus</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: C.white, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Library size={20} color={C.purple} /> Mediathek Durchsuchen
+                </div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+                  {mediaModalPurpose === 'location_highlight' 
+                    ? 'Wähle ein Hintergrundbild für deinen Standort-Highlight-Banner' 
+                    : 'Wähle eine Speisekarte (Foto oder PDF) für die KI-Extraktion'}
+                </div>
               </div>
-              <button onClick={() => setShowMediaModal(false)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 20, fontWeight: 700 }}>✕</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <label style={{ fontSize: 11, color: C.white, fontWeight: 700, background: C.purple, padding: '6px 12px', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Upload size={13} /> Neues Bild Hochladen
+                  <input type="file" accept="image/*,.pdf" onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      const reader = new FileReader()
+                      reader.onload = (ev) => {
+                        const newItem = { id: `med_${Date.now()}`, name: file.name, url: ev.target.result, type: file.type.startsWith('image/') ? 'image' : 'pdf' }
+                        setLocalMedia(prev => [newItem, ...prev])
+                        handleSelectFromMedia(newItem)
+                      }
+                      reader.readAsDataURL(file)
+                    }
+                  }} style={{ display: 'none' }} />
+                </label>
+                <button onClick={() => setShowMediaModal(false)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 20, fontWeight: 700 }}>✕</button>
+              </div>
             </div>
 
-            {mediaItems.length === 0 ? (
-              <div style={{ padding: 40, textAlign: 'center', color: C.muted, background: C.bg, borderRadius: 12 }}>
-                Keine Medien in deiner Mediathek vorhanden. Lade zuerst in der Mediathek oder oben ein Foto hoch.
+            {[...localMedia, ...mediaItems].length === 0 ? (
+              <div style={{ padding: 40, textAlign: 'center', color: C.muted, background: C.bg, borderRadius: 16, border: `1px dashed ${C.border}` }}>
+                <Library size={36} color={C.purple} style={{ margin: '0 auto 12px' }} />
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.white, marginBottom: 4 }}>Keine Medien vorhanden</div>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Lade ein Foto oder PDF hoch, um es sofort zu verwenden.</div>
+                <label style={{ padding: '10px 20px', background: C.purple, color: C.white, borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <Upload size={16} /> Datei Hochladen & Nutzen
+                  <input type="file" accept="image/*,.pdf" onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      const reader = new FileReader()
+                      reader.onload = (ev) => {
+                        const newItem = { id: `med_${Date.now()}`, name: file.name, url: ev.target.result, type: file.type.startsWith('image/') ? 'image' : 'pdf' }
+                        setLocalMedia(prev => [newItem, ...prev])
+                        handleSelectFromMedia(newItem)
+                      }
+                      reader.readAsDataURL(file)
+                    }
+                  }} style={{ display: 'none' }} />
+                </label>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 12 }}>
-                {mediaItems.map((med) => (
-                  <div key={med.id} onClick={() => handleSelectFromMedia(med)} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12, padding: 8, cursor: 'pointer', transition: 'transform 0.15s', textAlign: 'center' }} onMouseEnter={(e) => e.currentTarget.style.borderColor = C.purple} onMouseLeave={(e) => e.currentTarget.style.borderColor = C.border}>
-                    <div style={{ height: 90, borderRadius: 8, overflow: 'hidden', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))', gap: 12 }}>
+                {[...localMedia, ...mediaItems].map((med) => (
+                  <div key={med.id} onClick={() => handleSelectFromMedia(med)} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12, padding: 8, cursor: 'pointer', transition: 'all 0.15s ease', textAlign: 'center' }} onMouseEnter={(e) => e.currentTarget.style.borderColor = C.purple} onMouseLeave={(e) => e.currentTarget.style.borderColor = C.border}>
+                    <div style={{ height: 95, borderRadius: 8, overflow: 'hidden', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
                       {med.url && (med.type === 'image' || med.url.startsWith('data:image')) ? (
                         <img src={med.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
                       ) : (
@@ -2077,8 +2127,8 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                           <label style={{ fontSize: 11, fontWeight: 800, color: C.muted }}>HINTERGRUNDBILD (URL oder PRESET)</label>
-                          <button type="button" onClick={() => setShowMediaModal(true)} style={{ fontSize: 10, color: C.purple, fontWeight: 700, background: `${C.purple}22`, border: `1px solid ${C.purple}44`, borderRadius: 6, padding: '2px 6px', cursor: 'pointer' }}>
-                            🖼️ Mediathek
+                          <button type="button" onClick={() => { setMediaModalPurpose('location_highlight'); setShowMediaModal(true) }} style={{ fontSize: 10, color: C.purple, fontWeight: 700, background: `${C.purple}22`, border: `1px solid ${C.purple}44`, borderRadius: 6, padding: '2px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <Library size={12} /> Mediathek
                           </button>
                         </div>
                         <input value={locForm.highlight?.bgImage || ''} onChange={(e) => setLocForm({ ...locForm, highlight: { ...locForm.highlight, bgImage: e.target.value } })} placeholder="https://images.unsplash.com/photo-..." style={{ width: '100%', padding: 8, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 11 }} />

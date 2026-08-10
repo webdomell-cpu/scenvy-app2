@@ -793,8 +793,8 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
         </div>
       </div>
 
-      {/* STICKY GUEST BOTTOM ACTION BAR (Tisch-Bestellung & Kellner-Ruf) */}
-      {!editorMode && (
+      {/* STICKY GUEST BOTTOM ACTION BAR (Tisch-Bestellung & Kellner-Ruf) - Only in public link guest view when menu is loaded */}
+      {!editorMode && menu?.categories && (
         <div
           style={{
             position: 'fixed',
@@ -805,60 +805,40 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
             background: 'rgba(15, 15, 23, 0.95)',
             backdropFilter: 'blur(16px)',
             borderTop: '1px solid rgba(255,255,255,0.12)',
-            padding: '12px 16px',
+            padding: '10px 14px',
             boxShadow: '0 -8px 30px rgba(0,0,0,0.5)'
           }}
         >
-          <div style={{ maxWidth: 680, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-            {/* Quick Service Buttons */}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={() => { setCallType('waiter'); setShowCallModal(true) }}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 12,
-                  background: 'rgba(239, 68, 68, 0.15)',
-                  border: '1px solid rgba(239, 68, 68, 0.4)',
-                  color: '#FCA5A5',
-                  fontSize: 12,
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6
-                }}
-              >
-                <Bell size={15} color="#EF4444" />
-                <span>{lang === 'de' ? 'Kellner rufen' : 'Call Waiter'}</span>
-              </button>
+          <div style={{ maxWidth: 680, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            {/* 1. Left: Kellner rufen */}
+            <button
+              onClick={() => { setCallType('waiter'); setShowCallModal(true) }}
+              style={{
+                padding: '10px 12px',
+                borderRadius: 12,
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                color: '#FCA5A5',
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
+            >
+              <Bell size={15} color="#EF4444" />
+              <span>{lang === 'de' ? 'Kellner rufen' : 'Call Waiter'}</span>
+            </button>
 
-              <button
-                onClick={() => { setCallType('bill'); setShowCallModal(true) }}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 12,
-                  background: 'rgba(245, 158, 11, 0.15)',
-                  border: '1px solid rgba(245, 158, 11, 0.4)',
-                  color: '#FDE047',
-                  fontSize: 12,
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6
-                }}
-              >
-                <Receipt size={15} color="#F59E0B" />
-                <span>{lang === 'de' ? 'Rechnung' : 'Bill'}</span>
-              </button>
-            </div>
-
-            {/* Cart Button */}
+            {/* 2. Middle: Bestellung (Order Cart) */}
             <button
               onClick={() => setShowCartModal(true)}
               style={{
                 flex: 1,
-                padding: '10px 16px',
+                padding: '10px 14px',
                 borderRadius: 14,
                 background: cart.length > 0 ? 'linear-gradient(135deg, #10B981 0%, #059669 100%)' : 'rgba(255,255,255,0.08)',
                 border: cart.length > 0 ? 'none' : '1px solid rgba(255,255,255,0.15)',
@@ -872,19 +852,42 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
                 boxShadow: cart.length > 0 ? '0 4px 20px rgba(16,185,129,0.4)' : 'none'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <ShoppingCart size={18} />
-                <span>{lang === 'de' ? 'Bestellung' : 'Order Cart'}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <ShoppingCart size={17} />
+                <span>{lang === 'de' ? 'Bestellung' : 'Order'}</span>
                 {cart.length > 0 && (
-                  <span style={{ padding: '2px 8px', borderRadius: 10, background: '#FFF', color: '#059669', fontSize: 11, fontWeight: 900 }}>
+                  <span style={{ padding: '2px 7px', borderRadius: 10, background: '#FFF', color: '#059669', fontSize: 11, fontWeight: 900 }}>
                     {cart.reduce((a, b) => a + b.qty, 0)}
                   </span>
                 )}
               </div>
 
-              <span style={{ fontSize: 14, fontWeight: 900 }}>
+              <span style={{ fontSize: 13, fontWeight: 900 }}>
                 {cart.length > 0 ? getCartTotalFormatted() : (lang === 'de' ? 'Leer' : 'Empty')}
               </span>
+            </button>
+
+            {/* 3. Right: Rechnung */}
+            <button
+              onClick={() => { setCallType('bill'); setShowCallModal(true) }}
+              style={{
+                padding: '10px 12px',
+                borderRadius: 12,
+                background: 'rgba(245, 158, 11, 0.15)',
+                border: '1px solid rgba(245, 158, 11, 0.4)',
+                color: '#FDE047',
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
+            >
+              <Receipt size={15} color="#F59E0B" />
+              <span>{lang === 'de' ? 'Rechnung' : 'Bill'}</span>
             </button>
           </div>
         </div>

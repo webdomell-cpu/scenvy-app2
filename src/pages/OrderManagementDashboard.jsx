@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
 import {
   useOrders,
@@ -7,7 +7,8 @@ import {
   useServiceCalls,
   useUpdateServiceCallStatus,
   useSubmitOrder,
-  useSubmitServiceCall
+  useSubmitServiceCall,
+  useLocations
 } from '@/lib/db'
 import { C, grad } from '@/tokens'
 import {
@@ -32,8 +33,12 @@ import {
 
 export default function OrderManagementDashboard() {
   const { tenantId: paramTenantId } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
   const activeTenantId = paramTenantId || user?.tenant_id || user?.tenantId || 'tenant-demo-1'
+
+  const locationQueryParam = searchParams.get('location') || searchParams.get('locationId') || 'all'
+  const [selectedLocId, setSelectedLocId] = useState(locationQueryParam)
 
   const [filter, setFilter] = useState('pending') // 'pending' | 'accepted' | 'all'
   const [soundEnabled, setSoundEnabled] = useState(true)
@@ -41,8 +46,19 @@ export default function OrderManagementDashboard() {
   const [lastOrderCount, setLastOrderCount] = useState(0)
 
   // Realtime DB Hooks
-  const { data: orders = [], isLoading: loadingOrders, refetch: refetchOrders } = useOrders(activeTenantId)
-  const { data: serviceCalls = [], isLoading: loadingCalls, refetch: refetchCalls } = useServiceCalls(activeTenantId)
+  const { data: locations = [] } = useLocations(activeTenantId)
+  const { data: rawOrders = [], isLoading: loadingOrders, refetch: refetchOrders } = useOrders(activeTenantId)
+  const { data: rawCalls = [], isLoading: loadingCalls, refetch: refetchCalls } = useServiceCalls(activeTenantId)
+
+  // Filter by selected location if specified
+  const activeLocation = locations.find(l => l.id === selectedLocId || l.slug === selectedLocId)
+  const orders = selectedLocId === 'all' 
+    ? rawOrders 
+    : rawOrders.filter(o => o.location_id === selectedLocId || (activeLocation && o.location_id === activeLocation.id))
+  
+  const serviceCalls = selectedLocId === 'all' 
+    ? rawCalls 
+    : rawCalls.filter(c => c.location_id === selectedLocId || (activeLocation && c.location_id === activeLocation.id))
 
   const updateOrderStatus = useUpdateOrderStatus()
   const updateCallStatus = useUpdateServiceCallStatus()
@@ -135,6 +151,38 @@ export default function OrderManagementDashboard() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          {/* Location Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.06)', padding: '6px 12px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)' }}>
+            <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 700 }}>Standort:</span>
+            <select
+              value={selectedLocId}
+              onChange={(e) => {
+                setSelectedLocId(e.target.value)
+                setSearchParams(prev => {
+                  if (e.target.value === 'all') prev.delete('location')
+                  else prev.set('location', e.target.value)
+                  return prev
+                })
+              }}
+              style={{
+                background: 'transparent',
+                color: '#FFF',
+                border: 'none',
+                fontWeight: 800,
+                fontSize: 12,
+                cursor: 'pointer',
+                outline: 'none'
+              }}
+            >
+              <option value="all" style={{ background: '#12121A', color: '#FFF' }}>Alle Standorte</option>
+              {locations.map(loc => (
+                <option key={loc.id} value={loc.id} style={{ background: '#12121A', color: '#FFF' }}>
+                  📍 {loc.name} {loc.city ? `(${loc.city})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Sound Toggle */}
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}

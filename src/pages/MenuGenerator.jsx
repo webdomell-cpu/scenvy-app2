@@ -93,6 +93,156 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
   const [scheduleEndTime, setScheduleEndTime] = useState('14:30')
   const [scheduleLocationId, setScheduleLocationId] = useState('all')
 
+  // Sammlungsflow & Sammlungsmenü Tool States
+  const [collectionFlowPages, setCollectionFlowPages] = useState([])
+  const [collectionMenus, setCollectionMenus] = useState(() => {
+    try {
+      const saved = localStorage.getItem('scenvy_collection_menus')
+      return saved ? JSON.parse(saved) : [
+        {
+          id: 'coll_sample_1',
+          title: '🍷 Abendkarte & Signature Cocktails Sammlung',
+          description: 'Kombinierte digitale Speisekarte für Abendgäste',
+          menuIds: [],
+          locationId: 'all',
+          activeSchedule: { enabled: true, startTime: '17:00', endTime: '23:30' },
+          createdAt: new Date().toISOString()
+        }
+      ]
+    } catch (e) {
+      return []
+    }
+  })
+  const [showCollectionModal, setShowCollectionModal] = useState(false)
+  const [editingCollectionId, setEditingCollectionId] = useState(null)
+  const [collForm, setCollForm] = useState({
+    title: '',
+    description: '',
+    menuIds: [],
+    locationId: 'all',
+    activeSchedule: { enabled: false, startTime: '12:00', endTime: '22:00' }
+  })
+
+  const addPageToCollectionFlow = (page) => {
+    setCollectionFlowPages(prev => [...prev, {
+      id: 'page_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      title: page.title || `Seite ${prev.length + 1}`,
+      base64: page.base64 || null,
+      mime: page.mime || 'application/pdf',
+      text: page.text || '',
+      previewUrl: page.previewUrl || page.base64 || null,
+      timestamp: new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+    }])
+    notify(`📄 ${page.title || 'Seite'} zum Sammlungsflow hinzugefügt!`)
+  }
+
+  const removePageFromCollectionFlow = (id) => {
+    setCollectionFlowPages(prev => prev.filter(p => p.id !== id))
+    notify('🗑️ Seite aus Sammlungsflow entfernt.')
+  }
+
+  const processCollectionFlowAi = async () => {
+    if (collectionFlowPages.length === 0) {
+      notify('⚠️ Bitte füge mindestens 1 Seite zum Sammlungsflow hinzu.')
+      return
+    }
+
+    setIsGenerating(true)
+    setGenStep(`🔄 Sammlungsflow gestartet (${collectionFlowPages.length} Seiten werden analysiert)...`)
+
+    const combinedText = collectionFlowPages.map((p, idx) => `=== SAMMLUNG SEITE ${idx + 1}: ${p.title} ===\n${p.text || ''}`).join('\n\n')
+    const primaryBase64 = collectionFlowPages.find(p => p.base64)?.base64 || null
+    const primaryMime = collectionFlowPages.find(p => p.base64)?.mime || 'application/pdf'
+
+    try {
+      const res = await fetch('/api/ai/parse-menu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documentText: combinedText,
+          fileBase64: primaryBase64,
+          fileMimeType: primaryMime,
+          venue: venue || tenant?.name || 'Sammlungsmenü',
+          style,
+          primaryColor,
+          secondaryColor,
+          phone,
+          whatsapp,
+          address
+        })
+      })
+
+      if (!res.ok) {
+        throw new Error('Serverfehler bei Sammlungsflow KI-Analyse')
+      }
+
+      const parsedMenu = await res.json()
+      if (!parsedMenu || !parsedMenu.categories) {
+        throw new Error('Unvollständiges KI-Ergebnis')
+      }
+
+      setCurrentMenu(parsedMenu)
+      try {
+        localStorage.setItem('scenvy_cached_menu', JSON.stringify(parsedMenu))
+      } catch (e) {}
+
+      await saveMenuReel.mutateAsync({
+        menuReel: {
+          id: crypto.randomUUID(),
+          title: parsedMenu.branding?.name || 'Sammlungsmenü (Multi-Scan)',
+          data: parsedMenu
+        },
+        tenantId
+      }).catch(err => console.warn('Save reel error:', err))
+
+      setIsGenerating(false)
+      const totalDishes = parsedMenu.categories.reduce((sum, c) => sum + (c.items?.length || 0), 0)
+      notify(`✨ Sammlungsflow abgeschlossen! ${totalDishes} Gerichte aus ${collectionFlowPages.length} Seiten zusammengeführt!`)
+      setActiveTab('articles')
+    } catch (err) {
+      console.error('Sammlungsflow Error:', err)
+      setIsGenerating(false)
+      notify('⚠️ Fehler beim Sammlungsflow. Bitte erneut versuchen.')
+    }
+  }
+
+  const saveCollectionMenuSubmit = (e) => {
+    e.preventDefault()
+    if (!collForm.title) {
+      notify('⚠️ Bitte gib einen Titel für das Sammlungsmenü ein.')
+      return
+    }
+
+    const newColl = {
+      id: editingCollectionId || 'coll_' + Date.now(),
+      ...collForm,
+      updatedAt: new Date().toISOString()
+    }
+
+    const updated = collectionMenus.some(c => c.id === newColl.id)
+      ? collectionMenus.map(c => c.id === newColl.id ? newColl : c)
+      : [newColl, ...collectionMenus]
+
+    setCollectionMenus(updated)
+    try {
+      localStorage.setItem('scenvy_collection_menus', JSON.stringify(updated))
+    } catch (e) {}
+
+    setShowCollectionModal(false)
+    setEditingCollectionId(null)
+    notify('✨ Sammlungsmenü erfolgreich gespeichert!')
+  }
+
+  const deleteCollectionMenu = (id) => {
+    if (!window.confirm('Möchtest du dieses Sammlungsmenü wirklich löschen?')) return
+    const updated = collectionMenus.filter(c => c.id !== id)
+    setCollectionMenus(updated)
+    try {
+      localStorage.setItem('scenvy_collection_menus', JSON.stringify(updated))
+    } catch (e) {}
+    notify('🗑️ Sammlungsmenü gelöscht.')
+  }
+
   // Article Master Table Editor filters & state
   const [articleSearch, setArticleSearch] = useState('')
   const [selectedCatFilter, setSelectedCatFilter] = useState('ALL')
@@ -935,6 +1085,17 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
             <button onClick={() => setActiveTab('create')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'create' ? C.purple : 'transparent', color: activeTab === 'create' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
               🚀 SNAP Generator
             </button>
+            <button onClick={() => setActiveTab('collection_flow')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'collection_flow' ? C.purple : 'transparent', color: activeTab === 'collection_flow' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              🔄 Sammlungsflow
+              {collectionFlowPages.length > 0 && (
+                <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 10, background: activeTab === 'collection_flow' ? '#FFF' : `${C.purple}33`, color: activeTab === 'collection_flow' ? C.purple : C.pink, fontWeight: 800 }}>
+                  {collectionFlowPages.length}
+                </span>
+              )}
+            </button>
+            <button onClick={() => setActiveTab('collection_menu')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'collection_menu' ? C.purple : 'transparent', color: activeTab === 'collection_menu' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              📚 Sammlungsmenü ({collectionMenus.length})
+            </button>
             <button onClick={() => setActiveTab('articles')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'articles' ? C.purple : 'transparent', color: activeTab === 'articles' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
               📊 Artikelstamm & Editor
               {currentMenu?.categories?.length > 0 && (
@@ -1174,6 +1335,300 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
                 )}
               </div>
             </div>
+          </div>
+        ) : activeTab === 'collection_flow' ? (
+          /* Sammlungsflow (Batch Scan & AI Pipeline) Tab */
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 900, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Zap color={C.purple} size={24} /> Sammlungsflow (Multi-Scan & KI-Kombination)
+            </div>
+            <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>
+              Scanne mehrere Speisekarten-Seiten nacheinander (z. B. Getränke, Vorspeisen, Hauptgerichte, Desserts) und lasse die KI alle Seiten in eine einzige, perfekt strukturierte digitale Speisekarte zusammenführen.
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 24 }}>
+              {/* Left Column: Flow Pipeline & Page Cards */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {/* Upload & Add Buttons Bar */}
+                <div style={{ background: C.card, borderRadius: 18, border: `1px solid ${C.border}`, padding: 20 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: C.white, marginBottom: 12 }}>
+                    ➕ Nächste Seite zum Sammlungsflow hinzufügen
+                  </div>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    <label style={{ padding: '12px 18px', borderRadius: 12, background: C.purple, color: C.white, fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: `0 6px 20px ${C.purple}44` }}>
+                      <Upload size={16} /> Foto / PDF hochladen
+                      <input type="file" accept="image/*,.pdf" onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          const reader = new FileReader()
+                          reader.onload = (ev) => {
+                            addPageToCollectionFlow({
+                              title: file.name.replace(/\.[^/.]+$/, ""),
+                              base64: ev.target.result,
+                              mime: file.type || 'application/pdf',
+                              previewUrl: ev.target.result
+                            })
+                          }
+                          reader.readAsDataURL(file)
+                        }
+                      }} style={{ display: 'none' }} />
+                    </label>
+
+                    <button
+                      onClick={() => { setMediaModalPurpose('menu_source'); setShowMediaModal(true) }}
+                      style={{ padding: '12px 18px', borderRadius: 12, background: C.card2, border: `1px solid ${C.purple}44`, color: C.white, fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
+                    >
+                      <Library size={16} color={C.purple} /> Aus Mediathek wählen
+                    </button>
+                  </div>
+                </div>
+
+                {/* Pipeline Step Sequence Grid */}
+                <div style={{ background: C.card, borderRadius: 18, border: `1px solid ${C.border}`, padding: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: C.white }}>
+                      📋 Sammlungs-Seiten Pipeline ({collectionFlowPages.length})
+                    </div>
+                    {collectionFlowPages.length > 0 && (
+                      <button
+                        onClick={() => { setCollectionFlowPages([]); notify('🧹 Sammlungsflow zurückgesetzt.') }}
+                        style={{ background: 'none', border: 'none', color: C.pink, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        Alle löschen
+                      </button>
+                    )}
+                  </div>
+
+                  {collectionFlowPages.length === 0 ? (
+                    <div style={{ padding: 40, textAlign: 'center', color: C.muted, background: C.bg, borderRadius: 14, border: `1px dashed ${C.border}` }}>
+                      <FileText size={40} color={C.purple} style={{ margin: '0 auto 12px' }} />
+                      <div style={{ fontSize: 15, fontWeight: 800, color: C.white, marginBottom: 4 }}>Noch keine Seiten im Flow</div>
+                      <div style={{ fontSize: 12, maxWidth: 380, margin: '0 auto' }}>
+                        Lade deine erste Speisekarten-Seite hoch oder wähle eine Datei aus deiner Mediathek, um den Sammlungsflow zu starten.
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gap: 12 }}>
+                      {collectionFlowPages.map((page, idx) => (
+                        <div key={page.id} style={{ background: C.bg, borderRadius: 14, border: `1px solid ${C.border}`, padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+                            <div style={{ width: 32, height: 32, borderRadius: 10, background: C.purple, color: C.white, fontWeight: 900, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              #{idx + 1}
+                            </div>
+                            <div style={{ width: 50, height: 50, borderRadius: 8, overflow: 'hidden', background: '#000', border: `1px solid ${C.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              {page.previewUrl && page.previewUrl.startsWith('data:image') ? (
+                                <img src={page.previewUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                              ) : (
+                                <FileText size={20} color={C.purple} />
+                              )}
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 14, fontWeight: 800, color: C.white }}>{page.title}</div>
+                              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                                Hinzugefügt um {page.timestamp} • {page.mime.includes('pdf') ? 'PDF Dokument' : 'Bild / Scan'}
+                              </div>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => removePageFromCollectionFlow(page.id)}
+                            style={{ background: `${C.pink}11`, border: `1px solid ${C.pink}33`, color: C.pink, padding: 8, borderRadius: 8, cursor: 'pointer' }}
+                            title="Seite entfernen"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: AI Scan Action & Settings */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <div style={{ background: C.card, borderRadius: 18, border: `1px solid ${C.purple}66`, padding: 24, boxShadow: `0 10px 30px ${C.purple}22` }}>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: C.white, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Sparkles color={C.purple} size={20} /> KI-Sammlungs-Kombination
+                  </div>
+                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>
+                    Die KI erkennt automatisch alle Speisen, Getränke, Preise und Allergene über alle im Sammlungsflow erfassten Seiten hinweg und strukturiert diese einheitlich.
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 4 }}>RESTAURANT NAME FÜR DIE SAMMLUNG</label>
+                      <input value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="Restaurant Name" style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13 }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 4 }}>DESIGN-STIL THEME</label>
+                      <select value={style} onChange={(e) => setStyle(e.target.value)} style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13 }}>
+                        <option value="fine_dining">🍷 Fine Dining & Elegance (Dunkel & Gold)</option>
+                        <option value="street_food">🍔 Street Food & Fast Casual</option>
+                        <option value="cafe">☕ Café & Bakery</option>
+                        <option value="trattoria">🍕 Trattoria & Pizzeria</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={processCollectionFlowAi}
+                    disabled={isGenerating || collectionFlowPages.length === 0}
+                    style={{
+                      width: '100%',
+                      padding: '16px 0',
+                      borderRadius: 14,
+                      border: 'none',
+                      background: collectionFlowPages.length === 0 ? C.card2 : grad(C.purple, C.pink),
+                      color: collectionFlowPages.length === 0 ? C.muted : C.white,
+                      fontSize: 15,
+                      fontWeight: 900,
+                      cursor: collectionFlowPages.length === 0 || isGenerating ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      boxShadow: collectionFlowPages.length > 0 ? `0 10px 25px ${C.purple}44` : 'none'
+                    }}
+                  >
+                    <Sparkles size={18} /> {isGenerating ? 'Analysiere Sammlungsflow...' : `🤖 KI Sammlungs-Scan Ausführen (${collectionFlowPages.length} Seiten)`}
+                  </button>
+
+                  {isGenerating && (
+                    <div style={{ marginTop: 16, padding: 12, borderRadius: 10, background: C.card2, border: `1px solid ${C.purple}44`, textAlign: 'center' }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: C.purple, marginBottom: 4 }}>{genStep}</div>
+                      <div style={{ height: 4, background: C.bg, borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: '80%', background: grad(C.purple, C.pink), borderRadius: 2, animation: 'pulse 1.2s infinite' }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : activeTab === 'collection_menu' ? (
+          /* Sammlungsmenü Overview & Management Tab */
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: C.white, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Layers color={C.purple} size={24} /> Sammlungsmenü Verwaltung ({collectionMenus.length})
+                </div>
+                <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>
+                  Gruppiere mehrere digitale Speisekarten zu kuratierten Sammlungen für Standorte, Events oder Tageszeiten.
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setEditingCollectionId(null)
+                  setCollForm({
+                    title: '',
+                    description: '',
+                    menuIds: [],
+                    locationId: 'all',
+                    activeSchedule: { enabled: false, startTime: '12:00', endTime: '22:00' }
+                  })
+                  setShowCollectionModal(true)
+                }}
+                style={{ padding: '12px 20px', borderRadius: 12, background: C.purple, color: C.white, border: 'none', fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: `0 6px 20px ${C.purple}44` }}
+              >
+                <Plus size={16} /> Neues Sammlungsmenü Anlegen
+              </button>
+            </div>
+
+            {collectionMenus.length === 0 ? (
+              <div style={{ padding: 48, textAlign: 'center', color: C.muted, background: C.card, borderRadius: 20, border: `1px solid ${C.border}` }}>
+                <Layers size={48} color={C.purple} style={{ margin: '0 auto 16px' }} />
+                <div style={{ fontSize: 18, fontWeight: 800, color: C.white, marginBottom: 6 }}>Noch keine Sammlungsmenüs angelegt</div>
+                <div style={{ fontSize: 13, maxWidth: 460, margin: '0 auto 20px', lineHeight: 1.5 }}>
+                  Erstelle deine erste Speisekarten-Sammlung, um beispielsweise Tageskarte, Abendkarte und Getränkekarte unter einem gemeinsamen Link oder QR-Code anzubieten.
+                </div>
+                <button
+                  onClick={() => {
+                    setEditingCollectionId(null)
+                    setCollForm({
+                      title: 'Abend & Cocktail Sammlung',
+                      description: 'Hauptspeisen und Empfehlungen des Hauses',
+                      menuIds: [],
+                      locationId: 'all',
+                      activeSchedule: { enabled: true, startTime: '17:00', endTime: '23:30' }
+                    })
+                    setShowCollectionModal(true)
+                  }}
+                  style={{ padding: '12px 24px', borderRadius: 12, background: C.purple, color: C.white, border: 'none', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}
+                >
+                  🚀 Erste Sammlung Anlegen
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 20 }}>
+                {collectionMenus.map((coll) => {
+                  const collLink = `${window.location.origin}/m/collection/${coll.id}`
+                  return (
+                    <div key={coll.id} style={{ background: C.card, borderRadius: 18, border: `1px solid ${C.border}`, padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                          <div>
+                            <div style={{ fontSize: 16, fontWeight: 800, color: C.white }}>{coll.title}</div>
+                            <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>{coll.description || 'Keine Beschreibung'}</div>
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 8px', borderRadius: 6, background: `${C.purple}22`, color: C.purple }}>
+                            {coll.menuIds?.length || 0} Speisekarten
+                          </span>
+                        </div>
+
+                        {/* Schedule & Location Badges */}
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+                          {coll.activeSchedule?.enabled && (
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: 'rgba(16, 185, 129, 0.15)', color: '#34D399', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <Clock size={12} /> {coll.activeSchedule.startTime} – {coll.activeSchedule.endTime} Uhr
+                            </span>
+                          )}
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: C.card2, color: C.muted, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <MapPin size={12} /> {coll.locationId === 'all' ? 'Alle Standorte' : 'Spezifischer Standort'}
+                          </span>
+                        </div>
+
+                        {/* Direct Public Collection Link */}
+                        <div style={{ background: '#0D0D14', borderRadius: 12, padding: 12, border: `1px solid ${C.border}`, marginBottom: 16 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11 }}>
+                            <span style={{ fontWeight: 700, color: C.white }}>🔗 Öffentlicher Sammlungs-Link</span>
+                            <button onClick={() => { copyToClipboard(collLink); notify('📋 Sammlungs-Link kopiert!') }} style={{ background: 'none', border: 'none', color: C.purple, fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>
+                              Kopieren
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          onClick={() => {
+                            setEditingCollectionId(coll.id)
+                            setCollForm({
+                              title: coll.title,
+                              description: coll.description || '',
+                              menuIds: coll.menuIds || [],
+                              locationId: coll.locationId || 'all',
+                              activeSchedule: coll.activeSchedule || { enabled: false, startTime: '12:00', endTime: '22:00' }
+                            })
+                            setShowCollectionModal(true)
+                          }}
+                          style={{ flex: 1, padding: '10px 14px', borderRadius: 10, background: C.purple, color: C.white, border: 'none', fontWeight: 800, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                        >
+                          <Edit3 size={14} /> Bearbeiten
+                        </button>
+                        <button
+                          onClick={() => deleteCollectionMenu(coll.id)}
+                          style={{ padding: '10px', borderRadius: 10, background: `${C.pink}11`, border: `1px solid ${C.pink}33`, color: C.pink, cursor: 'pointer' }}
+                          title="Sammlung löschen"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         ) : activeTab === 'design' ? (
           /* Branding & Design Templates Tab */
@@ -2211,6 +2666,147 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
                   💾 Standort Speichern
                 </button>
                 <button type="button" onClick={() => setShowLocationModal(false)} style={{ padding: '12px 20px', borderRadius: 12, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>
+                  Abbrechen
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Sammlungsmenü Modal */}
+      {showCollectionModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: C.card, border: `1px solid ${C.purple}55`, borderRadius: 24, width: '100%', maxWidth: 640, padding: 28, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 60px rgba(0,0,0,0.8)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: C.white, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Layers color={C.purple} size={22} /> {editingCollectionId ? '✏️ Sammlungsmenü Bearbeiten' : '📚 Neues Sammlungsmenü Anlegen'}
+                </div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+                  Füge mehrere Speisekarten zu einer digitalen Gesamtsammlung zusammen.
+                </div>
+              </div>
+              <button onClick={() => setShowCollectionModal(false)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 22, fontWeight: 700 }}>✕</button>
+            </div>
+
+            <form onSubmit={saveCollectionMenuSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>TITEL DER SAMMLUNG *</label>
+                <input
+                  value={collForm.title}
+                  onChange={(e) => setCollForm({ ...collForm, title: e.target.value })}
+                  placeholder="z.B. Abendkarte & Cocktail Bar Sammlung"
+                  style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }}
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>BESCHREIBUNG / UNTERTITEL</label>
+                <textarea
+                  value={collForm.description}
+                  onChange={(e) => setCollForm({ ...collForm, description: e.target.value })}
+                  placeholder="Kombinierte digitale Speisekarte mit Speisen, Desserts und Getränkekarte."
+                  rows={2}
+                  style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none', resize: 'vertical' }}
+                />
+              </div>
+
+              {/* Select Menus to Include */}
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 8 }}>SPEISEKARTEN IN DIESE SAMMLUNG AUFNEHMEN</label>
+                {menuReels.length === 0 ? (
+                  <div style={{ fontSize: 12, color: C.muted, background: C.bg, padding: 12, borderRadius: 10, border: `1px dashed ${C.border}` }}>
+                    Noch keine gespeicherten Speisekarten vorhanden.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 8, maxHeight: 180, overflowY: 'auto', background: C.bg, padding: 12, borderRadius: 12, border: `1px solid ${C.border}` }}>
+                    {menuReels.map((m) => {
+                      const title = m.data?.branding?.name || m.title || 'Digital Menu'
+                      const isChecked = collForm.menuIds?.includes(m.id)
+                      return (
+                        <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: C.white, cursor: 'pointer', padding: '4px 6px', borderRadius: 6, background: isChecked ? `${C.purple}22` : 'transparent' }}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              const curr = collForm.menuIds || []
+                              if (e.target.checked) {
+                                setCollForm({ ...collForm, menuIds: [...curr, m.id] })
+                              } else {
+                                setCollForm({ ...collForm, menuIds: curr.filter(id => id !== m.id) })
+                              }
+                            }}
+                            style={{ accentColor: C.purple, width: 16, height: 16 }}
+                          />
+                          <span>📜 {title}</span>
+                          <span style={{ fontSize: 10, color: C.muted, marginLeft: 'auto' }}>ID: {m.id.slice(0, 6)}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Location Assignment */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>STANDORT-ZUORDNUNG</label>
+                  <select
+                    value={collForm.locationId}
+                    onChange={(e) => setCollForm({ ...collForm, locationId: e.target.value })}
+                    style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13 }}
+                  >
+                    <option value="all">📍 Alle Standorte</option>
+                    {locations.map(loc => (
+                      <option key={loc.id} value={loc.id}>📍 {loc.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>ZEITSTEUERUNG (HAPPY HOUR / SHIFT)</label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.white, marginTop: 10, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={collForm.activeSchedule?.enabled}
+                      onChange={(e) => setCollForm({ ...collForm, activeSchedule: { ...collForm.activeSchedule, enabled: e.target.checked } })}
+                      style={{ accentColor: C.purple, width: 16, height: 16 }}
+                    />
+                    Aktivierungszeit festlegen
+                  </label>
+                </div>
+              </div>
+
+              {collForm.activeSchedule?.enabled && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, background: C.bg, padding: 12, borderRadius: 12, border: `1px solid ${C.border}` }}>
+                  <div>
+                    <label style={{ fontSize: 10, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 4 }}>VON (UHRZEIT)</label>
+                    <input
+                      type="time"
+                      value={collForm.activeSchedule.startTime}
+                      onChange={(e) => setCollForm({ ...collForm, activeSchedule: { ...collForm.activeSchedule, startTime: e.target.value } })}
+                      style={{ width: '100%', padding: 8, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 12 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 4 }}>BIS (UHRZEIT)</label>
+                    <input
+                      type="time"
+                      value={collForm.activeSchedule.endTime}
+                      onChange={(e) => setCollForm({ ...collForm, activeSchedule: { ...collForm.activeSchedule, endTime: e.target.value } })}
+                      style={{ width: '100%', padding: 8, borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, color: C.white, fontSize: 12 }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+                <button type="submit" style={{ flex: 1, padding: '12px 20px', borderRadius: 12, background: C.purple, color: C.white, border: 'none', fontWeight: 800, cursor: 'pointer', fontSize: 13, boxShadow: `0 6px 20px ${C.purple}44` }}>
+                  💾 Sammlungsmenü Speichern
+                </button>
+                <button type="button" onClick={() => setShowCollectionModal(false)} style={{ padding: '12px 20px', borderRadius: 12, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>
                   Abbrechen
                 </button>
               </div>

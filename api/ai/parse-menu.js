@@ -17,10 +17,10 @@ function parsePdfTextFallback(text, venue, style, primaryColor, secondaryColor) 
     items: []
   }
 
-  const priceRegex = /(\d+[,.]\d{2}\s*€?|€\s*\d+[,.]\d{2}|\d+\s*€)/i
+  const priceRegex = /(\d+[,.]\d{2}\s*€?|€\s*\d+[,.]\d{2}|\d+\s*€|\d+[,.]\d{2}\s*EUR|\d+[,.]\d{1}\s*€)/i
 
   lines.forEach((line, idx) => {
-    // Check if line looks like a category header (ALL CAPS, short, no price)
+    // Check if line looks like a category header (ALL CAPS or short title, no price)
     if (line.length < 35 && line === line.toUpperCase() && !priceRegex.test(line) && line.length > 3) {
       if (currentCategory.items.length > 0) {
         categories.push(currentCategory)
@@ -36,13 +36,13 @@ function parsePdfTextFallback(text, venue, style, primaryColor, secondaryColor) 
 
     const priceMatch = line.match(priceRegex)
     if (priceMatch) {
-      const priceStr = priceMatch[0].includes('€') ? priceMatch[0] : `${priceMatch[0]} €`
+      const priceStr = priceMatch[0].includes('€') || priceMatch[0].includes('EUR') ? priceMatch[0] : `${priceMatch[0]} €`
       const dishName = line.replace(priceRegex, '').trim() || `Gericht ${currentCategory.items.length + 1}`
       
       currentCategory.items.push({
         id: `item_pdf_${idx + 1}`,
         name: dishName,
-        description: 'Aus PDF-Dokument ausgelesen',
+        description: 'Aus Dokument ausgelesen',
         price: priceStr,
         allergens: [],
         highlight: currentCategory.items.length === 0
@@ -51,7 +51,7 @@ function parsePdfTextFallback(text, venue, style, primaryColor, secondaryColor) 
       // Line without price (might be dish description or item name)
       if (currentCategory.items.length > 0) {
         const lastItem = currentCategory.items[currentCategory.items.length - 1]
-        if (lastItem.description === 'Aus PDF-Dokument ausgelesen') {
+        if (lastItem.description === 'Aus Dokument ausgelesen') {
           lastItem.description = line
         }
       } else {
@@ -74,7 +74,7 @@ function parsePdfTextFallback(text, venue, style, primaryColor, secondaryColor) 
 
   return {
     branding: {
-      name: venue || 'Extrahierte Speisekarte (PDF)',
+      name: venue || 'Extrahierte Speisekarte',
       style: style || 'modern',
       primaryColor: primaryColor || '#7C3AED',
       secondaryColor: secondaryColor || '#FF2D8D',
@@ -350,11 +350,11 @@ Raw Input Document Text:
 """${rawInput.slice(0, 80000)}"""`
 
     const parsed = await executeAiTask(async (ai) => {
-      const contents = []
+      const parts = []
 
       // If we have a Base64 file (PDF or Image), pass it directly via inlineData!
       if (cleanBase64) {
-        contents.push({
+        parts.push({
           inlineData: {
             data: cleanBase64,
             mimeType: cleanMime
@@ -362,9 +362,11 @@ Raw Input Document Text:
         })
       }
 
-      contents.push(promptText)
+      parts.push({ text: promptText })
 
-      const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+      const contents = { parts }
+
+      const modelsToTry = ['gemini-3.6-flash', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-lite', 'gemini-flash-latest']
       let lastErr = null
       let rawText = null
 
@@ -387,6 +389,10 @@ Raw Input Document Text:
         } catch (mErr) {
           console.warn(`Model ${m} failed in parse-menu:`, mErr?.message)
           lastErr = mErr
+          const errMsg = mErr?.message || ''
+          if (errMsg.includes('quota') || errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+            throw mErr
+          }
         }
       }
 

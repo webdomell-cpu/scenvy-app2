@@ -1618,5 +1618,463 @@ export function useUpdateServiceCallStatus() {
   })
 }
 
+// ════════════════════════════════════════════════════════
+// SCENVY HOST: DEPARTMENTS, SERVICES, REQUESTS & SETTINGS
+// ════════════════════════════════════════════════════════
+
+export const DEFAULT_HOST_DEPARTMENTS = [
+  { id: 'HOUSEKEEPING', name: 'Housekeeping', icon: 'Sparkles', enabled: true, color: '#8B5CF6' },
+  { id: 'IN_ROOM_DINING', name: 'In-Room Dining', icon: 'Utensils', enabled: true, color: '#F97316' },
+  { id: 'FNB', name: 'F&B & Bar', icon: 'Wine', enabled: true, color: '#EF4444' },
+  { id: 'MAINTENANCE', name: 'Maintenance', icon: 'Wrench', enabled: true, color: '#3B82F6' },
+  { id: 'LAUNDRY', name: 'Laundry', icon: 'Shirt', enabled: true, color: '#06B6D4' },
+  { id: 'CONCIERGE', name: 'Concierge', icon: 'Compass', enabled: true, color: '#10B981' },
+  { id: 'GUEST_SERVICES', name: 'Guest Services', icon: 'ConciergeBell', enabled: true, color: '#EC4899' },
+  { id: 'OTHER', name: 'Other Services', icon: 'HelpCircle', enabled: true, color: '#6B7280' }
+]
+
+export const DEFAULT_HOST_SERVICES = [
+  {
+    id: 'srv_1',
+    department: 'HOUSEKEEPING',
+    category: 'Bad & Hygiene',
+    name: 'Extra Handtücher (2er Set)',
+    description: 'Frische, flauschige Baumwollhandtücher aufs Zimmer geliefert.',
+    price: '0.00',
+    currency: 'EUR',
+    active: true,
+    type: 'REQUEST',
+    image: 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?w=400'
+  },
+  {
+    id: 'srv_2',
+    department: 'HOUSEKEEPING',
+    category: 'Bad & Hygiene',
+    name: 'Zahnpflege Set',
+    description: 'Einweg-Zahnbürste und Zahnpasta.',
+    price: '0.00',
+    currency: 'EUR',
+    active: true,
+    type: 'REQUEST',
+    image: 'https://images.unsplash.com/photo-1559599101-f09722fb4948?w=400'
+  },
+  {
+    id: 'srv_3',
+    department: 'HOUSEKEEPING',
+    category: 'Zimmer-Komfort',
+    name: 'Eiseimer & Gläser',
+    description: 'Frisch gefüllter Eiseimer mit zwei Kristallgläsern.',
+    price: '0.00',
+    currency: 'EUR',
+    active: true,
+    type: 'REQUEST',
+    image: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400'
+  },
+  {
+    id: 'srv_4',
+    department: 'IN_ROOM_DINING',
+    category: 'Hauptgerichte',
+    name: 'Scenvy Gourmet Club Sandwich',
+    description: 'Gegrillte Hähnchenbrust, Bacon, Bio-Ei, Avocado und Trüffelmayo.',
+    price: '18.50',
+    currency: 'EUR',
+    active: true,
+    type: 'ORDER',
+    image: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=400'
+  },
+  {
+    id: 'srv_5',
+    department: 'IN_ROOM_DINING',
+    category: 'Getränke',
+    name: 'Aperol Spritz (0.2l)',
+    description: 'Klassischer venezianischer Aperitif mit Prosecco und Frische-Orange.',
+    price: '8.50',
+    currency: 'EUR',
+    active: true,
+    type: 'ORDER',
+    image: 'https://images.unsplash.com/photo-1560512823-829485b8bf24?w=400'
+  },
+  {
+    id: 'srv_6',
+    department: 'MAINTENANCE',
+    category: 'Technik',
+    name: 'Klimaanlage Temperatur einstellen',
+    description: 'Techniker überprüft und reguliert die Zimmertemperatur.',
+    price: '0.00',
+    currency: 'EUR',
+    active: true,
+    type: 'INCIDENT',
+    image: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=400'
+  },
+  {
+    id: 'srv_7',
+    department: 'LAUNDRY',
+    category: 'Wäscheservice',
+    name: 'Express Hemden Bügelservice',
+    description: 'Bügeln innerhalb von 2 Stunden.',
+    price: '6.00',
+    currency: 'EUR',
+    active: true,
+    type: 'SERVICE',
+    image: 'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?w=400'
+  },
+  {
+    id: 'srv_8',
+    department: 'CONCIERGE',
+    category: 'Transfers & Touren',
+    name: 'Flughafen-Transfer (VIP Sedan)',
+    description: 'Privater Chauffeurservice zum Flughafen.',
+    price: '75.00',
+    currency: 'EUR',
+    active: true,
+    type: 'SERVICE',
+    image: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=400'
+  }
+]
+
+export function useHostDepartments(tenantId) {
+  const qc = useQueryClient()
+  return useQuery({
+    queryKey: ['host_departments', tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      try {
+        const ref = collection(db, 'host_departments')
+        const q = query(ref, where('tenant_id', '==', tenantId))
+        const snap = await getDocs(q)
+        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        if (docs.length > 0) return docs
+      } catch (e) {
+        console.warn('Host departments query notice:', e)
+      }
+
+      const stored = localStorage.getItem(`demo_host_departments_${tenantId}`)
+      if (stored) return JSON.parse(stored)
+
+      const defs = DEFAULT_HOST_DEPARTMENTS.map(d => ({ ...d, tenant_id: tenantId }))
+      localStorage.setItem(`demo_host_departments_${tenantId}`, JSON.stringify(defs))
+      return defs
+    }
+  })
+}
+
+export function useSaveHostDepartments() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ tenantId, departments }) => {
+      try {
+        for (const dept of departments) {
+          const docId = `dept_${tenantId}_${dept.id}`
+          await setDoc(doc(db, 'host_departments', docId), { ...dept, tenant_id: tenantId, updated_at: new Date().toISOString() }, { merge: true })
+        }
+      } catch (e) {
+        console.warn('Save host departments notice:', e)
+      }
+      localStorage.setItem(`demo_host_departments_${tenantId}`, JSON.stringify(departments))
+      return { tenantId, departments }
+    },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['host_departments', res.tenantId] })
+    }
+  })
+}
+
+export function useHostServices(tenantId) {
+  return useQuery({
+    queryKey: ['host_services', tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      let firestoreItems = []
+      try {
+        const ref = collection(db, 'host_services')
+        const q = query(ref, where('tenant_id', '==', tenantId))
+        const snap = await getDocs(q)
+        firestoreItems = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      } catch (e) {
+        console.warn('Host services query notice:', e)
+      }
+
+      const stored = JSON.parse(localStorage.getItem(`demo_host_services_${tenantId}`) || '[]')
+      const combined = [...firestoreItems]
+      for (const s of stored) {
+        if (!combined.some(i => i.id === s.id)) combined.push(s)
+      }
+
+      if (combined.length === 0) {
+        const defs = DEFAULT_HOST_SERVICES.map(s => ({ ...s, tenant_id: tenantId }))
+        localStorage.setItem(`demo_host_services_${tenantId}`, JSON.stringify(defs))
+        return defs
+      }
+
+      return combined
+    }
+  })
+}
+
+export function useSaveHostService() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ tenantId, service }) => {
+      const payload = {
+        ...service,
+        id: service.id || `srv_${Date.now()}`,
+        tenant_id: tenantId,
+        updated_at: new Date().toISOString()
+      }
+      try {
+        await setDoc(doc(db, 'host_services', payload.id), payload, { merge: true })
+      } catch (e) {
+        console.warn('Save host service notice:', e)
+      }
+
+      const stored = JSON.parse(localStorage.getItem(`demo_host_services_${tenantId}`) || '[]')
+      const idx = stored.findIndex(x => x.id === payload.id)
+      if (idx >= 0) stored[idx] = payload
+      else stored.push(payload)
+      localStorage.setItem(`demo_host_services_${tenantId}`, JSON.stringify(stored))
+      return payload
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['host_services', data.tenant_id] })
+    }
+  })
+}
+
+export function useDeleteHostService() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ tenantId, serviceId }) => {
+      try {
+        await deleteDoc(doc(db, 'host_services', serviceId))
+      } catch (e) {
+        console.warn('Delete host service notice:', e)
+      }
+      const stored = JSON.parse(localStorage.getItem(`demo_host_services_${tenantId}`) || '[]')
+      const filtered = stored.filter(x => x.id !== serviceId)
+      localStorage.setItem(`demo_host_services_${tenantId}`, JSON.stringify(filtered))
+      return { tenantId, serviceId }
+    },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['host_services', res.tenantId] })
+    }
+  })
+}
+
+export function useImportHostServicesCSV() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ tenantId, items }) => {
+      const prepared = items.map((item, idx) => ({
+        id: item.id || `csv_srv_${Date.now()}_${idx}`,
+        tenant_id: tenantId,
+        department: (item.department || 'GUEST_SERVICES').toUpperCase(),
+        category: item.category || 'Allgemein',
+        name: item.name || 'Unbenannter Service',
+        description: item.description || '',
+        price: item.price ? String(item.price) : '0.00',
+        currency: item.currency || 'EUR',
+        active: item.active !== false && item.active !== 'false',
+        type: (item.type || 'REQUEST').toUpperCase(),
+        created_at: new Date().toISOString()
+      }))
+
+      for (const p of prepared) {
+        try {
+          await setDoc(doc(db, 'host_services', p.id), p, { merge: true })
+        } catch (e) {
+          console.warn('Import host service item notice:', e)
+        }
+      }
+
+      const stored = JSON.parse(localStorage.getItem(`demo_host_services_${tenantId}`) || '[]')
+      const merged = [...stored]
+      for (const p of prepared) {
+        const idx = merged.findIndex(x => x.id === p.id)
+        if (idx >= 0) merged[idx] = p
+        else merged.push(p)
+      }
+      localStorage.setItem(`demo_host_services_${tenantId}`, JSON.stringify(merged))
+
+      return { tenantId, importedCount: prepared.length }
+    },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['host_services', res.tenantId] })
+    }
+  })
+}
+
+export function useHostRequests(tenantId) {
+  return useQuery({
+    queryKey: ['host_requests', tenantId],
+    enabled: !!tenantId,
+    refetchInterval: 3000, // Live 3s Polling
+    queryFn: async () => {
+      let firestoreRequests = []
+      try {
+        const ref = collection(db, 'host_requests')
+        const q = query(ref, where('tenant_id', '==', tenantId))
+        const snap = await getDocs(q)
+        firestoreRequests = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      } catch (e) {
+        console.warn('Host requests query notice:', e)
+      }
+
+      const stored = JSON.parse(localStorage.getItem(`demo_host_requests_${tenantId}`) || '[]')
+      const combined = [...firestoreRequests]
+      for (const s of stored) {
+        if (!combined.some(i => i.id === s.id)) combined.push(s)
+      }
+
+      return combined.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+    }
+  })
+}
+
+export function useSubmitHostRequest() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      tenantId,
+      locationId,
+      guestName,
+      roomNumber,
+      department,
+      requestType,
+      items,
+      notes,
+      totalPrice
+    }) => {
+      const timestamp = new Date().toISOString()
+      const reqId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`
+      const payload = {
+        id: reqId,
+        tenant_id: tenantId || 'tenant-demo-1',
+        location_id: locationId || 'loc1',
+        guest_name: guestName || 'Anonymer Gast',
+        room_number: roomNumber || '101',
+        department: department || 'GUEST_SERVICES',
+        request_type: requestType || 'REQUEST', // REQUEST | ORDER | SERVICE | INCIDENT | QUESTION
+        status: 'NEW', // NEW -> ACCEPTED -> IN_PROGRESS -> ON_THE_WAY -> COMPLETED
+        items: items || [],
+        notes: notes || '',
+        total_price: totalPrice || '0.00 €',
+        created_at: timestamp,
+        status_history: [
+          { status: 'NEW', timestamp, note: 'Anfrage vom Gast über Web App eingegangen' }
+        ],
+        staff_assigned: null
+      }
+
+      try {
+        await setDoc(doc(db, 'host_requests', reqId), payload)
+      } catch (e) {
+        console.warn('Save host request notice:', e)
+      }
+
+      const stored = JSON.parse(localStorage.getItem(`demo_host_requests_${payload.tenant_id}`) || '[]')
+      stored.unshift(payload)
+      localStorage.setItem(`demo_host_requests_${payload.tenant_id}`, JSON.stringify(stored))
+
+      return payload
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['host_requests', data.tenant_id] })
+    }
+  })
+}
+
+export function useUpdateHostRequestStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, tenantId, status, note, staffName }) => {
+      const timestamp = new Date().toISOString()
+      const stored = JSON.parse(localStorage.getItem(`demo_host_requests_${tenantId}`) || '[]')
+      const target = stored.find(x => x.id === id)
+
+      const history = target?.status_history || []
+      const newHistory = [...history, { status, timestamp, note: note || `Status auf ${status} geändert`, staff: staffName || null }]
+
+      const updatePayload = {
+        status,
+        updated_at: timestamp,
+        status_history: newHistory,
+        ...(staffName ? { staff_assigned: staffName } : {})
+      }
+
+      try {
+        await setDoc(doc(db, 'host_requests', id), updatePayload, { merge: true })
+      } catch (e) {
+        console.warn('Update host request status notice:', e)
+      }
+
+      if (target) {
+        target.status = status
+        target.updated_at = timestamp
+        target.status_history = newHistory
+        if (staffName) target.staff_assigned = staffName
+        localStorage.setItem(`demo_host_requests_${tenantId}`, JSON.stringify(stored))
+      }
+
+      return { id, tenantId, status, updatePayload }
+    },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['host_requests', res.tenantId] })
+    }
+  })
+}
+
+export function useHotelSettings(tenantId) {
+  return useQuery({
+    queryKey: ['hotel_settings', tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      try {
+        const ref = doc(db, 'hotel_settings', tenantId)
+        const snap = await getDoc(ref)
+        if (snap.exists()) return snap.data()
+      } catch (e) {
+        console.warn('Hotel settings query notice:', e)
+      }
+
+      const stored = localStorage.getItem(`demo_hotel_settings_${tenantId}`)
+      if (stored) return JSON.parse(stored)
+
+      const defs = {
+        hotel_name: 'Scenvy Grand Hotel & Resort',
+        welcome_message: 'Herzlich Willkommen! Wie können wir Ihren Aufenthalt noch angenehmer gestalten?',
+        wifi_ssid: 'Scenvy_Guest_5G',
+        wifi_pass: 'welcome2026',
+        checkout_time: '11:00 Uhr',
+        breakfast_time: '06:30 - 10:30 Uhr',
+        require_room_number: true,
+        allow_custom_notes: true,
+        primary_color: '#7C3AED',
+        currency: 'EUR'
+      }
+      localStorage.setItem(`demo_hotel_settings_${tenantId}`, JSON.stringify(defs))
+      return defs
+    }
+  })
+}
+
+export function useSaveHotelSettings() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ tenantId, settings }) => {
+      try {
+        await setDoc(doc(db, 'hotel_settings', tenantId), { ...settings, updated_at: new Date().toISOString() }, { merge: true })
+      } catch (e) {
+        console.warn('Save hotel settings notice:', e)
+      }
+      localStorage.setItem(`demo_hotel_settings_${tenantId}`, JSON.stringify(settings))
+      return { tenantId, settings }
+    },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['hotel_settings', res.tenantId] })
+    }
+  })
+}
+
+
 
 

@@ -19,6 +19,7 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContai
 import { Home, Film, MapPin, BarChart2, Sparkles, Settings, Menu, QrCode, Eye, MousePointer, Video, Plus, Trash2, RefreshCw, Copy, LogOut, Upload, Link, X, Image, ExternalLink, CreditCard as Edit2, Download, Globe, Save, Mail, Shield, Library, Building2, Phone, Utensils, Tv, ConciergeBell, Layers, Sun, Moon, ChevronDown, ChevronRight, HelpCircle, Calendar, Zap, FileText, CheckCircle, Palette } from 'lucide-react'
 import MenuGenerator from '@/pages/MenuGenerator'
 import OrderManagementDashboard from '@/pages/OrderManagementDashboard'
+import HostDashboard from '@/pages/HostDashboard'
 
 // ── InfoTooltip Component ──────────────────────────────────
 export function InfoTooltip({ text }) {
@@ -2192,7 +2193,7 @@ function BoardShowcase({ user, tenant }) {
 function HostShowcase() {
   return (
     <div>
-      <OrderManagementDashboard />
+      <HostDashboard />
     </div>
   )
 }

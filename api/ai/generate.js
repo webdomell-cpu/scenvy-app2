@@ -134,7 +134,7 @@ Reply ONLY with compact valid JSON:
   try {
     parsed = await executeAiTask(async (ai) => {
       let textRes = null
-      const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash']
+      const modelsToTry = ['gemini-3.6-flash', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-lite', 'gemini-flash-latest']
       for (const m of modelsToTry) {
         try {
           textRes = await ai.models.generateContent({
@@ -147,6 +147,10 @@ Reply ONLY with compact valid JSON:
           if (textRes?.text) break
         } catch (e) {
           console.warn(`Model ${m} failed in generate.js:`, e?.message)
+          const errMsg = e?.message || ''
+          if (errMsg.includes('quota') || errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+            throw e
+          }
         }
       }
 
@@ -178,7 +182,7 @@ Reply ONLY with compact valid JSON:
         const imgPrompt = parsed.imagePrompt || `Atmospheric vertical portrait of ${venue || 'a venue'}, ${offer}`
         imageUrl = await executeAiTask(async (ai, currentKeyObj) => {
           const operation = await ai.models.generateVideos({
-            model: 'veo-2.0-generate-preview',
+            model: 'veo-3.1-lite-generate-preview',
             prompt: `${imgPrompt}, cinematic vertical video, 4k quality, highly detailed`,
             config: {
               numberOfVideos: 1,

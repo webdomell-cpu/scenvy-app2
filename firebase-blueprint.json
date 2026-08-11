@@ -2,7 +2,7 @@
   "entities": {
     "users": {
       "title": "User",
-      "description": "User profiles for'authentication and role management",
+      "description": "User profiles for authentication and role management",
       "type": "object",
       "properties": {
         "email": { "type": "string" },
@@ -26,7 +26,7 @@
     },
     "menus": {
       "title": "Menu",
-      "description": "Digital restaurant menus with categories, items, branding and3D/Reel views",
+      "description": "Digital restaurant menus with categories, items, branding and 3D/Reel views",
       "type": "object",
       "properties": {
         "userId": { "type": "string" },
@@ -48,6 +48,41 @@
         "videoUrl": { "type": "string" },
         "posterUrl": { "type": "string" },
         "createdAt": { "type": "string" }
+      }
+    },
+    "host_requests": {
+      "title": "Host Guest Request",
+      "description": "Guest requests, orders, incidents and service calls for Scenvy Host",
+      "type": "object",
+      "properties": {
+        "tenant_id": { "type": "string" },
+        "location_id": { "type": "string" },
+        "guest_name": { "type": "string" },
+        "room_number": { "type": "string" },
+        "department": { "type": "string" },
+        "request_type": { "type": "string" },
+        "status": { "type": "string" },
+        "items": { "type": "array" },
+        "notes": { "type": "string" },
+        "total_price": { "type": "string" },
+        "created_at": { "type": "string" }
+      }
+    },
+    "host_services": {
+      "title": "Host Service Catalog",
+      "description": "Configurable hotel service items and options",
+      "type": "object",
+      "properties": {
+        "tenant_id": { "type": "string" },
+        "location_id": { "type": "string" },
+        "department": { "type": "string" },
+        "category": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "string" },
+        "currency": { "type": "string" },
+        "active": { "type": "boolean" },
+        "type": { "type": "string" }
       }
     }
   }

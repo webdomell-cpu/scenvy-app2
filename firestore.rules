@@ -95,6 +95,35 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Host Collections
+    match /host_requests/{reqId} {
+      allow read, write: if true;
+    }
+
+    match /host_services/{serviceId} {
+      allow read, write: if true;
+    }
+
+    match /host_departments/{deptId} {
+      allow read, write: if true;
+    }
+
+    match /host_staff/{staffId} {
+      allow read, write: if true;
+    }
+
+    match /hotel_settings/{settingId} {
+      allow read, write: if true;
+    }
+
+    match /orders/{orderId} {
+      allow read, write: if true;
+    }
+
+    match /service_calls/{callId} {
+      allow read, write: if true;
+    }
+
     // Default deny all other paths
     match /{document=**} {
       allow read, write: if false;

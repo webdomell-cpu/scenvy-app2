@@ -16,6 +16,8 @@ import StyleGuide from './pages/StyleGuide.jsx'
 import WebsiteStudio from './pages/WebsiteStudio.jsx'
 import PublicCustomPage from './pages/PublicCustomPage.jsx'
 import OrderManagementDashboard from './pages/OrderManagementDashboard.jsx'
+import GuestHostView from './pages/GuestHostView.jsx'
+import HostDashboard from './pages/HostDashboard.jsx'
 
 // ─── Route guards ────────────────────────────────────────
 function Protected({ children, adminOnly = false }) {
@@ -74,8 +76,12 @@ function AppRoutes() {
       <Route path="/loc/:locationId" element={<GuestMenuReel isLocationView={true} />} />
       <Route path="/p/:slug"       element={<PublicCustomPage />} />
       <Route path="/pages/:slug"   element={<PublicCustomPage />} />
-      <Route path="/live-dashboard/:tenantId" element={<OrderManagementDashboard />} />
-      <Route path="/management-dashboard" element={<Protected><OrderManagementDashboard /></Protected>} />
+      <Route path="/h/:locationId" element={<GuestHostView />} />
+      <Route path="/host/:locationId" element={<GuestHostView />} />
+      <Route path="/guest-host/:locationId" element={<GuestHostView />} />
+      <Route path="/live-dashboard/:tenantId" element={<HostDashboard />} />
+      <Route path="/management-dashboard" element={<Protected><HostDashboard /></Protected>} />
+      <Route path="/host-dashboard" element={<Protected><HostDashboard /></Protected>} />
       <Route path="/dashboard"     element={<Protected><Dashboard /></Protected>} />
       <Route path="/website-studio" element={<Protected><WebsiteStudio /></Protected>} />
       <Route path="/menu-generator" element={<Protected><MenuGenerator /></Protected>} />

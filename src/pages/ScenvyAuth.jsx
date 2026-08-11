@@ -134,32 +134,52 @@ export default function ScenvyAuth() {
       </div>
       <style>{`
         .product-glow-card-flow {
-          background: rgba(139, 92, 246, 0.06);
+          background: rgba(139, 92, 246, 0.08);
           border: 1.5px solid rgba(139, 92, 246, 0.25);
-          border-radius: 16px;
+          border-radius: 18px;
           padding: 16px 12px;
-          text-align: center;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .product-glow-card-flow:hover {
           transform: translateY(-3px);
           border-color: rgba(167, 139, 250, 0.9);
-          background: rgba(139, 92, 246, 0.16);
-          box-shadow: 0 0 25px rgba(139, 92, 246, 0.45), inset 0 0 12px rgba(139, 92, 246, 0.2);
+          background: rgba(139, 92, 246, 0.18);
+          box-shadow: 0 0 28px rgba(139, 92, 246, 0.5), inset 0 0 12px rgba(139, 92, 246, 0.25);
         }
         .product-glow-card-menu {
-          background: rgba(249, 115, 22, 0.06);
+          background: rgba(249, 115, 22, 0.08);
           border: 1.5px solid rgba(249, 115, 22, 0.25);
-          border-radius: 16px;
+          border-radius: 18px;
           padding: 16px 12px;
-          text-align: center;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .product-glow-card-menu:hover {
           transform: translateY(-3px);
           border-color: rgba(251, 146, 60, 0.9);
-          background: rgba(249, 115, 22, 0.16);
-          box-shadow: 0 0 25px rgba(249, 115, 22, 0.45), inset 0 0 12px rgba(249, 115, 22, 0.2);
+          background: rgba(249, 115, 22, 0.18);
+          box-shadow: 0 0 28px rgba(249, 115, 22, 0.5), inset 0 0 12px rgba(249, 115, 22, 0.25);
+        }
+        .product-glow-card-host {
+          background: rgba(16, 185, 129, 0.08);
+          border: 1.5px solid rgba(16, 185, 129, 0.25);
+          border-radius: 18px;
+          padding: 16px 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .product-glow-card-host:hover {
+          transform: translateY(-3px);
+          border-color: rgba(52, 211, 153, 0.9);
+          background: rgba(16, 185, 129, 0.18);
+          box-shadow: 0 0 28px rgba(16, 185, 129, 0.5), inset 0 0 12px rgba(16, 185, 129, 0.25);
         }
       `}</style>
 
@@ -175,32 +195,21 @@ export default function ScenvyAuth() {
           </div>
         </div>
 
-        {/* Product Cards: SCENVY FLOW & SCENVY MENU (Non-clickable, hover-glow) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 22 }}>
+        {/* Product Cards: FLOW, MENU & HOST (3 large glowing icons without text) */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 22 }}>
           {/* SCENVY FLOW */}
           <div className="product-glow-card-flow">
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
-              <ScenvyAppIcon module="flow" size={44} />
-            </div>
-            <div style={{ fontSize: 13, fontWeight: 900, color: C.white, letterSpacing: 0.5 }}>
-              SCENVY FLOW
-            </div>
-            <div style={{ fontSize: 10, color: C.muted, marginTop: 3, fontWeight: 600 }}>
-              {de ? 'Vertikale Reels' : 'Vertical Reels'}
-            </div>
+            <ScenvyAppIcon module="flow" size={58} />
           </div>
 
           {/* SCENVY MENU */}
           <div className="product-glow-card-menu">
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
-              <ScenvyAppIcon module="menu" size={44} />
-            </div>
-            <div style={{ fontSize: 13, fontWeight: 900, color: C.white, letterSpacing: 0.5 }}>
-              SCENVY MENU
-            </div>
-            <div style={{ fontSize: 10, color: C.muted, marginTop: 3, fontWeight: 600 }}>
-              {de ? 'Digitales Menü' : 'Digital Menu'}
-            </div>
+            <ScenvyAppIcon module="menu" size={58} />
+          </div>
+
+          {/* SCENVY HOST */}
+          <div className="product-glow-card-host">
+            <ScenvyAppIcon module="host" size={58} />
           </div>
         </div>
 

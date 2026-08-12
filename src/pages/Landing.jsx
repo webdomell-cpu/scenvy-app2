@@ -339,17 +339,19 @@ export default function Landing(){
         </div>
 
         {/* Desktop Navigation Links */}
-        <div className="desktop-nav-links" style={{display:'flex',gap:16,alignItems:'center'}}>
-          {landingConfig.show_flow_page && (
-            <Link to="/reels-addon" style={{color:'#8B5CF6',fontSize:13,fontWeight:700,background:'rgba(139,92,246,0.12)',border:'1px solid rgba(139,92,246,0.3)',padding:'6px 12px',borderRadius:20,display:'inline-flex',alignItems:'center',gap:6}}>
-              <Film size={14} color="#8B5CF6"/> SCENVY FLOW
-            </Link>
-          )}
-          {landingConfig.show_menu_page && (
-            <Link to="/menu-addon" style={{color:'#F97316',fontSize:13,fontWeight:700,background:'rgba(249,115,22,0.12)',border:'1px solid rgba(249,115,22,0.3)',padding:'6px 12px',borderRadius:20,display:'inline-flex',alignItems:'center',gap:6}}>
-              <Utensils size={14} color="#F97316"/> SCENVY MENU
-            </Link>
-          )}
+        <div className="desktop-nav-links" style={{display:'flex',gap:12,alignItems:'center'}}>
+          <Link to="/dashboard" style={{color:'#EC4899',fontSize:13,fontWeight:800,background:'rgba(236,72,153,0.15)',border:'1px solid rgba(236,72,153,0.4)',padding:'7px 14px',borderRadius:20,display:'inline-flex',alignItems:'center',gap:6}}>
+            📊 Haupt-Dashboard
+          </Link>
+          <Link to="/host-dashboard" style={{color:'#10B981',fontSize:13,fontWeight:800,background:'rgba(16,185,129,0.15)',border:'1px solid rgba(16,185,129,0.4)',padding:'7px 14px',borderRadius:20,display:'inline-flex',alignItems:'center',gap:6}}>
+            🏨 Host Dashboard
+          </Link>
+          <Link to="/menu-generator" style={{color:'#F97316',fontSize:13,fontWeight:700,background:'rgba(249,115,22,0.12)',border:'1px solid rgba(249,115,22,0.3)',padding:'7px 14px',borderRadius:20,display:'inline-flex',alignItems:'center',gap:6}}>
+            <Utensils size={14} color="#F97316"/> Speisekarte
+          </Link>
+          <Link to="/reels-addon" style={{color:'#8B5CF6',fontSize:13,fontWeight:700,background:'rgba(139,92,246,0.12)',border:'1px solid rgba(139,92,246,0.3)',padding:'7px 14px',borderRadius:20,display:'inline-flex',alignItems:'center',gap:6}}>
+            <Film size={14} color="#8B5CF6"/> FLOW
+          </Link>
         </div>
 
         {/* Desktop Navigation Right Actions */}
@@ -385,11 +387,17 @@ export default function Landing(){
       {/* Mobile Menu Drawer */}
       {mobileMenuOpen && (
         <div style={{position:'fixed',top:66,left:0,right:0,bottom:0,background:'rgba(15,23,42,0.98)',backdropFilter:'blur(20px)',zIndex:995,padding:'24px 20px',display:'flex',flexDirection:'column',gap:16,overflowY:'auto'}}>
-          <Link to="/reels-addon" onClick={()=>setMobileMenuOpen(false)} style={{color:'#8B5CF6',fontSize:18,fontWeight:700,padding:'12px 0',borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',gap:10}}>
-            <Film size={20} color="#8B5CF6"/> SCENVY FLOW (flow.scenvy.de)
+          <Link to="/dashboard" onClick={()=>setMobileMenuOpen(false)} style={{color:'#EC4899',fontSize:18,fontWeight:800,padding:'12px 0',borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',gap:10}}>
+            📊 Haupt-Dashboard
           </Link>
-          <Link to="/menu-addon" onClick={()=>setMobileMenuOpen(false)} style={{color:'#F97316',fontSize:18,fontWeight:700,padding:'12px 0',borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',gap:10}}>
-            <Utensils size={20} color="#F97316"/> SCENVY MENU (menu.scenvy.de)
+          <Link to="/host-dashboard" onClick={()=>setMobileMenuOpen(false)} style={{color:'#10B981',fontSize:18,fontWeight:800,padding:'12px 0',borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',gap:10}}>
+            🏨 Hotel & Host Management
+          </Link>
+          <Link to="/menu-generator" onClick={()=>setMobileMenuOpen(false)} style={{color:'#F97316',fontSize:18,fontWeight:700,padding:'12px 0',borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',gap:10}}>
+            <Utensils size={20} color="#F97316"/> Speisekarte & Rezeptkarten
+          </Link>
+          <Link to="/reels-addon" onClick={()=>setMobileMenuOpen(false)} style={{color:'#8B5CF6',fontSize:18,fontWeight:700,padding:'12px 0',borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',gap:10}}>
+            <Film size={20} color="#8B5CF6"/> SCENVY FLOW
           </Link>
           <div style={{display:'flex',flexDirection:'column',gap:12,marginTop:20}}>
             <Btn variant="outline" onClick={()=>{setMobileMenuOpen(false);nav('/auth')}} style={{width:'100%',textAlign:'center',padding:'12px 0'}}>{t.nav.login}</Btn>

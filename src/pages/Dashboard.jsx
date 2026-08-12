@@ -419,6 +419,8 @@ function Sidebar({ page, setPage, moduleTab, setModuleTab, open, setOpen, t, use
     ],
     menu_generator: [
       { id: 'create', label: 'SNAP KI Speisekarte', icon: <Sparkles size={13}/> },
+      { id: 'recipe_cards', label: 'Snap QI Rezeptkarten', icon: <Utensils size={13}/> },
+      { id: 'articles', label: 'Artikelstamm & CSV', icon: <FileText size={13}/> },
       { id: 'list', label: 'Digitale Menüs', icon: <Layers size={13}/> },
       { id: 'design', label: 'Branding & Templates', icon: <Palette size={13}/> },
       { id: 'settings', label: 'Einstellungen', icon: <Settings size={13}/> }
@@ -438,6 +440,7 @@ function Sidebar({ page, setPage, moduleTab, setModuleTab, open, setOpen, t, use
   const allModuleItems = [
     { id: 'reels', modKey: 'flow', name: 'SCENVY FLOW', sub: 'Reels & Video-Feed', badge: 'CONTENT', icon: <Film size={16}/>, color: '#8B5CF6' },
     { id: 'menu_generator', modKey: 'menu', name: 'SCENVY MENU', sub: 'Digitale Speisekarten', badge: 'KI SNAP', icon: <Utensils size={16}/>, color: '#F97316' },
+    { id: 'orders', modKey: 'menu', name: 'BESTELL-ZENTRALE', sub: 'Gastro & Host Master Feed', badge: 'LIVE DISP', icon: <Utensils size={16}/>, color: '#EF4444' },
     { id: 'board', modKey: 'board', name: 'SCENVY BOARD', sub: 'Digital Signage TV', badge: 'DISPLAY', icon: <Tv size={16}/>, color: '#3B82F6' },
     { id: 'host', modKey: 'host', name: 'SCENVY HOST', sub: 'Gäste-Concierge', badge: 'SERVICE', icon: <ConciergeBell size={16}/>, color: '#10B981' },
   ]
@@ -2716,6 +2719,7 @@ export default function Dashboard() {
           {page==='analytics' && <Analytics  tenantId={tenantId} locs={locs} reels={reels}/>}
           {page==='ai'        && <AIGenerator tenantId={tenantId} locs={locs} notify={notify}/>}
           {(page==='menu_generator' || page==='menu') && <MenuGenerator embedded={true} initialTab={moduleTab} />}
+          {page==='orders'    && <OrderManagementDashboard />}
           {page==='board'     && <BoardShowcase user={user} tenant={tenant} />}
           {page==='host'      && <HostShowcase />}
           {page==='qr'        && <QRPage     locs={locs} notify={notify}/>}

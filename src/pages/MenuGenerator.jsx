@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/AuthContext'
 import { useTenant, useMenuReels, useSaveMenuReel, useDeleteMenuReel, useLocations, useSaveLocation, useDeleteLocation, useMedia, uploadMedia, formatDateTime } from '@/lib/db'
 import GuestMenuReel, { isScheduleActive, JaggedStar13 } from '@/pages/GuestMenuReel'
 import { copyToClipboard } from '@/storage'
-import { Sparkles, FileText, Upload, Edit3, Palette, Phone, Instagram, QrCode, Download, Share2, Copy, Trash2, Eye, Plus, ArrowRight, CheckCircle2, Lock, ShieldAlert, ArrowLeft, Maximize2, Minimize2, Clock, MapPin, ExternalLink, Calendar, Zap, Check, Globe, Utensils, Layers, Settings } from 'lucide-react'
+import { Sparkles, FileText, Upload, Edit3, Palette, Phone, Instagram, QrCode, Download, Share2, Copy, Trash2, Eye, Plus, ArrowRight, CheckCircle2, Lock, ShieldAlert, ArrowLeft, Maximize2, Minimize2, Clock, MapPin, ExternalLink, Calendar, Zap, Check, Globe, Utensils, Layers, Settings, ChefHat, Search, Filter, BookOpen, AlertCircle, DollarSign, Bell } from 'lucide-react'
 
 export default function MenuGenerator({ embedded = false, initialTab }) {
   const nav = useNavigate()
@@ -122,6 +122,382 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
     locationId: 'all',
     activeSchedule: { enabled: false, startTime: '12:00', endTime: '22:00' }
   })
+
+  // Recipe Cards States
+  const [recipeCards, setRecipeCards] = useState(() => {
+    try {
+      const saved = localStorage.getItem('scenvy_recipe_cards')
+      return saved ? JSON.parse(saved) : [
+        {
+          id: 'rc_1',
+          title: 'Trüffel Burrata con Pomodorini',
+          category: 'Vorspeisen',
+          prepTime: '12 Min.',
+          portions: 2,
+          sellingPrice: '14.50 €',
+          foodCostPrice: '3.80 €',
+          foodCostPercent: '26.2%',
+          qiScore: 96,
+          allergens: ['G'],
+          diet: ['vegetarian', 'glutenfree'],
+          ingredients: [
+            { name: 'Büffel-Burrata (125g)', qty: '1 Stk.', cost: '1,80 €' },
+            { name: 'Geschmorte Kirschtomaten', qty: '100g', cost: '0,90 €' },
+            { name: 'Trüffelöl & Basilikum', qty: '15ml', cost: '0,70 €' },
+            { name: 'Gewürze & Meersalz', qty: 'Priese', cost: '0,40 €' }
+          ],
+          steps: [
+            'Kirschtomaten halbieren und in der Pfanne mit etwas Trüffelöl leicht caramelisieren.',
+            'Burrata mittig in der Servierschale platzieren und leicht einschneiden.',
+            'Warme Kirschtomaten ringsherum anrichten und mit frischem Basilikum garnieren.'
+          ],
+          image: 'https://images.unsplash.com/photo-1592417817098-8f3d6ef23a28?w=800&auto=format&fit=crop&q=80',
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: 'rc_2',
+          title: 'Signature Aperol Spritz Deluxe',
+          category: 'Getränke',
+          prepTime: '3 Min.',
+          portions: 1,
+          sellingPrice: '8.50 €',
+          foodCostPrice: '1.90 €',
+          foodCostPercent: '22.3%',
+          qiScore: 98,
+          allergens: [],
+          diet: ['vegan'],
+          ingredients: [
+            { name: 'Aperol Spritz', qty: '60ml', cost: '0,80 €' },
+            { name: 'Prosecco DOC', qty: '90ml', cost: '0,80 €' },
+            { name: 'Soda & Eiswürfel', qty: '30ml', cost: '0,10 €' },
+            { name: 'Bio-Orangenscheibe', qty: '1 Stk.', cost: '0,20 €' }
+          ],
+          steps: [
+            'Wein- oder Ballonglas zu 3/4 mit frischen Eiswürfeln füllen.',
+            'Aperol, Prosecco und einen Spritzer Soda eingießen.',
+            'Ganz leicht umrühren und mit frischer Bio-Orangenscheibe servieren.'
+          ],
+          image: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=800&auto=format&fit=crop&q=80',
+          createdAt: new Date().toISOString()
+        }
+      ]
+    } catch (e) {
+      return []
+    }
+  })
+
+  const [showRecipeCardModal, setShowRecipeCardModal] = useState(false)
+  const [editingRecipeId, setEditingRecipeId] = useState(null)
+  const [recipeForm, setRecipeForm] = useState({
+    title: '',
+    category: 'Vorspeisen',
+    prepTime: '10 Min.',
+    portions: 1,
+    sellingPrice: '12.50 €',
+    foodCostPrice: '3.20 €',
+    qiScore: 92,
+    allergens: [],
+    diet: [],
+    ingredients: [
+      { name: 'Hauptzutat (z.B. Lachs 150g)', qty: '1 Port.', cost: '2,50 €' },
+      { name: 'Sauce & Beilage', qty: '50g', cost: '0,70 €' }
+    ],
+    steps: [
+      'Zutaten frisch vorbereiten und auf Raumtemperatur bringen.',
+      'Anrichten und vor dem Servieren mit frischen Kräutern verfeinern.'
+    ],
+    image: '',
+    notes: ''
+  })
+
+  // New Menu Modals States
+  const [showNewMenuChoiceModal, setShowNewMenuChoiceModal] = useState(false)
+  const [showManualMenuModal, setShowManualMenuModal] = useState(false)
+  const [manualMenuForm, setManualMenuForm] = useState({
+    title: 'Neue Speisekarte',
+    venue: venue || 'Gourmet Bistro',
+    currency: '€',
+    locationId: 'all',
+    categories: 'Vorspeisen, Hauptgerichte, Desserts, Getränke'
+  })
+
+  // Article Master Addition Modal State
+  const [showAddArticleModal, setShowAddArticleModal] = useState(false)
+  const [newArticleForm, setNewArticleForm] = useState({
+    name: '',
+    nameEn: '',
+    category: 'Vorspeisen',
+    price: '12.50 €',
+    description: '',
+    descriptionEn: '',
+    spicy: false,
+    vegan: false,
+    vegetarian: false,
+    glutenfree: false,
+    allergens: '',
+    image: ''
+  })
+
+  const saveRecipeCardSubmit = (e) => {
+    e?.preventDefault()
+    if (!recipeForm.title.trim()) {
+      notify('⚠️ Bitte gib einen Titel für die Rezeptkarte ein.')
+      return
+    }
+
+    const priceNum = parseFloat((recipeForm.sellingPrice || '10').replace(/[^0-9.,]/g, '').replace(',', '.')) || 10
+    const costNum = parseFloat((recipeForm.foodCostPrice || '3').replace(/[^0-9.,]/g, '').replace(',', '.')) || 3
+    const foodCostPct = ((costNum / priceNum) * 100).toFixed(1) + '%'
+
+    const newCard = {
+      id: editingRecipeId || 'rc_' + Date.now(),
+      title: recipeForm.title,
+      category: recipeForm.category,
+      prepTime: recipeForm.prepTime,
+      portions: parseInt(recipeForm.portions) || 1,
+      sellingPrice: recipeForm.sellingPrice.includes('€') ? recipeForm.sellingPrice : `${recipeForm.sellingPrice} €`,
+      foodCostPrice: recipeForm.foodCostPrice.includes('€') ? recipeForm.foodCostPrice : `${recipeForm.foodCostPrice} €`,
+      foodCostPercent: foodCostPct,
+      qiScore: recipeForm.qiScore || 95,
+      allergens: recipeForm.allergens || [],
+      diet: recipeForm.diet || [],
+      ingredients: recipeForm.ingredients || [],
+      steps: recipeForm.steps || [],
+      image: recipeForm.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&auto=format&fit=crop&q=80',
+      notes: recipeForm.notes || '',
+      createdAt: new Date().toISOString()
+    }
+
+    let updatedList = []
+    if (editingRecipeId) {
+      updatedList = recipeCards.map(rc => rc.id === editingRecipeId ? newCard : rc)
+    } else {
+      updatedList = [newCard, ...recipeCards]
+    }
+
+    setRecipeCards(updatedList)
+    try {
+      localStorage.setItem('scenvy_recipe_cards', JSON.stringify(updatedList))
+    } catch (e) {}
+
+    setShowRecipeCardModal(false)
+    notify(`🧪 Rezeptkarte "${newCard.title}" erfolgreich gespeichert!`)
+  }
+
+  const deleteRecipeCard = (id) => {
+    if (!window.confirm('Soll diese Rezeptkarte wirklich gelöscht werden?')) return
+    const updated = recipeCards.filter(r => r.id !== id)
+    setRecipeCards(updated)
+    try {
+      localStorage.setItem('scenvy_recipe_cards', JSON.stringify(updated))
+    } catch (e) {}
+    notify('🗑️ Rezeptkarte gelöscht.')
+  }
+
+  const pushRecipeCardToActiveMenu = (recipe) => {
+    if (!currentMenu) {
+      const newMenu = {
+        id: crypto.randomUUID(),
+        branding: { name: venue || 'Gourmet Bistro' },
+        categories: [
+          {
+            id: 'cat_' + Date.now(),
+            name: { de: recipe.category || 'Empfehlungen', en: recipe.category || 'Recommendations' },
+            icon: '⭐',
+            items: [
+              {
+                id: 'item_' + Date.now(),
+                name: { de: recipe.title, en: recipe.title },
+                description: { de: (recipe.steps || []).join(' • '), en: (recipe.steps || []).join(' • ') },
+                price: recipe.sellingPrice,
+                allergens: recipe.allergens || [],
+                diet: recipe.diet || [],
+                image: recipe.image
+              }
+            ]
+          }
+        ]
+      }
+      setCurrentMenu(newMenu)
+      try {
+        localStorage.setItem('scenvy_cached_menu', JSON.stringify(newMenu))
+      } catch (e) {}
+      notify(`🚀 Gericht "${recipe.title}" in neues Digital Menu übernommen!`)
+      setActiveTab('articles')
+      return
+    }
+
+    const catName = recipe.category || 'Hauptspeisen'
+    let updatedCategories = [...(currentMenu.categories || [])]
+    let targetCat = updatedCategories.find(c => {
+      const name = typeof c.name === 'object' ? (c.name.de || c.name.en) : c.name
+      return name?.toLowerCase() === catName.toLowerCase()
+    })
+
+    const newItem = {
+      id: 'item_' + Date.now(),
+      name: { de: recipe.title, en: recipe.title },
+      description: { de: (recipe.ingredients || []).map(i => i.name).join(', '), en: (recipe.ingredients || []).map(i => i.name).join(', ') },
+      price: recipe.sellingPrice,
+      allergens: recipe.allergens || [],
+      diet: recipe.diet || [],
+      image: recipe.image
+    }
+
+    if (targetCat) {
+      targetCat.items = [...(targetCat.items || []), newItem]
+    } else {
+      updatedCategories.push({
+        id: 'cat_' + Date.now(),
+        name: { de: catName, en: catName },
+        icon: '🍽️',
+        items: [newItem]
+      })
+    }
+
+    const newMenu = { ...currentMenu, categories: updatedCategories }
+    setCurrentMenu(newMenu)
+    try {
+      localStorage.setItem('scenvy_cached_menu', JSON.stringify(newMenu))
+    } catch (e) {}
+    notify(`🚀 "${recipe.title}" zum aktiven Digital Menu hinzugefügt!`)
+    setActiveTab('articles')
+  }
+
+  const handleCreateManualMenu = (e) => {
+    e?.preventDefault()
+    const catArray = manualMenuForm.categories.split(',').map(c => c.trim()).filter(Boolean)
+    const initialCategories = catArray.map((catName, idx) => ({
+      id: 'cat_man_' + idx + '_' + Date.now(),
+      name: { de: catName, en: catName },
+      icon: idx === 0 ? '🥗' : idx === 1 ? '🍝' : idx === 2 ? '🍰' : '🍷',
+      items: []
+    }))
+
+    const newMenu = {
+      id: crypto.randomUUID(),
+      branding: {
+        name: manualMenuForm.venue || venue || 'Gourmet Bistro',
+        primaryColor: primaryColor || '#7C3AED',
+        secondaryColor: secondaryColor || '#FF2D8D',
+        style: style || 'fine_dining',
+        phone,
+        email,
+        whatsapp,
+        instagram,
+        address
+      },
+      currency: manualMenuForm.currency || '€',
+      categories: initialCategories
+    }
+
+    setCurrentMenu(newMenu)
+    setEditingMenuId(newMenu.id)
+    try {
+      localStorage.setItem('scenvy_cached_menu', JSON.stringify(newMenu))
+    } catch (e) {}
+
+    setShowManualMenuModal(false)
+    setShowNewMenuChoiceModal(false)
+    setActiveTab('articles')
+    notify(`✍️ Manuelles Menü "${manualMenuForm.title}" erstellt! Füge jetzt deine ersten Artikel hinzu.`)
+  }
+
+  const handleCreateNewArticleSubmit = (e) => {
+    e?.preventDefault()
+    if (!newArticleForm.name.trim()) {
+      notify('⚠️ Bitte gib einen Artikelnamen ein.')
+      return
+    }
+
+    if (!currentMenu || !currentMenu.categories?.length) {
+      addNewCategoryToMenu()
+    }
+
+    const catName = newArticleForm.category || 'Hauptspeisen'
+    let updatedCategories = [...(currentMenu?.categories || [])]
+    let targetCat = updatedCategories.find(c => {
+      const name = typeof c.name === 'object' ? (c.name.de || c.name.en) : c.name
+      return name?.toLowerCase() === catName.toLowerCase()
+    })
+
+    const diet = []
+    if (newArticleForm.vegan) diet.push('vegan')
+    if (newArticleForm.vegetarian) diet.push('vegetarian')
+    if (newArticleForm.glutenfree) diet.push('glutenfree')
+
+    const allergensArr = newArticleForm.allergens ? newArticleForm.allergens.split(/[,;]/).map(a => a.trim().toUpperCase()).filter(Boolean) : []
+
+    const newItem = {
+      id: 'item_' + Date.now(),
+      name: { de: newArticleForm.name, en: newArticleForm.nameEn || newArticleForm.name },
+      description: { de: newArticleForm.description, en: newArticleForm.descriptionEn || newArticleForm.description },
+      price: newArticleForm.price.includes('€') ? newArticleForm.price : `${newArticleForm.price} €`,
+      allergens: allergensArr,
+      diet,
+      spicy: newArticleForm.spicy,
+      image: newArticleForm.image || null
+    }
+
+    if (targetCat) {
+      targetCat.items = [...(targetCat.items || []), newItem]
+    } else {
+      updatedCategories.push({
+        id: 'cat_' + Date.now(),
+        name: { de: catName, en: catName },
+        icon: '🍽️',
+        items: [newItem]
+      })
+    }
+
+    const newMenu = { ...(currentMenu || {}), categories: updatedCategories }
+    setCurrentMenu(newMenu)
+    try {
+      localStorage.setItem('scenvy_cached_menu', JSON.stringify(newMenu))
+    } catch (e) {}
+
+    setShowAddArticleModal(false)
+    setNewArticleForm({
+      name: '',
+      nameEn: '',
+      category: 'Vorspeisen',
+      price: '12.50 €',
+      description: '',
+      descriptionEn: '',
+      spicy: false,
+      vegan: false,
+      vegetarian: false,
+      glutenfree: false,
+      allergens: '',
+      image: ''
+    })
+    notify(`✨ Artikel "${newItem.name.de}" erfolgreich zur Karte hinzugefügt!`)
+  }
+
+  const downloadSampleCSVTemplate = () => {
+    const sampleCSV = `Kategorie;Artikel Name;Beschreibung;Preis;Scharf;Vegan;Vegetarisch;Glutenfrei;Allergene
+Vorspeisen;Trüffel Burrata;Mit geschmorten Kirschtomaten, frischem Basilikum und kaltgepresstem Olivenöl;14,50 €;Nein;Nein;Ja;Ja;G
+Vorspeisen;Beef Tartare Scenvy;Klassisch angestimmt mit Eigelb, Kapern und geröstetem Brioche;18,00 €;Nein;Nein;Nein;Nein;A, C, M
+Hauptspeisen;Rinderfilet Rossini;220g Filet mit Entenleber, Trüffelsauce und Kartoffel-Gnocchi;38,50 €;Nein;Nein;Nein;Nein;A, G
+Hauptspeisen;Aromatisches Linsen-Dal;Indische rote Linsen mit Kokosmilch, frischem Koriander und Basmati-Reis;16,50 €;Ja;Ja;Ja;Ja;
+Desserts;Hausgemachtes Tiramisu;Klassisches Löffelbiskuit mit Espresso und Mascarpone-Creme;8,50 €;Nein;Nein;Ja;Nein;A, C, G
+Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,50 €;Nein;Ja;Ja;Ja;
+`
+    const blob = new Blob(['\uFEFF' + sampleCSV], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'Muster_Speisekarte_SCENVY.csv'
+    a.click()
+    notify('📥 Muster-CSV-Vorlage heruntergeladen!')
+  }
+
+  const applyBrandingPreset = (preset) => {
+    setPrimaryColor(preset.primary)
+    setSecondaryColor(preset.secondary)
+    setStyle(preset.style)
+    notify(`🎨 Branding-Vorlage "${preset.name}" angewendet!`)
+  }
 
   const addPageToCollectionFlow = (page) => {
     setCollectionFlowPages(prev => [...prev, {
@@ -1085,6 +1461,9 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
             <button onClick={() => setActiveTab('create')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'create' ? C.purple : 'transparent', color: activeTab === 'create' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
               🚀 SNAP Generator
             </button>
+            <button onClick={() => setActiveTab('recipe_cards')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'recipe_cards' ? C.purple : 'transparent', color: activeTab === 'recipe_cards' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              🧪 Snap QI Rezeptkarten ({recipeCards.length})
+            </button>
             <button onClick={() => setActiveTab('collection_flow')} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: activeTab === 'collection_flow' ? C.purple : 'transparent', color: activeTab === 'collection_flow' ? C.white : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
               🔄 Sammlungsflow
               {collectionFlowPages.length > 0 && (
@@ -1505,6 +1884,195 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
               </div>
             </div>
           </div>
+        ) : activeTab === 'recipe_cards' ? (
+          /* Snap QI Recipe Cards Tab */
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: C.white, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <ChefHat color={C.pink} size={26} /> Snap QI Rezeptkarten & Wareneinsatz-Kalkulator ({recipeCards.length})
+                </div>
+                <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
+                  Erstelle krisensichere Rezeptkarten mit exakter Zutatenkalkulation (Food Cost %), Allergen-Erfassung und QI-Gourmet-Score.
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  onClick={() => {
+                    setEditingRecipeId(null)
+                    setRecipeForm({
+                      title: '',
+                      category: 'Vorspeisen',
+                      prepTime: '10 Min.',
+                      portions: 1,
+                      sellingPrice: '14.50 €',
+                      foodCostPrice: '3.80 €',
+                      qiScore: 95,
+                      allergens: ['G'],
+                      diet: ['vegetarian'],
+                      ingredients: [
+                        { name: 'Frische Hauptzutat', qty: '150g', cost: '2,20 €' },
+                        { name: 'Sauce & Verfeinerung', qty: '50ml', cost: '0,90 €' }
+                      ],
+                      steps: [
+                        'Zutaten abwiegen und frisch vorbereiten.',
+                        'Anrichten, garnieren und servierfertig an den Pass übergeben.'
+                      ],
+                      image: '',
+                      notes: ''
+                    })
+                    setShowRecipeCardModal(true)
+                  }}
+                  style={{ padding: '12px 22px', borderRadius: 12, background: 'linear-gradient(135deg, #7C3AED, #FF2D8D)', color: C.white, border: 'none', fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 6px 20px rgba(124, 58, 237, 0.4)' }}
+                >
+                  <Plus size={18} /> ➕ Neue Rezeptkarte Erstellen
+                </button>
+              </div>
+            </div>
+
+            {recipeCards.length === 0 ? (
+              <div style={{ padding: 48, textAlign: 'center', color: C.muted, background: C.card, borderRadius: 20, border: `1px solid ${C.border}` }}>
+                <ChefHat size={48} color={C.pink} style={{ margin: '0 auto 16px' }} />
+                <div style={{ fontSize: 18, fontWeight: 800, color: C.white, marginBottom: 6 }}>Noch keine Rezeptkarten angelegt</div>
+                <div style={{ fontSize: 13, maxWidth: 460, margin: '0 auto 20px', lineHeight: 1.5 }}>
+                  Lege deine erste Küchen- & Bar-Rezeptkarte an. Kalkuliere Wareneinsatz %, Zubereitungszeiten und pushe Gerichte per Klick in deine Speisekarte.
+                </div>
+                <button
+                  onClick={() => {
+                    setEditingRecipeId(null)
+                    setShowRecipeCardModal(true)
+                  }}
+                  style={{ padding: '12px 24px', borderRadius: 12, background: C.purple, color: C.white, border: 'none', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}
+                >
+                  🚀 Erste Rezeptkarte Erstellen
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 20 }}>
+                {recipeCards.map((rc) => (
+                  <div key={rc.id} style={{ background: C.card, borderRadius: 20, border: `1px solid ${C.border}`, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 8px 30px rgba(0,0,0,0.3)' }}>
+                    <div>
+                      {/* Card Image Banner */}
+                      <div style={{ height: 160, position: 'relative', background: '#0D0D14', overflow: 'hidden' }}>
+                        <img src={rc.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&auto=format&fit=crop&q=80'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(15,15,26,0.95) 0%, transparent 60%)' }} />
+
+                        {/* Badges Overlay */}
+                        <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 10, fontWeight: 900, padding: '4px 10px', borderRadius: 20, background: 'rgba(16, 185, 129, 0.9)', color: '#000', backdropFilter: 'blur(4px)' }}>
+                            QI Score: {rc.qiScore || 95}/100
+                          </span>
+                          <span style={{ fontSize: 10, fontWeight: 800, padding: '4px 10px', borderRadius: 20, background: 'rgba(124, 58, 237, 0.85)', color: '#FFF', backdropFilter: 'blur(4px)' }}>
+                            {rc.category || 'Vorspeise'}
+                          </span>
+                        </div>
+
+                        <div style={{ position: 'absolute', bottom: 12, left: 16, right: 16 }}>
+                          <div style={{ fontSize: 18, fontWeight: 900, color: C.white, lineHeight: 1.2 }}>{rc.title}</div>
+                          <div style={{ fontSize: 11, color: C.pink, fontWeight: 700, marginTop: 2 }}>
+                            ⏱️ Zubereitungszeit: {rc.prepTime || '10 Min.'} • {rc.portions || 1} Portion(en)
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Financial Metrics & Food Cost Box */}
+                      <div style={{ padding: 16 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, background: '#0A0A12', padding: 12, borderRadius: 14, border: `1px solid ${C.border}`, marginBottom: 14, textAlign: 'center' }}>
+                          <div>
+                            <div style={{ fontSize: 10, color: C.muted, fontWeight: 700 }}>VERKAUF</div>
+                            <div style={{ fontSize: 14, fontWeight: 900, color: C.white, marginTop: 2 }}>{rc.sellingPrice}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, color: C.muted, fontWeight: 700 }}>WARENEINSATZ</div>
+                            <div style={{ fontSize: 14, fontWeight: 900, color: C.pink, marginTop: 2 }}>{rc.foodCostPrice}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, color: C.muted, fontWeight: 700 }}>FOOD COST %</div>
+                            <div style={{ fontSize: 14, fontWeight: 900, color: '#34D399', marginTop: 2 }}>{rc.foodCostPercent || '25%'}</div>
+                          </div>
+                        </div>
+
+                        {/* Ingredients Preview */}
+                        <div style={{ marginBottom: 12 }}>
+                          <div style={{ fontSize: 11, fontWeight: 800, color: C.muted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>ZUTATEN ({rc.ingredients?.length || 0})</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {(rc.ingredients || []).slice(0, 3).map((ing, i) => (
+                              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: C.white, borderBottom: `1px dashed ${C.border}`, paddingBottom: 3 }}>
+                                <span>• {ing.name} ({ing.qty})</span>
+                                <span style={{ color: C.muted, fontWeight: 700 }}>{ing.cost}</span>
+                              </div>
+                            ))}
+                            {(rc.ingredients?.length || 0) > 3 && (
+                              <div style={{ fontSize: 10, color: C.purple, fontWeight: 700, marginTop: 2 }}>
+                                + {(rc.ingredients.length - 3)} weitere Zutaten...
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Allergens Chips */}
+                        {rc.allergens?.length > 0 && (
+                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 12 }}>
+                            {rc.allergens.map(a => (
+                              <span key={a} style={{ fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 6, background: `${C.pink}22`, color: C.pink, border: `1px solid ${C.pink}44` }}>
+                                Allergen {a}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div style={{ padding: 16, borderTop: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <button
+                        onClick={() => pushRecipeCardToActiveMenu(rc)}
+                        style={{ width: '100%', padding: '10px', borderRadius: 10, background: 'linear-gradient(135deg, #10B981, #059669)', color: C.white, border: 'none', fontWeight: 800, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 4px 14px rgba(16,185,129,0.3)' }}
+                      >
+                        🚀 In aktives Digital Menu übernehmen
+                      </button>
+
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          onClick={() => {
+                            setEditingRecipeId(rc.id)
+                            setRecipeForm({
+                              title: rc.title,
+                              category: rc.category || 'Vorspeisen',
+                              prepTime: rc.prepTime || '10 Min.',
+                              portions: rc.portions || 1,
+                              sellingPrice: rc.sellingPrice || '14.50 €',
+                              foodCostPrice: rc.foodCostPrice || '3.80 €',
+                              qiScore: rc.qiScore || 95,
+                              allergens: rc.allergens || [],
+                              diet: rc.diet || [],
+                              ingredients: rc.ingredients || [],
+                              steps: rc.steps || [],
+                              image: rc.image || '',
+                              notes: rc.notes || ''
+                            })
+                            setShowRecipeCardModal(true)
+                          }}
+                          style={{ flex: 1, padding: '8px 12px', borderRadius: 10, background: C.purple, color: C.white, border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+                        >
+                          <Edit3 size={14} /> Bearbeiten
+                        </button>
+
+                        <button
+                          onClick={() => deleteRecipeCard(rc.id)}
+                          style={{ padding: '8px 12px', borderRadius: 10, background: `${C.pink}11`, border: `1px solid ${C.pink}33`, color: C.pink, cursor: 'pointer' }}
+                          title="Rezeptkarte löschen"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         ) : activeTab === 'collection_menu' ? (
           /* Sammlungsmenü Overview & Management Tab */
           <div>
@@ -1634,7 +2202,52 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
           /* Branding & Design Templates Tab */
           <div>
             <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>🎨 Branding & Menu Templates</div>
-            <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>Konfiguriere das visuelle Erscheinungsbild deiner digitalen Speisekarten.</div>
+            <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>Konfiguriere das visuelle Erscheinungsbild deiner digitalen Speisekarten oder wähle aus vorgefertigten Branding-Vorlagen.</div>
+
+            {/* Branding Presets Grid */}
+            <div style={{ background: C.card, borderRadius: 18, border: `1px solid ${C.border}`, padding: 20, marginBottom: 24 }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: C.white, marginBottom: 12 }}>
+                ✨ Schnellauswahl: Branding-Kollektionen & Themes (1-Klick)
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+                {[
+                  { name: '🍷 Fine Dining Gold', primary: '#D97706', secondary: '#FBBF24', style: 'fine_dining', desc: 'Elegantes Schwarz & Gold' },
+                  { name: '🍔 Urban Street Food', primary: '#EC4899', secondary: '#3B82F6', style: 'street_food', desc: 'Neon Pink & Royal Blue' },
+                  { name: '🍺 Traditional Bavarian', primary: '#059669', secondary: '#10B981', style: 'trattoria', desc: 'Smaragdgrün & Holz-Touch' },
+                  { name: '🍸 Luxury Lounge', primary: '#7C3AED', secondary: '#FF2D8D', style: 'fine_dining', desc: 'Obsidian & Purple Glow' },
+                  { name: '🏖️ Beach Sunset', primary: '#F97316', secondary: '#06B6D4', style: 'street_food', desc: 'Warm Coral & Tropical Teal' },
+                  { name: '☕ Café & Bakery', primary: '#8B5CF6', secondary: '#D97706', style: 'cafe', desc: 'Soft Violet & Karamel' },
+                  { name: '🍣 Minimalist Asian', primary: '#EF4444', secondary: '#64748B', style: 'fine_dining', desc: 'Rubinrot & Schiefer' },
+                  { name: '⚡ White Label Clean', primary: '#2563EB', secondary: '#8B5CF6', style: 'trattoria', desc: 'Königsblau & Crisp' }
+                ].map((preset) => (
+                  <button
+                    key={preset.name}
+                    onClick={() => applyBrandingPreset(preset)}
+                    style={{
+                      padding: 14,
+                      borderRadius: 12,
+                      background: C.card2,
+                      border: `1px solid ${primaryColor === preset.primary ? C.purple : C.border}`,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: C.white }}>{preset.name}</span>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <div style={{ width: 14, height: 14, borderRadius: '50%', background: preset.primary }} />
+                        <div style={{ width: 14, height: 14, borderRadius: '50%', background: preset.secondary }} />
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 11, color: C.muted }}>{preset.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 24 }}>
               <div style={{ background: C.card, borderRadius: 18, border: `1px solid ${C.border}`, padding: 24 }}>
@@ -2254,7 +2867,23 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
         ) : (
           /* List Tab: All Saved Menu Reels */
           <div>
-            <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 20 }}>Gespeicherte Digital Menus ({menuReels.length})</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: C.white }}>Gespeicherte Digital Menus ({menuReels.length})</div>
+                <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>
+                  Verwalte deine digitalen Speisekarten, erhalte Vorschau-Links und generiere QR-Codes für Tische & Theke.
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  onClick={() => setShowNewMenuChoiceModal(true)}
+                  style={{ padding: '12px 22px', borderRadius: 12, background: 'linear-gradient(135deg, #7C3AED, #FF2D8D)', color: C.white, border: 'none', fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 6px 20px rgba(124, 58, 237, 0.4)' }}
+                >
+                  <Plus size={18} /> ➕ Neues Menü Erstellen
+                </button>
+              </div>
+            </div>
 
             {loadingReels ? (
               <div style={{ padding: 40, textAlign: 'center', color: C.muted }}>Lade Speisekarten...</div>
@@ -2807,6 +3436,290 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
                   💾 Sammlungsmenü Speichern
                 </button>
                 <button type="button" onClick={() => setShowCollectionModal(false)} style={{ padding: '12px 20px', borderRadius: 12, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>
+                  Abbrechen
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Recipe Card Modal */}
+      {showRecipeCardModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(10px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: C.card, border: `1px solid ${C.purple}55`, borderRadius: 24, width: '100%', maxWidth: 680, padding: 28, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 60px rgba(0,0,0,0.8)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: C.white, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <ChefHat color={C.pink} size={22} /> {editingRecipeId ? '✏️ Rezeptkarte Bearbeiten' : '🧪 Neue Snap QI Rezeptkarte Anlegen'}
+                </div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+                  Kalkuliere Wareneinsatz, Portionspreise und erstelle Küchenanleitungen.
+                </div>
+              </div>
+              <button onClick={() => setShowRecipeCardModal(false)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 22, fontWeight: 700 }}>✕</button>
+            </div>
+
+            <form onSubmit={saveRecipeCardSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>TITEL / GERICHT NAME *</label>
+                  <input value={recipeForm.title} onChange={(e) => setRecipeForm({ ...recipeForm, title: e.target.value })} placeholder="z.B. Trüffel Burrata con Pomodorini" style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} required />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>KATEGORIE</label>
+                  <select value={recipeForm.category} onChange={(e) => setRecipeForm({ ...recipeForm, category: e.target.value })} style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13 }}>
+                    <option value="Vorspeisen">Vorspeisen</option>
+                    <option value="Hauptgerichte">Hauptgerichte</option>
+                    <option value="Desserts">Desserts</option>
+                    <option value="Getränke">Getränke</option>
+                    <option value="Cocktails">Cocktails</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 4 }}>VERKAUFSPREIS (€)</label>
+                  <input value={recipeForm.sellingPrice} onChange={(e) => setRecipeForm({ ...recipeForm, sellingPrice: e.target.value })} placeholder="14.50 €" style={{ width: '100%', padding: 8, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 12 }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 4 }}>WARENEINSATZ (€)</label>
+                  <input value={recipeForm.foodCostPrice} onChange={(e) => setRecipeForm({ ...recipeForm, foodCostPrice: e.target.value })} placeholder="3.80 €" style={{ width: '100%', padding: 8, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.pink, fontSize: 12, fontWeight: 700 }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 4 }}>ZUBEREITUNGSZEIT</label>
+                  <input value={recipeForm.prepTime} onChange={(e) => setRecipeForm({ ...recipeForm, prepTime: e.target.value })} placeholder="10 Min." style={{ width: '100%', padding: 8, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 12 }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 4 }}>PORTIONEN</label>
+                  <input type="number" value={recipeForm.portions} onChange={(e) => setRecipeForm({ ...recipeForm, portions: e.target.value })} placeholder="1" style={{ width: '100%', padding: 8, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 12 }} />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>BILD-URL / FOTO</label>
+                <input value={recipeForm.image} onChange={(e) => setRecipeForm({ ...recipeForm, image: e.target.value })} placeholder="https://images.unsplash.com/..." style={{ width: '100%', padding: 8, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 12 }} />
+              </div>
+
+              <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                <button type="submit" style={{ flex: 1, padding: '12px 20px', borderRadius: 12, background: 'linear-gradient(135deg, #7C3AED, #FF2D8D)', color: C.white, border: 'none', fontWeight: 800, cursor: 'pointer', fontSize: 13, boxShadow: `0 6px 20px ${C.purple}44` }}>
+                  💾 Rezeptkarte Speichern
+                </button>
+                <button type="button" onClick={() => setShowRecipeCardModal(false)} style={{ padding: '12px 20px', borderRadius: 12, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>
+                  Abbrechen
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* New Menu Choice Modal */}
+      {showNewMenuChoiceModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(10px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: C.card, border: `1px solid ${C.purple}55`, borderRadius: 24, width: '100%', maxWidth: 560, padding: 28, boxShadow: '0 25px 60px rgba(0,0,0,0.8)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: C.white }}>➕ Neues Digital Menu Erstellen</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Wähle deine bevorzugte Methode zur Erstellung deiner Speisekarte.</div>
+              </div>
+              <button onClick={() => setShowNewMenuChoiceModal(false)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 22, fontWeight: 700 }}>✕</button>
+            </div>
+
+            <div style={{ display: 'grid', gap: 12 }}>
+              <button
+                onClick={() => {
+                  setShowNewMenuChoiceModal(false)
+                  setActiveTab('create')
+                }}
+                style={{ padding: 18, borderRadius: 16, background: C.card2, border: `1px solid ${C.purple}66`, textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16 }}
+              >
+                <div style={{ fontSize: 28, width: 48, height: 48, borderRadius: 12, background: `${C.purple}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🚀</div>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: C.white }}>SNAP Menu (KI Photo & PDF Scan)</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Speisekarte fotografieren oder als PDF hochladen. Die KI extrahiert alle Gerichte automatisch.</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowNewMenuChoiceModal(false)
+                  setShowManualMenuModal(true)
+                }}
+                style={{ padding: 18, borderRadius: 16, background: C.card2, border: `1px solid ${C.border}`, textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16 }}
+              >
+                <div style={{ fontSize: 28, width: 48, height: 48, borderRadius: 12, background: `${C.pink}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✍️</div>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: C.white }}>Manuell Erstellen (Blanko Template)</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Erstelle eine leere Speisekarte und füge Kategorien & Artikel Schritt für Schritt ein.</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowNewMenuChoiceModal(false)
+                  setActiveTab('recipe_cards')
+                }}
+                style={{ padding: 18, borderRadius: 16, background: C.card2, border: `1px solid ${C.border}`, textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16 }}
+              >
+                <div style={{ fontSize: 28, width: 48, height: 48, borderRadius: 12, background: 'rgba(16, 185, 129, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🧪</div>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: C.white }}>Snap QI Rezeptkarte nutzen</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Aus vorgefertigten Küchen- und Bar-Rezeptkarten mit kalkuliertem Wareneinsatz generieren.</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowNewMenuChoiceModal(false)
+                  setActiveTab('articles')
+                  setTimeout(() => csvInputRef.current?.click(), 200)
+                }}
+                style={{ padding: 18, borderRadius: 16, background: C.card2, border: `1px solid ${C.border}`, textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16 }}
+              >
+                <div style={{ fontSize: 28, width: 48, height: 48, borderRadius: 12, background: 'rgba(234, 179, 8, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📂</div>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: C.white }}>CSV Data Import</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Bestehende Speisekartendaten im CSV / Excel-Format importieren.</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Menu Form Modal */}
+      {showManualMenuModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(10px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: C.card, border: `1px solid ${C.purple}55`, borderRadius: 24, width: '100%', maxWidth: 540, padding: 28, boxShadow: '0 25px 60px rgba(0,0,0,0.8)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: C.white }}>✍️ Manuelles Menü Erstellen</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Konfiguriere Basisdaten und Startkategorien für deine neue Speisekarte.</div>
+              </div>
+              <button onClick={() => setShowManualMenuModal(false)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 22, fontWeight: 700 }}>✕</button>
+            </div>
+
+            <form onSubmit={handleCreateManualMenu} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>TITEL DER SPEISEKARTE *</label>
+                <input value={manualMenuForm.title} onChange={(e) => setManualMenuForm({ ...manualMenuForm, title: e.target.value })} placeholder="z.B. Sommer-Speisekarte 2026" style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} required />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>RESTAURANT NAME</label>
+                  <input value={manualMenuForm.venue} onChange={(e) => setManualMenuForm({ ...manualMenuForm, venue: e.target.value })} placeholder="Gourmet Bistro" style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>WÄHRUNG</label>
+                  <select value={manualMenuForm.currency} onChange={(e) => setManualMenuForm({ ...manualMenuForm, currency: e.target.value })} style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13 }}>
+                    <option value="€">EUR (€)</option>
+                    <option value="$">USD ($)</option>
+                    <option value="CHF">CHF</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>START-KATEGORIEN (KOMMAGETRENNT)</label>
+                <input value={manualMenuForm.categories} onChange={(e) => setManualMenuForm({ ...manualMenuForm, categories: e.target.value })} placeholder="Vorspeisen, Hauptgerichte, Desserts, Getränke" style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} />
+              </div>
+
+              <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                <button type="submit" style={{ flex: 1, padding: '12px 20px', borderRadius: 12, background: C.purple, color: C.white, border: 'none', fontWeight: 800, cursor: 'pointer', fontSize: 13, boxShadow: `0 6px 20px ${C.purple}44` }}>
+                  🚀 Menü Erstellen & Editor Öffnen
+                </button>
+                <button type="button" onClick={() => setShowManualMenuModal(false)} style={{ padding: '12px 20px', borderRadius: 12, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>
+                  Abbrechen
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Article Modal */}
+      {showAddArticleModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(10px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: C.card, border: `1px solid ${C.purple}55`, borderRadius: 24, width: '100%', maxWidth: 580, padding: 28, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 60px rgba(0,0,0,0.8)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: C.white }}>✨ Neuen Artikel zum Artikelstamm Hinzufügen</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Trage Produktdaten, Preis, Allergene und Eigenschaften ein.</div>
+              </div>
+              <button onClick={() => setShowAddArticleModal(false)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 22, fontWeight: 700 }}>✕</button>
+            </div>
+
+            <form onSubmit={handleCreateNewArticleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>ARTIKEL NAME (DEUTSCH) *</label>
+                  <input value={newArticleForm.name} onChange={(e) => setNewArticleForm({ ...newArticleForm, name: e.target.value })} placeholder="z.B. Hausgemachte Tagliatelle Trüffel" style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} required />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>PREIS (€) *</label>
+                  <input value={newArticleForm.price} onChange={(e) => setNewArticleForm({ ...newArticleForm, price: e.target.value })} placeholder="16.50 €" style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} required />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>KATEGORIE</label>
+                  <select value={newArticleForm.category} onChange={(e) => setNewArticleForm({ ...newArticleForm, category: e.target.value })} style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13 }}>
+                    <option value="Vorspeisen">Vorspeisen</option>
+                    <option value="Hauptgerichte">Hauptgerichte</option>
+                    <option value="Desserts">Desserts</option>
+                    <option value="Getränke">Getränke</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>ARTIKEL NAME (ENGLISCH)</label>
+                  <input value={newArticleForm.nameEn} onChange={(e) => setNewArticleForm({ ...newArticleForm, nameEn: e.target.value })} placeholder="Homemade Truffle Tagliatelle" style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>BESCHREIBUNG (DEUTSCH)</label>
+                <textarea value={newArticleForm.description} onChange={(e) => setNewArticleForm({ ...newArticleForm, description: e.target.value })} placeholder="Mit schwarzem Sommertrüffel, frischer Parmesansauce und Basilikum." rows={2} style={{ width: '100%', padding: 10, borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none', resize: 'vertical' }} />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>ALLERGENE (A, C, G ...)</label>
+                  <input value={newArticleForm.allergens} onChange={(e) => setNewArticleForm({ ...newArticleForm, allergens: e.target.value })} placeholder="A, C, G" style={{ width: '100%', padding: 8, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.pink, fontSize: 12, fontWeight: 700 }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: C.muted, display: 'block', marginBottom: 6 }}>ARTIKELBILD URL</label>
+                  <input value={newArticleForm.image} onChange={(e) => setNewArticleForm({ ...newArticleForm, image: e.target.value })} placeholder="https://..." style={{ width: '100%', padding: 8, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 12 }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 16, background: C.bg, padding: 12, borderRadius: 12, border: `1px solid ${C.border}` }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: C.white, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={newArticleForm.vegetarian} onChange={(e) => setNewArticleForm({ ...newArticleForm, vegetarian: e.target.checked })} style={{ accentColor: C.purple }} />
+                  🌱 Vegetarisch
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: C.white, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={newArticleForm.vegan} onChange={(e) => setNewArticleForm({ ...newArticleForm, vegan: e.target.checked })} style={{ accentColor: C.purple }} />
+                  🌿 Vegan
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: C.white, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={newArticleForm.glutenfree} onChange={(e) => setNewArticleForm({ ...newArticleForm, glutenfree: e.target.checked })} style={{ accentColor: C.purple }} />
+                  🌾 Glutenfrei
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: C.white, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={newArticleForm.spicy} onChange={(e) => setNewArticleForm({ ...newArticleForm, spicy: e.target.checked })} style={{ accentColor: C.pink }} />
+                  🌶️ Scharf
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                <button type="submit" style={{ flex: 1, padding: '12px 20px', borderRadius: 12, background: C.purple, color: C.white, border: 'none', fontWeight: 800, cursor: 'pointer', fontSize: 13, boxShadow: `0 6px 20px ${C.purple}44` }}>
+                  ✨ Artikel Speichern
+                </button>
+                <button type="button" onClick={() => setShowAddArticleModal(false)} style={{ padding: '12px 20px', borderRadius: 12, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>
                   Abbrechen
                 </button>
               </div>

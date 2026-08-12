@@ -8,7 +8,10 @@ import {
   useUpdateServiceCallStatus,
   useSubmitOrder,
   useSubmitServiceCall,
-  useLocations
+  useLocations,
+  useHostRequests,
+  useUpdateHostRequestStatus,
+  useSubmitHostRequest
 } from '@/lib/db'
 import { C, grad } from '@/tokens'
 import {
@@ -28,7 +31,12 @@ import {
   Plus,
   Tv,
   ArrowLeft,
-  AlertCircle
+  AlertCircle,
+  ConciergeBell,
+  Layers,
+  Building2,
+  User,
+  Sparkles
 } from 'lucide-react'
 
 export default function OrderManagementDashboard() {
@@ -40,15 +48,18 @@ export default function OrderManagementDashboard() {
   const locationQueryParam = searchParams.get('location') || searchParams.get('locationId') || 'all'
   const [selectedLocId, setSelectedLocId] = useState(locationQueryParam)
 
+  // Module View Mode: 'combined' | 'gastro' | 'host'
+  const [moduleView, setModuleView] = useState('combined')
   const [filter, setFilter] = useState('pending') // 'pending' | 'accepted' | 'all'
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [copied, setCopied] = useState(false)
-  const [lastOrderCount, setLastOrderCount] = useState(0)
+  const [lastTotalCount, setLastTotalCount] = useState(0)
 
   // Realtime DB Hooks
   const { data: locations = [] } = useLocations(activeTenantId)
   const { data: rawOrders = [], isLoading: loadingOrders, refetch: refetchOrders } = useOrders(activeTenantId)
   const { data: rawCalls = [], isLoading: loadingCalls, refetch: refetchCalls } = useServiceCalls(activeTenantId)
+  const { data: rawHostReqs = [], isLoading: loadingHostReqs, refetch: refetchHostReqs } = useHostRequests(activeTenantId)
 
   // Filter by selected location if specified
   const activeLocation = locations.find(l => l.id === selectedLocId || l.slug === selectedLocId)
@@ -60,22 +71,32 @@ export default function OrderManagementDashboard() {
     ? rawCalls 
     : rawCalls.filter(c => c.location_id === selectedLocId || (activeLocation && c.location_id === activeLocation.id))
 
+  const hostRequests = selectedLocId === 'all'
+    ? rawHostReqs
+    : rawHostReqs.filter(r => r.location_id === selectedLocId || (activeLocation && r.location_id === activeLocation.id))
+
   const updateOrderStatus = useUpdateOrderStatus()
   const updateCallStatus = useUpdateServiceCallStatus()
+  const updateHostRequestStatus = useUpdateHostRequestStatus()
   const submitOrder = useSubmitOrder()
   const submitServiceCall = useSubmitServiceCall()
+  const submitHostRequest = useSubmitHostRequest()
 
   // Filtered lists
   const pendingOrders = orders.filter(o => o.status === 'pending')
   const acceptedOrders = orders.filter(o => o.status === 'accepted')
-  const completedOrders = orders.filter(o => o.status === 'done')
 
   const pendingCalls = serviceCalls.filter(c => c.status === 'pending')
-  const completedCalls = serviceCalls.filter(c => c.status === 'done')
 
-  // Audio effect on new order/call
+  const pendingHostReqs = hostRequests.filter(r => r.status === 'NEW' || r.status === 'IN_PROGRESS')
+  const completedHostReqs = hostRequests.filter(r => r.status === 'COMPLETED')
+
+  // Total incoming count for audio trigger
+  const currentTotalCount = orders.length + serviceCalls.length + hostRequests.length
+
+  // Audio effect on new order/call/host request
   useEffect(() => {
-    if (orders.length > lastOrderCount && lastOrderCount > 0 && soundEnabled) {
+    if (currentTotalCount > lastTotalCount && lastTotalCount > 0 && soundEnabled) {
       try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
         const osc = audioCtx.createOscillator()
@@ -93,8 +114,8 @@ export default function OrderManagementDashboard() {
         // Audio fallback
       }
     }
-    setLastOrderCount(orders.length)
-  }, [orders.length, soundEnabled])
+    setLastTotalCount(currentTotalCount)
+  }, [currentTotalCount, soundEnabled])
 
   const publicDashboardUrl = `${window.location.origin}/live-dashboard/${activeTenantId}`
 
@@ -104,7 +125,7 @@ export default function OrderManagementDashboard() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // Demo helper: create a test order
+  // Demo helpers
   const handleTestOrder = () => {
     const tableNum = `Tisch ${Math.floor(Math.random() * 12 + 1)}`
     submitOrder.mutate({
@@ -120,7 +141,6 @@ export default function OrderManagementDashboard() {
     })
   }
 
-  // Demo helper: create a test call
   const handleTestCall = (type = 'waiter') => {
     const tableNum = `Tisch ${Math.floor(Math.random() * 12 + 1)}`
     submitServiceCall.mutate({
@@ -129,6 +149,30 @@ export default function OrderManagementDashboard() {
       type,
       note: type === 'bill' ? 'Kartenzahlung gewünscht' : 'Kellner an den Tisch gerufen'
     })
+  }
+
+  const handleTestHostRequest = () => {
+    const roomNum = `Zimmer ${Math.floor(Math.random() * 20 + 101)}`
+    submitHostRequest.mutate({
+      tenantId: activeTenantId,
+      locationId: selectedLocId === 'all' ? 'loc1' : selectedLocId,
+      guestName: 'Dr. Michael Schmidt',
+      roomNumber: roomNum,
+      department: 'IN_ROOM_DINING',
+      requestType: 'ORDER',
+      items: [
+        { name: 'Club Sandwich mit Pommes', qty: 1, price: '16.50 €' },
+        { name: 'Panna Cotta Mango', qty: 1, price: '7.50 €' }
+      ],
+      notes: 'Bitte Besteck und Servietten mitbringen',
+      totalPrice: '24.00 €'
+    })
+  }
+
+  const refreshAll = () => {
+    refetchOrders()
+    refetchCalls()
+    refetchHostReqs()
   }
 
   return (
@@ -142,10 +186,10 @@ export default function OrderManagementDashboard() {
           <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.1)' }} />
           <div>
             <div style={{ fontSize: 11, color: '#8B5CF6', fontWeight: 800, letterSpacing: 1.5 }}>
-              SCENVY LIVE MANAGEMENT DASHBOARD
+              SCENVY MASTER LIVE DISPLAY
             </div>
             <div style={{ fontSize: 20, fontWeight: 900, color: '#FFF', display: 'flex', alignItems: 'center', gap: 8 }}>
-              🛎️ Gastro Bestell- & Service-Zentrale
+              🛎️ Bestell- & Service-Zentrale (Küche, Gastro & Host)
             </div>
           </div>
         </div>
@@ -194,7 +238,7 @@ export default function OrderManagementDashboard() {
 
           {/* Refresh */}
           <button
-            onClick={() => { refetchOrders(); refetchCalls() }}
+            onClick={refreshAll}
             style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#FFF', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
           >
             <RefreshCw size={14} /> Aktualisieren
@@ -211,11 +255,56 @@ export default function OrderManagementDashboard() {
         </div>
       </div>
 
+      {/* MODULE VIEW SWITCHER BAR (Gastronomie vs. Host vs. Kombiniert) */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20, flexWrap: 'wrap', background: '#12121A', padding: '10px 16px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 800, color: '#9CA3AF', letterSpacing: 1 }}>DISPLAY-MODUS:</span>
+          {[
+            { id: 'combined', label: '⚡ Kombiniert (Gastro & Host)', icon: <Layers size={14} />, color: '#8B5CF6' },
+            { id: 'gastro', label: '🍽️ Nur Gastronomie (Tische)', icon: <Utensils size={14} />, color: '#F59E0B' },
+            { id: 'host', label: '🏨 Nur SCENVY Host (Zimmer)', icon: <ConciergeBell size={14} />, color: '#10B981' }
+          ].map(m => (
+            <button
+              key={m.id}
+              onClick={() => setModuleView(m.id)}
+              style={{
+                padding: '8px 16px',
+                borderRadius: 10,
+                border: `1px solid ${moduleView === m.id ? m.color : 'rgba(255,255,255,0.1)'}`,
+                background: moduleView === m.id ? `${m.color}25` : 'rgba(255,255,255,0.04)',
+                color: moduleView === m.id ? '#FFF' : '#9CA3AF',
+                fontSize: 12,
+                fontWeight: moduleView === m.id ? 800 : 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Test simulation actions */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <button onClick={handleTestOrder} style={{ padding: '6px 10px', borderRadius: 8, background: 'rgba(245, 158, 11, 0.2)', border: '1px solid #F59E0B', color: '#FFF', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>
+            + Test-Bestellung
+          </button>
+          <button onClick={() => handleTestCall('waiter')} style={{ padding: '6px 10px', borderRadius: 8, background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #EF4444', color: '#FFF', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>
+            + Kellner-Ruf
+          </button>
+          <button onClick={handleTestHostRequest} style={{ padding: '6px 10px', borderRadius: 8, background: 'rgba(16, 185, 129, 0.2)', border: '1px solid #10B981', color: '#FFF', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>
+            + Host-Anfrage
+          </button>
+        </div>
+      </div>
+
       {/* Live KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 16, marginBottom: 24 }}>
         <div style={{ background: '#12121A', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 16, padding: 18 }}>
-          <div style={{ fontSize: 11, color: '#EF4444', fontWeight: 800, letterSpacing: 1 }}>OFFENE KELLNER-RUFE</div>
-          <div style={{ fontSize: 32, fontWeight: 900, color: '#FFF', marginTop: 4, display: 'flex', alignItems: 'center', justifyBetween: 'space-between' }}>
+          <div style={{ fontSize: 11, color: '#EF4444', fontWeight: 800, letterSpacing: 1 }}>KELLNER & RECHNUNG</div>
+          <div style={{ fontSize: 32, fontWeight: 900, color: '#FFF', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span>{pendingCalls.length}</span>
             <Bell size={28} color="#EF4444" style={{ opacity: 0.8 }} />
           </div>
@@ -223,38 +312,35 @@ export default function OrderManagementDashboard() {
         </div>
 
         <div style={{ background: '#12121A', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 16, padding: 18 }}>
-          <div style={{ fontSize: 11, color: '#F59E0B', fontWeight: 800, letterSpacing: 1 }}>NEUE BESTELLUNGEN</div>
-          <div style={{ fontSize: 32, fontWeight: 900, color: '#FFF', marginTop: 4, display: 'flex', alignItems: 'center', justifyBetween: 'space-between' }}>
+          <div style={{ fontSize: 11, color: '#F59E0B', fontWeight: 800, letterSpacing: 1 }}>GASTRO BESTELLUNGEN</div>
+          <div style={{ fontSize: 32, fontWeight: 900, color: '#FFF', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span>{pendingOrders.length}</span>
             <Utensils size={28} color="#F59E0B" style={{ opacity: 0.8 }} />
           </div>
-          <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>Warten auf POS-Übernahme</div>
+          <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>Tisch / Bar Speisen & Drinks</div>
         </div>
 
         <div style={{ background: '#12121A', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 16, padding: 18 }}>
-          <div style={{ fontSize: 11, color: '#10B981', fontWeight: 800, letterSpacing: 1 }}>ANGENOMMEN / IN PROZESS</div>
-          <div style={{ fontSize: 32, fontWeight: 900, color: '#FFF', marginTop: 4, display: 'flex', alignItems: 'center', justifyBetween: 'space-between' }}>
-            <span>{acceptedOrders.length}</span>
-            <CheckCircle2 size={28} color="#10B981" style={{ opacity: 0.8 }} />
+          <div style={{ fontSize: 11, color: '#10B981', fontWeight: 800, letterSpacing: 1 }}>SCENVY HOST ANFRAGEN</div>
+          <div style={{ fontSize: 32, fontWeight: 900, color: '#FFF', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span>{pendingHostReqs.length}</span>
+            <ConciergeBell size={28} color="#10B981" style={{ opacity: 0.8 }} />
           </div>
-          <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>Im POS gebucht</div>
+          <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>In-Room Dining & Service</div>
         </div>
 
         <div style={{ background: '#12121A', border: '1px solid rgba(139, 92, 246, 0.3)', borderRadius: 16, padding: 18 }}>
-          <div style={{ fontSize: 11, color: '#A78BFA', fontWeight: 800, letterSpacing: 1 }}>TASTE / TEST SIMULATION</div>
-          <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-            <button onClick={handleTestOrder} style={{ flex: 1, padding: '8px 6px', borderRadius: 8, background: 'rgba(139, 92, 246, 0.2)', border: '1px solid #8B5CF6', color: '#FFF', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>
-              + Test-Bestellung
-            </button>
-            <button onClick={() => handleTestCall('waiter')} style={{ flex: 1, padding: '8px 6px', borderRadius: 8, background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #EF4444', color: '#FFF', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>
-              + Kellner Ruf
-            </button>
+          <div style={{ fontSize: 11, color: '#A78BFA', fontWeight: 800, letterSpacing: 1 }}>IN PROZESS / ERLEDIGT</div>
+          <div style={{ fontSize: 32, fontWeight: 900, color: '#FFF', marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span>{acceptedOrders.length + completedHostReqs.length}</span>
+            <CheckCircle2 size={28} color="#A78BFA" style={{ opacity: 0.8 }} />
           </div>
+          <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>Bearbeitete Vorgänge</div>
         </div>
       </div>
 
       {/* SECTION 1: URGENT SERVICE CALLS (KELLNER RUFEN & RECHNUNG) */}
-      {pendingCalls.length > 0 && (
+      {(moduleView === 'combined' || moduleView === 'gastro') && pendingCalls.length > 0 && (
         <div style={{ marginBottom: 28 }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: '#EF4444', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Bell size={18} /> Dringende Service-Anfragen ({pendingCalls.length})
@@ -271,7 +357,7 @@ export default function OrderManagementDashboard() {
                   padding: 16,
                   display: 'flex',
                   alignItems: 'center',
-                  justifyIn: 'space-between',
+                  justifyContent: 'space-between',
                   gap: 12,
                   animation: 'pulse 2s infinite'
                 }}
@@ -317,159 +403,266 @@ export default function OrderManagementDashboard() {
         </div>
       )}
 
-      {/* Filter Tabs */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 12 }}>
-        <button
-          onClick={() => setFilter('pending')}
-          style={{ padding: '8px 18px', borderRadius: 10, border: 'none', background: filter === 'pending' ? '#8B5CF6' : 'rgba(255,255,255,0.06)', color: '#FFF', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
-        >
-          Offen ({pendingOrders.length})
-        </button>
-        <button
-          onClick={() => setFilter('accepted')}
-          style={{ padding: '8px 18px', borderRadius: 10, border: 'none', background: filter === 'accepted' ? '#8B5CF6' : 'rgba(255,255,255,0.06)', color: '#FFF', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
-        >
-          In POS gebucht ({acceptedOrders.length})
-        </button>
-        <button
-          onClick={() => setFilter('all')}
-          style={{ padding: '8px 18px', borderRadius: 10, border: 'none', background: filter === 'all' ? '#8B5CF6' : 'rgba(255,255,255,0.06)', color: '#FFF', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
-        >
-          Alle Bestellungen ({orders.length})
-        </button>
-      </div>
+      {/* SECTION 2: SCENVY HOST / IN-ROOM DINING REQUESTS */}
+      {(moduleView === 'combined' || moduleView === 'host') && pendingHostReqs.length > 0 && (
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: '#10B981', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ConciergeBell size={18} /> Aktive SCENVY Host & In-Room Dining Anfragen ({pendingHostReqs.length})
+          </div>
 
-      {/* SECTION 2: ORDERS GRID */}
-      {(() => {
-        const displayedOrders = filter === 'pending' ? pendingOrders : filter === 'accepted' ? acceptedOrders : orders
-
-        if (displayedOrders.length === 0) {
-          return (
-            <div style={{ background: '#12121A', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, padding: 48, textAlign: 'center' }}>
-              <Utensils size={48} color="#4B5563" style={{ margin: '0 auto 12px' }} />
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#FFF' }}>Keine aktiven Bestellungen in diesem Filter</div>
-              <div style={{ fontSize: 13, color: '#9CA3AF', marginTop: 4 }}>
-                Neue Bestellungen von Gästen erscheinen hier in Echtzeit.
-              </div>
-            </div>
-          )
-        }
-
-        return (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 18 }}>
-            {displayedOrders.map(ord => {
-              const isPending = ord.status === 'pending'
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+            {pendingHostReqs.map(req => {
+              const isNew = req.status === 'NEW'
               return (
                 <div
-                  key={ord.id}
+                  key={req.id}
                   style={{
                     background: '#12121A',
-                    border: `2px solid ${isPending ? '#F59E0B' : 'rgba(16, 185, 129, 0.4)'}`,
-                    borderRadius: 20,
-                    padding: 20,
+                    border: `2px solid ${isNew ? '#10B981' : '#3B82F6'}`,
+                    borderRadius: 18,
+                    padding: 18,
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
-                    boxShadow: isPending ? '0 0 20px rgba(245, 158, 11, 0.15)' : 'none'
+                    boxShadow: isNew ? '0 0 20px rgba(16, 185, 129, 0.15)' : 'none'
                   }}
                 >
                   <div>
-                    {/* Header: Table & Time */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ padding: '6px 14px', borderRadius: 12, background: isPending ? '#F59E0B' : '#10B981', color: '#000', fontSize: 15, fontWeight: 900, letterSpacing: 0.5 }}>
-                          {ord.table_number || 'Tisch'}
+                    {/* Header: Room & Guest Info */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ padding: '6px 12px', borderRadius: 10, background: '#10B981', color: '#000', fontSize: 14, fontWeight: 900 }}>
+                          🏨 {req.room_number || 'Room'}
                         </span>
-                        <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.08)', color: '#9CA3AF', fontWeight: 700 }}>
-                          {isPending ? 'OFFEN' : 'IM POS'}
+                        <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.08)', color: '#A7F3D0', fontWeight: 800 }}>
+                          {req.department || 'GUEST_SERVICES'}
                         </span>
                       </div>
 
-                      <div style={{ fontSize: 12, color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <Clock size={13} />
-                        {new Date(ord.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr
+                      <div style={{ fontSize: 11, color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Clock size={12} />
+                        {new Date(req.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr
                       </div>
                     </div>
 
-                    {/* Ordered Items List */}
-                    <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 12, padding: 12, border: '1px solid rgba(255,255,255,0.06)', marginBottom: 14 }}>
-                      <div style={{ fontSize: 11, fontWeight: 800, color: '#8B5CF6', marginBottom: 8, letterSpacing: 1 }}>
-                        BESTELLTE GERICHTE & GETRÄNKE:
-                      </div>
-                      <div style={{ display: 'grid', gap: 8 }}>
-                        {ord.items && ord.items.map((item, idx) => (
-                          <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, borderBottom: idx < ord.items.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', paddingBottom: 6 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={{ width: 22, height: 22, borderRadius: 6, background: '#7C3AED', color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900 }}>
-                                {item.qty || 1}x
-                              </span>
-                              <span style={{ fontWeight: 700, color: '#FFF' }}>{item.name}</span>
-                            </div>
-                            <span style={{ color: '#9CA3AF', fontWeight: 600 }}>{item.price}</span>
-                          </div>
-                        ))}
-                      </div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#FFF', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <User size={14} color="#10B981" /> {req.guest_name || 'Gast'}
+                    </div>
 
-                      {/* Special Requests / Notes */}
-                      {ord.notes && (
-                        <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px dashed rgba(255,255,255,0.1)', fontSize: 12, color: '#FBBF24', fontStyle: 'italic' }}>
-                          💡 Anmerkung: "{ord.notes}"
+                    {/* Ordered items or Service request text */}
+                    <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 12, padding: 12, border: '1px solid rgba(255,255,255,0.06)', marginBottom: 12 }}>
+                      {req.items && req.items.length > 0 ? (
+                        <div style={{ display: 'grid', gap: 6 }}>
+                          {req.items.map((item, idx) => (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12 }}>
+                              <span style={{ fontWeight: 700, color: '#FFF' }}>{item.qty || 1}x {item.name}</span>
+                              <span style={{ color: '#9CA3AF' }}>{item.price}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 12, color: '#E5E7EB', fontWeight: 600 }}>
+                          {req.notes || 'Anfrage für Gäste-Service'}
+                        </div>
+                      )}
+
+                      {req.notes && req.items && req.items.length > 0 && (
+                        <div style={{ marginTop: 8, paddingTop: 6, borderTop: '1px dashed rgba(255,255,255,0.1)', fontSize: 11, color: '#FDE047', fontStyle: 'italic' }}>
+                          💡 Anmerkung: "{req.notes}"
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {/* Footer: Price & Action */}
-                  <div style={{ paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                    <div>
-                      <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 700 }}>GESAMTBETRAG</div>
-                      <div style={{ fontSize: 18, fontWeight: 900, color: '#10B981' }}>{ord.total_price}</div>
-                    </div>
+                  {/* Actions */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                    <span style={{ fontSize: 14, fontWeight: 900, color: '#10B981' }}>
+                      {req.total_price || ''}
+                    </span>
 
-                    {isPending ? (
-                      <button
-                        onClick={() => updateOrderStatus.mutate({ id: ord.id, tenantId: activeTenantId, status: 'accepted' })}
-                        style={{
-                          padding: '10px 18px',
-                          borderRadius: 12,
-                          background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-                          color: '#FFF',
-                          border: 'none',
-                          fontWeight: 900,
-                          fontSize: 12,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          boxShadow: '0 4px 12px rgba(16,185,129,0.3)'
-                        }}
-                      >
-                        <CheckCircle2 size={16} /> In POS übernehmen
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => updateOrderStatus.mutate({ id: ord.id, tenantId: activeTenantId, status: 'done' })}
-                        style={{
-                          padding: '8px 14px',
-                          borderRadius: 10,
-                          background: 'rgba(255,255,255,0.06)',
-                          border: '1px solid rgba(255,255,255,0.12)',
-                          color: '#9CA3AF',
-                          fontSize: 11,
-                          fontWeight: 700,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Archivieren / Erledigt
-                      </button>
-                    )}
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {isNew ? (
+                        <button
+                          onClick={() => updateHostRequestStatus.mutate({ id: req.id, tenantId: activeTenantId, status: 'IN_PROGRESS' })}
+                          style={{ padding: '8px 12px', borderRadius: 8, background: '#3B82F6', color: '#FFF', border: 'none', fontWeight: 800, fontSize: 11, cursor: 'pointer' }}
+                        >
+                          ▶ In Bearbeitung
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => updateHostRequestStatus.mutate({ id: req.id, tenantId: activeTenantId, status: 'COMPLETED' })}
+                          style={{ padding: '8px 12px', borderRadius: 8, background: '#10B981', color: '#FFF', border: 'none', fontWeight: 800, fontSize: 11, cursor: 'pointer' }}
+                        >
+                          ✓ Erledigt
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )
             })}
           </div>
-        )
-      })()}
+        </div>
+      )}
+
+      {/* Filter Tabs for Gastronomy Orders */}
+      {(moduleView === 'combined' || moduleView === 'gastro') && (
+        <>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 12 }}>
+            <button
+              onClick={() => setFilter('pending')}
+              style={{ padding: '8px 18px', borderRadius: 10, border: 'none', background: filter === 'pending' ? '#8B5CF6' : 'rgba(255,255,255,0.06)', color: '#FFF', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+            >
+              Offene Gastro-Bestellungen ({pendingOrders.length})
+            </button>
+            <button
+              onClick={() => setFilter('accepted')}
+              style={{ padding: '8px 18px', borderRadius: 10, border: 'none', background: filter === 'accepted' ? '#8B5CF6' : 'rgba(255,255,255,0.06)', color: '#FFF', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+            >
+              In POS gebucht ({acceptedOrders.length})
+            </button>
+            <button
+              onClick={() => setFilter('all')}
+              style={{ padding: '8px 18px', borderRadius: 10, border: 'none', background: filter === 'all' ? '#8B5CF6' : 'rgba(255,255,255,0.06)', color: '#FFF', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+            >
+              Alle Bestellungen ({orders.length})
+            </button>
+          </div>
+
+          {/* SECTION 3: ORDERS GRID */}
+          {(() => {
+            const displayedOrders = filter === 'pending' ? pendingOrders : filter === 'accepted' ? acceptedOrders : orders
+
+            if (displayedOrders.length === 0) {
+              return (
+                <div style={{ background: '#12121A', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, padding: 36, textAlign: 'center', marginBottom: 28 }}>
+                  <Utensils size={40} color="#4B5563" style={{ margin: '0 auto 12px' }} />
+                  <div style={{ fontSize: 15, fontWeight: 800, color: '#FFF' }}>Keine aktiven Gastro-Bestellungen in diesem Filter</div>
+                  <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 4 }}>
+                    Neue Tisch-Bestellungen von Gästen erscheinen hier in Echtzeit.
+                  </div>
+                </div>
+              )
+            }
+
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 18, marginBottom: 28 }}>
+                {displayedOrders.map(ord => {
+                  const isPending = ord.status === 'pending'
+                  return (
+                    <div
+                      key={ord.id}
+                      style={{
+                        background: '#12121A',
+                        border: `2px solid ${isPending ? '#F59E0B' : 'rgba(16, 185, 129, 0.4)'}`,
+                        borderRadius: 20,
+                        padding: 20,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        boxShadow: isPending ? '0 0 20px rgba(245, 158, 11, 0.15)' : 'none'
+                      }}
+                    >
+                      <div>
+                        {/* Header: Table & Time */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{ padding: '6px 14px', borderRadius: 12, background: isPending ? '#F59E0B' : '#10B981', color: '#000', fontSize: 15, fontWeight: 900, letterSpacing: 0.5 }}>
+                              {ord.table_number || 'Tisch'}
+                            </span>
+                            <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.08)', color: '#9CA3AF', fontWeight: 700 }}>
+                              {isPending ? 'OFFEN' : 'IM POS'}
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: 12, color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <Clock size={13} />
+                            {new Date(ord.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr
+                          </div>
+                        </div>
+
+                        {/* Ordered Items List */}
+                        <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 12, padding: 12, border: '1px solid rgba(255,255,255,0.06)', marginBottom: 14 }}>
+                          <div style={{ fontSize: 11, fontWeight: 800, color: '#8B5CF6', marginBottom: 8, letterSpacing: 1 }}>
+                            BESTELLTE GERICHTE & GETRÄNKE:
+                          </div>
+                          <div style={{ display: 'grid', gap: 8 }}>
+                            {ord.items && ord.items.map((item, idx) => (
+                              <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, borderBottom: idx < ord.items.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', paddingBottom: 6 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <span style={{ width: 22, height: 22, borderRadius: 6, background: '#7C3AED', color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900 }}>
+                                    {item.qty || 1}x
+                                  </span>
+                                  <span style={{ fontWeight: 700, color: '#FFF' }}>{item.name}</span>
+                                </div>
+                                <span style={{ color: '#9CA3AF', fontWeight: 600 }}>{item.price}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Special Requests / Notes */}
+                          {ord.notes && (
+                            <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px dashed rgba(255,255,255,0.1)', fontSize: 12, color: '#FBBF24', fontStyle: 'italic' }}>
+                              💡 Anmerkung: "{ord.notes}"
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Footer: Price & Action */}
+                      <div style={{ paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                        <div>
+                          <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 700 }}>GESAMTBETRAG</div>
+                          <div style={{ fontSize: 18, fontWeight: 900, color: '#10B981' }}>{ord.total_price}</div>
+                        </div>
+
+                        {isPending ? (
+                          <button
+                            onClick={() => updateOrderStatus.mutate({ id: ord.id, tenantId: activeTenantId, status: 'accepted' })}
+                            style={{
+                              padding: '10px 18px',
+                              borderRadius: 12,
+                              background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                              color: '#FFF',
+                              border: 'none',
+                              fontWeight: 900,
+                              fontSize: 12,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              boxShadow: '0 4px 12px rgba(16,185,129,0.3)'
+                            }}
+                          >
+                            <CheckCircle2 size={16} /> In POS übernehmen
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => updateOrderStatus.mutate({ id: ord.id, tenantId: activeTenantId, status: 'done' })}
+                            style={{
+                              padding: '8px 14px',
+                              borderRadius: 10,
+                              background: 'rgba(255,255,255,0.06)',
+                              border: '1px solid rgba(255,255,255,0.12)',
+                              color: '#9CA3AF',
+                              fontSize: 11,
+                              fontWeight: 700,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Archivieren / Erledigt
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
+        </>
+      )}
     </div>
   )
 }
+

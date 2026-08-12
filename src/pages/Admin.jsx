@@ -1470,10 +1470,15 @@ export default function Admin() {
               ))}
             </div>
 
-            <div style={{fontSize:14,fontWeight:700,marginBottom:12}}>Gekaufte Module pro Mandant umschalten</div>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+              <div style={{fontSize:14,fontWeight:700}}>Gekaufte Module pro Mandant umschalten</div>
+              <div style={{fontSize:11,color:C.green,fontWeight:700,display:'flex',alignItems:'center',gap:4}}>
+                ⚡ Speichert automatisch & ist sofort im Dashboard wirksam
+              </div>
+            </div>
             <div style={{display:'grid',gap:12}}>
               {tenants.map(t => {
-                const mods = t.modules || { flow: true, menu: true, board: false, host: false }
+                const mods = t.modules || { flow: true, menu: true, board: true, host: false }
                 const toggleMod = async (modKey) => {
                   const updatedMods = { ...mods, [modKey]: !mods[modKey] }
                   try {
@@ -1511,7 +1516,11 @@ export default function Admin() {
                         </button>
                       ))}
                       <button
-                        onClick={() => { impersonateTenant(t); nav('/dashboard') }}
+                        onClick={() => {
+                          const currentTenant = { ...t, modules: mods }
+                          impersonateTenant(currentTenant)
+                          nav('/dashboard')
+                        }}
                         style={{ padding: '6px 12px', borderRadius: 8, border: `1px solid ${C.purple}`, background: C.purple, color: C.white, fontWeight: 700, fontSize: 12, cursor: 'pointer', marginLeft: 8 }}
                       >
                         🚀 Dashboard
@@ -2712,6 +2721,33 @@ export default function Admin() {
         </div>
       )}
 
+      {editTenant && (
+        <TenantEditDrawer
+          tenant={editTenant}
+          onClose={() => setEditTenant(null)}
+          onSave={async (form) => {
+            try {
+              await updateTenant.mutateAsync({ id: editTenant.id, updates: form })
+              notify(`✅ Mandant "${form.name}" erfolgreich aktualisiert!`)
+              setEditTenant(null)
+            } catch (e) {
+              notify('❌ Fehler: ' + e.message)
+            }
+          }}
+          onDelete={async () => {
+            if (window.confirm(`Möchtest du den Mandanten "${editTenant.name}" wirklich löschen?`)) {
+              try {
+                await deleteTenant.mutateAsync(editTenant.id)
+                notify(`🗑️ Mandant "${editTenant.name}" gelöscht!`)
+                setEditTenant(null)
+              } catch (e) {
+                notify('❌ Fehler: ' + e.message)
+              }
+            }
+          }}
+        />
+      )}
+
       {toast&&<div style={{position:'fixed',bottom:28,left:'50%',transform:'translateX(-50%)',background:C.purple,color:C.white,padding:'12px 24px',borderRadius:14,fontSize:13,fontWeight:600,zIndex:9999,animation:'fadeUp .25s ease'}}>{toast}</div>}
     </div>
   )
@@ -2742,7 +2778,7 @@ function TenantEditDrawer({ tenant, onClose, onSave, onDelete }) {
     contact_name: tenant.contact_name||'', contact_email: tenant.contact_email||'',
     contact_phone: tenant.contact_phone||'', website: tenant.website||'',
     stripe_customer_id: tenant.stripe_customer_id||'',
-    modules: tenant.modules || { flow: true, menu: true, board: false, host: false }
+    modules: tenant.modules || { flow: true, menu: true, board: true, host: false }
   })
   const setF = (k,v) => setForm(f=>({...f,[k]:v}))
 
@@ -2758,7 +2794,7 @@ function TenantEditDrawer({ tenant, onClose, onSave, onDelete }) {
         </div>
 
         <button
-          onClick={() => { impersonateTenant(tenant); nav('/dashboard') }}
+          onClick={() => { impersonateTenant({ ...tenant, ...form }); nav('/dashboard') }}
           style={{
             width:'100%', padding:'12px 0', borderRadius:10, border:'none',
             background: grad(C.purple, C.pink), color: C.white, fontWeight: 800,

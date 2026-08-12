@@ -386,15 +386,22 @@ export function useTenants() {
     queryFn: async () => {
       try {
         const snap = await getDocs(collection(db, 'tenants'))
-        const items = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        const items = snap.docs.map(d => {
+          const data = d.data()
+          return {
+            id: d.id,
+            modules: { flow: true, menu: true, board: true, host: false },
+            ...data
+          }
+        })
         if (items && items.length > 0) return items
       } catch (e) {
         console.warn('Firestore tenants query notice:', e)
       }
       return [
-        { id: 'tenant-demo-1', name: 'Trattoria Bella (Hauptmandant)', plan: 'pro', status: 'active', locations_count: 2, max_locations: 5, reels_count: 8, custom_price: 19, contact_email: 'kontakt@trattoria.de' },
-        { id: 'tenant-demo-2', name: 'Burger & Craft Bar', plan: 'starter', status: 'trial', locations_count: 1, max_locations: 1, reels_count: 3, custom_price: 0, contact_email: 'info@burgercraft.de' },
-        { id: 'tenant-demo-3', name: 'Grand Hotel & Resort Group', plan: 'enterprise', status: 'active', locations_count: 8, max_locations: 15, reels_count: 32, custom_price: 149, contact_email: 'admin@grandhotel.de' }
+        { id: 'tenant-demo-1', name: 'Trattoria Bella (Hauptmandant)', plan: 'pro', status: 'active', locations_count: 2, max_locations: 5, reels_count: 8, custom_price: 19, contact_email: 'kontakt@trattoria.de', modules: { flow: true, menu: true, board: true, host: true } },
+        { id: 'tenant-demo-2', name: 'Burger & Craft Bar', plan: 'starter', status: 'trial', locations_count: 1, max_locations: 1, reels_count: 3, custom_price: 0, contact_email: 'info@burgercraft.de', modules: { flow: true, menu: true, board: false, host: false } },
+        { id: 'tenant-demo-3', name: 'Grand Hotel & Resort Group', plan: 'enterprise', status: 'active', locations_count: 8, max_locations: 15, reels_count: 32, custom_price: 149, contact_email: 'admin@grandhotel.de', modules: { flow: true, menu: true, board: true, host: true } }
       ]
     },
   })
@@ -426,6 +433,11 @@ export function useSaveTenant() {
       } catch (e) {
         console.warn('Firestore save tenant fallback:', e)
       }
+      try {
+        localStorage.setItem(`demo_tenant_${id}`, JSON.stringify(newTenant))
+      } catch (e) {
+        console.warn('localStorage tenant save notice:', e)
+      }
       return newTenant
     },
     onSuccess: (data) => {
@@ -437,7 +449,9 @@ export function useSaveTenant() {
         }
         return [data, ...old]
       })
+      qc.setQueryData(['tenant', data.id], data)
       qc.invalidateQueries({ queryKey: ['tenants'] })
+      qc.invalidateQueries({ queryKey: ['tenant', data.id] })
     },
   })
 }
@@ -451,9 +465,28 @@ export function useUpdateTenant() {
       } catch (e) {
         console.warn('Firestore update tenant fallback:', e)
       }
+      try {
+        const localKey = `demo_tenant_${id}`
+        const existing = localStorage.getItem(localKey)
+        const merged = existing ? { ...JSON.parse(existing), ...updates } : { id, ...updates }
+        localStorage.setItem(localKey, JSON.stringify(merged))
+      } catch (e) {
+        console.warn('localStorage tenant update notice:', e)
+      }
       return { id, ...updates }
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tenants'] }),
+    onSuccess: (data, { id, updates }) => {
+      qc.setQueryData(['tenants'], (old) => {
+        if (!old || !Array.isArray(old)) return old
+        return old.map(t => t.id === id ? { ...t, ...updates } : t)
+      })
+      qc.setQueryData(['tenant', id], (old) => {
+        if (!old) return { id, ...updates }
+        return { ...old, ...updates }
+      })
+      qc.invalidateQueries({ queryKey: ['tenants'] })
+      qc.invalidateQueries({ queryKey: ['tenant', id] })
+    },
   })
 }
 
@@ -626,13 +659,26 @@ export function useTenant(tenantId) {
     queryFn: async () => {
       try {
         const snap = await getDoc(doc(db, 'tenants', tenantId))
-        if (snap.exists()) return snap.data()
+        if (snap.exists()) {
+          const d = snap.data()
+          return {
+            modules: { flow: true, menu: true, board: true, host: false },
+            ...d
+          }
+        }
       } catch (e) {
         console.warn('Firestore get tenant notice:', e)
       }
 
       const stored = localStorage.getItem(`demo_tenant_${tenantId}`)
-      return stored ? JSON.parse(stored) : { id: tenantId, name: 'SCENVY Partner', plan: 'pro', status: 'active', max_locations: 5, custom_price: 19 }
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        return {
+          modules: { flow: true, menu: true, board: true, host: false },
+          ...parsed
+        }
+      }
+      return { id: tenantId, name: 'SCENVY Partner', plan: 'pro', status: 'active', max_locations: 5, custom_price: 19, modules: { flow: true, menu: true, board: true, host: false } }
     },
   })
 }
@@ -2074,6 +2120,88 @@ export function useSaveHotelSettings() {
     }
   })
 }
+
+export const DEFAULT_HOST_STAFF = [
+  { id: 'stf_1', name: 'Laura Schmidt', role: 'Head Concierge', department: 'CONCIERGE', email: 'l.schmidt@scenvy.de', phone: '+49 171 112233', status: 'ON_DUTY', shift: 'Frühschicht (07:00 - 15:30)' },
+  { id: 'stf_2', name: 'Marco Rossi', role: 'Housekeeping Lead', department: 'HOUSEKEEPING', email: 'm.rossi@scenvy.de', phone: '+49 171 223344', status: 'ON_DUTY', shift: 'Spätschicht (14:00 - 22:30)' },
+  { id: 'stf_3', name: 'Alexander Weber', role: 'F&B Manager', department: 'IN_ROOM_DINING', email: 'a.weber@scenvy.de', phone: '+49 171 334455', status: 'ON_DUTY', shift: 'Spätschicht (14:00 - 22:30)' },
+  { id: 'stf_4', name: 'Thomas Müller', role: 'Chief Technician', department: 'MAINTENANCE', email: 't.mueller@scenvy.de', phone: '+49 171 445566', status: 'ON_BREAK', shift: 'Tagesschicht (08:00 - 17:00)' },
+  { id: 'stf_5', name: 'Elena Popova', role: 'Guest Relations Manager', department: 'GUEST_SERVICES', email: 'e.popova@scenvy.de', phone: '+49 171 556677', status: 'ON_DUTY', shift: 'Frühschicht (07:00 - 15:30)' }
+]
+
+export function useHostStaff(tenantId) {
+  return useQuery({
+    queryKey: ['host_staff', tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      try {
+        const ref = collection(db, 'host_staff')
+        const q = query(ref, where('tenant_id', '==', tenantId))
+        const snap = await getDocs(q)
+        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        if (docs.length > 0) return docs
+      } catch (e) {
+        console.warn('Host staff query notice:', e)
+      }
+
+      const stored = localStorage.getItem(`demo_host_staff_${tenantId}`)
+      if (stored) return JSON.parse(stored)
+
+      const defs = DEFAULT_HOST_STAFF.map(s => ({ ...s, tenant_id: tenantId }))
+      localStorage.setItem(`demo_host_staff_${tenantId}`, JSON.stringify(defs))
+      return defs
+    }
+  })
+}
+
+export function useSaveHostStaff() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ tenantId, staffMember }) => {
+      const payload = {
+        ...staffMember,
+        id: staffMember.id || `stf_${Date.now()}`,
+        tenant_id: tenantId,
+        updated_at: new Date().toISOString()
+      }
+      try {
+        await setDoc(doc(db, 'host_staff', payload.id), payload, { merge: true })
+      } catch (e) {
+        console.warn('Save host staff notice:', e)
+      }
+      const stored = JSON.parse(localStorage.getItem(`demo_host_staff_${tenantId}`) || '[]')
+      const idx = stored.findIndex(x => x.id === payload.id)
+      if (idx >= 0) stored[idx] = payload
+      else stored.push(payload)
+      localStorage.setItem(`demo_host_staff_${tenantId}`, JSON.stringify(stored))
+      return payload
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['host_staff', data.tenant_id] })
+    }
+  })
+}
+
+export function useDeleteHostStaff() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ tenantId, staffId }) => {
+      try {
+        await deleteDoc(doc(db, 'host_staff', staffId))
+      } catch (e) {
+        console.warn('Delete host staff notice:', e)
+      }
+      const stored = JSON.parse(localStorage.getItem(`demo_host_staff_${tenantId}`) || '[]')
+      const filtered = stored.filter(x => x.id !== staffId)
+      localStorage.setItem(`demo_host_staff_${tenantId}`, JSON.stringify(filtered))
+      return { tenantId, staffId }
+    },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['host_staff', res.tenantId] })
+    }
+  })
+}
+
 
 
 

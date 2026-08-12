@@ -195,20 +195,20 @@ export default function ScenvyAuth() {
           </div>
         </div>
 
-        {/* Product Cards: FLOW, MENU & HOST (3 large glowing icons without text) */}
+        {/* Product Cards: FLOW, MENU & HOST (Clickable to jump directly to app modules) */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 22 }}>
           {/* SCENVY FLOW */}
-          <div className="product-glow-card-flow">
+          <div className="product-glow-card-flow" onClick={() => nav('/dashboard')} style={{ cursor: 'pointer' }} title="Zum Flow Dashboard">
             <ScenvyAppIcon module="flow" size={58} />
           </div>
 
           {/* SCENVY MENU */}
-          <div className="product-glow-card-menu">
+          <div className="product-glow-card-menu" onClick={() => nav('/menu-generator')} style={{ cursor: 'pointer' }} title="Zur Speisekarte">
             <ScenvyAppIcon module="menu" size={58} />
           </div>
 
           {/* SCENVY HOST */}
-          <div className="product-glow-card-host">
+          <div className="product-glow-card-host" onClick={() => nav('/host-dashboard')} style={{ cursor: 'pointer' }} title="Zum Host Dashboard">
             <ScenvyAppIcon module="host" size={58} />
           </div>
         </div>

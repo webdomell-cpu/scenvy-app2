@@ -66,9 +66,14 @@ export default function GuestHostView() {
   const [basket, setBasket] = useState([])
   const [isBasketOpen, setIsBasketOpen] = useState(false)
   const [orderNotes, setOrderNotes] = useState('')
-  const [activeTab, setActiveTab] = useState('services') // 'services' | 'tracker' | 'info'
+  const [activeTab, setActiveTab] = useState('services') // 'services' | 'tracker' | 'info' | 'feedback'
   const [submittedRequestId, setSubmittedRequestId] = useState(null)
   const [activeCategory, setActiveCategory] = useState('ALL')
+
+  // Rating & Direct Host Message State
+  const [ratingStars, setRatingStars] = useState(5)
+  const [feedbackText, setFeedbackText] = useState('')
+  const [ratingSubmitted, setRatingSubmitted] = useState(false)
 
   // Find location details
   const tenantId = tenantQuery || 'tenant-demo-1'
@@ -259,11 +264,12 @@ export default function GuestHostView() {
         </div>
 
         {/* Navigation Tabs */}
-        <div style={{ display: 'flex', gap: 6, background: 'rgba(255,255,255,0.05)', padding: 4, borderRadius: 12 }}>
+        <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,0.05)', padding: 4, borderRadius: 12 }}>
           {[
-            { id: 'services', label: 'Service Catalog', icon: <ConciergeBell size={14} /> },
-            { id: 'tracker', label: `Status (${roomRequests.length})`, icon: <Clock size={14} /> },
-            { id: 'info', label: 'Hotel Infos', icon: <Info size={14} /> }
+            { id: 'services', label: 'Services', icon: <ConciergeBell size={13} /> },
+            { id: 'tracker', label: `Status (${roomRequests.length})`, icon: <Clock size={13} /> },
+            { id: 'info', label: 'Hotel Infos', icon: <Info size={13} /> },
+            { id: 'feedback', label: 'An Host Senden', icon: <Send size={13} /> }
           ].map(tab => (
             <button
               key={tab.id}
@@ -726,6 +732,127 @@ export default function GuestHostView() {
                   <span style={{ fontSize: 12, fontWeight: 800, color: '#3B82F6' }}>Taste '9' am Telefon</span>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: SEND TO HOST / RATINGS & FEEDBACK */}
+        {activeTab === 'feedback' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.15) 0%, rgba(236,72,153,0.1) 100%)', border: '1px solid rgba(124,58,237,0.3)', borderRadius: 16, padding: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#C084FC', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Send size={15} /> DIREKT AN HOST / REZEPTION SENDEN
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 900, color: '#FFF', marginBottom: 14 }}>
+                Bewertung, Lob oder Wünsche an unser Team
+              </div>
+
+              {ratingSubmitted ? (
+                <div style={{ background: 'rgba(16,185,129,0.2)', border: '1px solid #10B981', borderRadius: 12, padding: 16, textAlign: 'center' }}>
+                  <div style={{ fontSize: 24, marginBottom: 4 }}>🎉</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#10B981' }}>Vielen Dank für deine Nachricht!</div>
+                  <div style={{ fontSize: 12, color: '#A1A1AA', marginTop: 4 }}>Das Host-Team hat deine Nachricht erhalten und kümmert sich sofort darum.</div>
+                  <button onClick={() => setRatingSubmitted(false)} style={{ marginTop: 12, padding: '6px 14px', borderRadius: 8, background: '#10B981', color: '#000', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: 12 }}>
+                    Weitere Nachricht senden
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  {/* Star Rating selector */}
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: '#A1A1AA', display: 'block', marginBottom: 6 }}>DEINE BEWERTUNG</label>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {[1, 2, 3, 4, 5].map(star => (
+                        <button
+                          key={star}
+                          onClick={() => setRatingStars(star)}
+                          style={{
+                            background: star <= ratingStars ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.05)',
+                            border: star <= ratingStars ? '1px solid #F59E0B' : '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: 10,
+                            padding: '8px 14px',
+                            fontSize: 18,
+                            cursor: 'pointer',
+                            color: star <= ratingStars ? '#F59E0B' : '#71717A',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          ★ {star}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Feedback textarea */}
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: '#A1A1AA', display: 'block', marginBottom: 6 }}>DEINE NACHRICHT AN DEN HOST *</label>
+                    <textarea
+                      value={feedbackText}
+                      onChange={e => setFeedbackText(e.target.value)}
+                      placeholder="Anregungen, Lob, Fragen zur Gästemappe oder Wünsche an die Rezeption..."
+                      rows={3}
+                      style={{
+                        width: '100%',
+                        padding: 12,
+                        borderRadius: 12,
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        background: 'rgba(0,0,0,0.4)',
+                        color: '#FFF',
+                        fontSize: 13,
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                        fontFamily: 'inherit'
+                      }}
+                    />
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    onClick={async () => {
+                      if (!feedbackText.trim()) {
+                        alert('Bitte geben Sie eine Nachricht ein.')
+                        return
+                      }
+                      try {
+                        const res = await submitRequest.mutateAsync({
+                          tenantId,
+                          locationId,
+                          guestName: guestName.trim() || 'Gast',
+                          roomNumber: roomNumber.trim() || '—',
+                          department: 'GUEST_SERVICES',
+                          requestType: 'FEEDBACK_RATING',
+                          items: [{ name: `Bewertung: ${ratingStars} / 5 Sterne`, qty: 1, price: '—' }],
+                          notes: `[${ratingStars}/5 Sterne]: ${feedbackText}`,
+                          totalPrice: '—'
+                        })
+                        setSubmittedRequestId(res.id)
+                        setFeedbackText('')
+                        setRatingSubmitted(true)
+                      } catch (e) {
+                        alert('Fehler beim Senden. Bitte versuchen Sie es erneut.')
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: 12,
+                      background: 'linear-gradient(135deg, #7C3AED, #EC4899)',
+                      color: '#FFF',
+                      border: 'none',
+                      fontWeight: 900,
+                      fontSize: 14,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      boxShadow: '0 4px 16px rgba(124,58,237,0.4)'
+                    }}
+                  >
+                    <Send size={16} /> An Host / Rezeption Senden
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

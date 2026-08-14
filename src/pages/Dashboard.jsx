@@ -16,7 +16,7 @@ import {
 import { AppLauncherBar } from '@/components/AppLauncherBar'
 import { launchSubdomainModule } from '@/lib/sso'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import { Home, Film, MapPin, BarChart2, Sparkles, Settings, Menu, QrCode, Eye, MousePointer, Video, Plus, Trash2, RefreshCw, Copy, LogOut, Upload, Link, X, Image, ExternalLink, CreditCard as Edit2, Download, Globe, Save, Mail, Shield, Library, Building2, Phone, Utensils, Tv, ConciergeBell, Layers, Sun, Moon, ChevronDown, ChevronRight, HelpCircle, Calendar, Zap, FileText, CheckCircle, Palette } from 'lucide-react'
+import { Home, Film, MapPin, BarChart2, Sparkles, Settings, Menu, QrCode, Eye, MousePointer, Video, Plus, Trash2, RefreshCw, Copy, LogOut, Upload, Link, X, Image, ExternalLink, CreditCard as Edit2, Download, Globe, Save, Mail, Shield, Library, Building2, Phone, Utensils, Tv, ConciergeBell, Layers, Sun, Moon, ChevronDown, ChevronRight, HelpCircle, Calendar, Zap, FileText, CheckCircle, Palette, Users, FileSpreadsheet } from 'lucide-react'
 import MenuGenerator from '@/pages/MenuGenerator'
 import OrderManagementDashboard from '@/pages/OrderManagementDashboard'
 import HostDashboard from '@/pages/HostDashboard'
@@ -431,18 +431,20 @@ function Sidebar({ page, setPage, moduleTab, setModuleTab, open, setOpen, t, use
       { id: 'settings', label: 'Display Pairings', icon: <Settings size={13}/> }
     ],
     host: [
-      { id: 'overview', label: 'Tisch-Ruf & Services', icon: <ConciergeBell size={13}/> },
-      { id: 'guestbook', label: 'Gästemappe', icon: <Layers size={13}/> },
-      { id: 'reviews', label: 'Bewertungen', icon: <Sparkles size={13}/> }
+      { id: 'orders', label: 'Bestellzentrale (KDS)', icon: <Layers size={13}/> },
+      { id: 'requests', label: 'Gäste-Anfragen', icon: <ConciergeBell size={13}/> },
+      { id: 'catalog', label: 'Service Katalog', icon: <FileSpreadsheet size={13}/> },
+      { id: 'departments', label: 'Abteilungen & Staff', icon: <Users size={13}/> },
+      { id: 'qr_generator', label: 'Zimmer QR-Links', icon: <QrCode size={13}/> },
+      { id: 'settings', label: 'Einstellungen', icon: <Settings size={13}/> }
     ]
   }
 
   const allModuleItems = [
     { id: 'reels', modKey: 'flow', name: 'SCENVY FLOW', sub: 'Reels & Video-Feed', badge: 'CONTENT', icon: <Film size={16}/>, color: '#8B5CF6' },
     { id: 'menu_generator', modKey: 'menu', name: 'SCENVY MENU', sub: 'Digitale Speisekarten', badge: 'KI SNAP', icon: <Utensils size={16}/>, color: '#F97316' },
-    { id: 'orders', modKey: 'menu', name: 'BESTELL-ZENTRALE', sub: 'Gastro & Host Master Feed', badge: 'LIVE DISP', icon: <Utensils size={16}/>, color: '#EF4444' },
     { id: 'board', modKey: 'board', name: 'SCENVY BOARD', sub: 'Digital Signage TV', badge: 'DISPLAY', icon: <Tv size={16}/>, color: '#3B82F6' },
-    { id: 'host', modKey: 'host', name: 'SCENVY HOST', sub: 'Gäste-Concierge', badge: 'SERVICE', icon: <ConciergeBell size={16}/>, color: '#10B981' },
+    { id: 'host', modKey: 'host', name: 'SCENVY HOST', sub: 'Bestellzentrale & Concierge', badge: 'SERVICE & KDS', icon: <ConciergeBell size={16}/>, color: '#10B981' },
   ]
 
   const mods = tenant?.modules || { flow: true, menu: true, board: true, host: true }
@@ -949,6 +951,7 @@ function ReelsPage({ reels, locs, tenantId, notify, t, subTab = 'feed', setSubTa
   const [editReel, setEditReel] = useState(null)
   const saveReel   = useSaveReel()
   const deleteReel = useDeleteReel()
+  const { data: mediaItems = [] } = useMedia(tenantId)
 
   const shown = filter==='all' ? reels : reels.filter(r=>r.status===filter)
 
@@ -1167,18 +1170,21 @@ function ReelsPage({ reels, locs, tenantId, notify, t, subTab = 'feed', setSubTa
 }
 
 // ── AI Generator ──────────────────────────────────────────
+// ── AI Generator (SCENVY Flow Reel & Video Story Engine) ──
 function AIGenerator({ tenantId, locs, notify }) {
-  const [inputMode,   setInputMode]   = useState('text') // 'text' | 'image' | 'video'
+  const [genMode,     setGenMode]     = useState('video') // 'video' (5s Video Story) | 'image' (KI Bild) | 'upload'
   const [form,        setForm]        = useState({ venue:'', offer:'', type:'offer', tone:'exciting', ctaUrl:'' })
   const [locationId,  setLocationId]  = useState('ALL')
-  const [imgPreview,  setImgPreview]  = useState(null)
+  const [mediaUrl,    setMediaUrl]    = useState(null)
+  const [mediaType,   setMediaType]   = useState('video') // 'video' | 'image'
+  const [duration,    setDuration]    = useState(5) // 5 seconds default
   const [imgDesc,     setImgDesc]     = useState('')
   const [result,      setResult]      = useState(null)
   const [loading,     setLoading]     = useState(false)
   const [uploading,   setUploading]   = useState(false)
 
   // Status and scheduling choice for AI generated reel
-  const [saveStatus,   setSaveStatus]   = useState('draft')
+  const [saveStatus,   setSaveStatus]   = useState('live')
   const [scheduledAt,  setScheduledAt]  = useState('')
 
   const fileRef = useRef()
@@ -1186,159 +1192,318 @@ function AIGenerator({ tenantId, locs, notify }) {
   const { data: mediaItems = [] } = useMedia(tenantId)
   const [showMediathek, setShowMediathek] = useState(false)
 
-  const PRESET_PROMPTS = [
-    { label: '🍸 Signature Cocktail Happy Hour', text: '50% auf alle Signature Cocktails von 18 bis 20 Uhr mit Live-DJ' },
-    { label: '🥩 Sizzling Tomahawk Steak', text: 'Zartes Angus Ribeye Steak frisch vom Grill serviert mit Trüffel-Pommes' },
-    { label: '🥐 Sunday Luxury Brunch', text: 'Exklusiver All-You-Can-Eat Sonntagsbrunch inklusive Champagner-Empfang' },
-    { label: '🎉 Weekend DJ Party Night', text: 'Weekend Vibes mit DJ Beats, Cocktails und Shisha auf der Rooftop Terrasse' },
-    { label: '🍣 Sushi Omakase Experience', text: 'Frisches Omakase Sushi Set zubereitet vom Meisterköche-Team' }
+  const PRESET_VIDEO_CLIPS = [
+    { label: '🍸 Cocktail Shaken & Eingießen', text: '50% auf alle Signature Cocktails von 18 bis 20 Uhr mit Live-DJ', type: 'offer', url: 'https://assets.mixkit.co/videos/preview/mixkit-barman-preparing-a-cocktail-in-a-glass-42867-large.mp4' },
+    { label: '🥩 Sizzling Steak auf Grill', text: 'Zartes Angus Ribeye Steak frisch vom Grill serviert mit Trüffel-Pommes', type: 'menu', url: 'https://assets.mixkit.co/videos/preview/mixkit-hands-of-a-chef-decorating-a-dish-42875-large.mp4' },
+    { label: '🥂 Champagner Toast VIP', text: 'Exklusiver Champagner-Empfang und Feier zum Wochenende', type: 'event', url: 'https://assets.mixkit.co/videos/preview/mixkit-champagne-glasses-toast-at-a-celebration-42880-large.mp4' },
+    { label: '☕ Barista Latte Art Pour', text: 'Frischer Cappuccino & Sonntagsbrunch mit hausgemachtem Gebäck', type: 'offer', url: 'https://assets.mixkit.co/videos/preview/mixkit-pouring-milk-to-make-a-coffee-with-foam-42868-large.mp4' },
+    { label: '🍔 Burger & Crispy Fries', text: 'Juicy Double Smash Burger mit Cheddar Cheese und krossen Fries', type: 'promo', url: 'https://assets.mixkit.co/videos/preview/mixkit-placing-ingredients-on-a-hamburger-42878-large.mp4' },
+    { label: '🎉 DJ Beats & Party Vibes', text: 'Weekend Vibes mit DJ Beats, Cocktails und bester Stimmung', type: 'event', url: 'https://assets.mixkit.co/videos/preview/mixkit-people-dancing-at-a-party-with-lights-42881-large.mp4' }
   ]
 
-  const handleImgFile = async (e) => {
-    const f = e.target.files?.[0]; if (!f) return
+  const PRESET_IMAGE_PROMPTS = [
+    { label: '🍸 Luxury Cocktail Bar', text: 'Signature Smoked Old Fashioned Cocktail mit Orangenzeste im Kristallglas' },
+    { label: '🍣 Gourmet Sushi Platter', text: 'Frisches Omakase Nigiri & Sashimi Set mit Wasabi und Blüten-Dekor' },
+    { label: '🍕 Neapolitanische Pizza', text: 'Knusprige Steinofen-Pizza mit frischem Büffel-Mozzarella und Basilikum' },
+    { label: '🍰 Chocolate Lava Cake', text: 'Warmes Schoko-Küchlein mit flüssigem Kern, Beeren und Bourbon-Vanilleeis' },
+    { label: '🥗 Burrata & Avocado Bowl', text: 'Cremige Burrata mit bunten Kirschtomaten, Pesto und gerösteten Pinienkernen' }
+  ]
+
+  const handleFileUpload = async (e) => {
+    const f = e.target.files?.[0]
+    if (!f) return
     setUploading(true)
-    try { const url = await uploadMedia(f, tenantId); setImgPreview(url) }
-    catch { notify('❌ Upload fehlgeschlagen') }
+    try {
+      const url = await uploadMedia(f, tenantId)
+      setMediaUrl(url)
+      const isVid = f.type?.includes('video') || f.name?.endsWith('.mp4') || f.name?.endsWith('.mov')
+      setMediaType(isVid ? 'video' : 'image')
+      notify('✅ Datei hochgeladen')
+    } catch {
+      notify('❌ Upload fehlgeschlagen')
+    }
     setUploading(false)
   }
 
-  const generate = async () => {
-    const offerText = inputMode==='image' ? imgDesc : form.offer
-    if (!offerText.trim()) { notify('Bitte Beschreibung oder Prompt eingeben'); return }
-    const loc = locs.find(l=>l.id===locationId)
-    setLoading(true); setResult(null)
+  const generate = async (overrideParams = {}) => {
+    const offerText = overrideParams.offer || (genMode === 'upload' ? (imgDesc || 'Exklusives Highlight') : form.offer)
+    if (!offerText.trim() && genMode !== 'upload') {
+      notify('Bitte Beschreibung oder Prompt eingeben')
+      return
+    }
+
+    const loc = locs.find(l => l.id === locationId)
+    const isVideo = (overrideParams.genMode || genMode) === 'video'
+    
+    setLoading(true)
+    setResult(null)
+
     try {
       const res = await fetch('/api/ai/generate', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ ...form, venue:loc?.name||form.venue, offer:offerText, isVideo: inputMode==='video' })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          venue: loc?.name || form.venue || 'Unser Restaurant',
+          offer: offerText,
+          type: overrideParams.type || form.type,
+          tone: form.tone,
+          isVideo: isVideo,
+          duration: Number(duration) || 5,
+          userImage: overrideParams.url || (genMode === 'upload' ? mediaUrl : null)
+        })
       })
+
+      if (!res.ok) throw new Error('Generation failed')
       const data = await res.json()
-      const media = data.imageUrl || data.mediaUrl
-      if (media) setImgPreview(media)
+      const media = data.mediaUrl || data.imageUrl || overrideParams.url
+      
+      setMediaUrl(media)
+      setMediaType(data.mediaType || (isVideo ? 'video' : 'image'))
+      setDuration(data.duration || 5)
       setResult(data)
-    } catch {
-      const moodMap={offer:'purple',event:'pink',menu:'blue',promo:'orange'}
-      const fallbackImg = 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=600&auto=format&fit=crop'
+      notify(isVideo ? '✨ 5-Sekunden KI Video Story generiert!' : '✨ KI Bild & Story generiert!')
+    } catch (err) {
+      console.warn('AI Gen Fallback:', err)
+      const moodMap = { offer: 'purple', event: 'pink', menu: 'blue', promo: 'orange' }
       const fallbackVid = 'https://assets.mixkit.co/videos/preview/mixkit-barman-preparing-a-cocktail-in-a-glass-42867-large.mp4'
-      const media = inputMode === 'video' ? fallbackVid : fallbackImg
-      setImgPreview(media)
+      const fallbackImg = 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=720&auto=format&fit=crop'
+      const fallbackMedia = overrideParams.url || (isVideo ? fallbackVid : fallbackImg)
+
+      setMediaUrl(fallbackMedia)
+      setMediaType(isVideo ? 'video' : 'image')
       setResult({
-        hook:'JETZT ERLEBEN 🔥',
-        headline:offerText.length>40?offerText.slice(0,40)+'…':offerText,
-        subtext:'Exklusiv für dich vorbereitet — jetzt entdecken!',
-        cta:'Jetzt reservieren',
-        hashtags:['scenvy',form.type,'gastronomie'],
-        emoji: inputMode === 'video' ? '🎥' : '🍸',
-        urgency:'Nur für begrenzte Zeit',
-        colorMood:moodMap[form.type]||'purple',
-        imageUrl: media,
-        mediaUrl: media,
-        mediaType: inputMode === 'video' ? 'video' : 'image'
+        hook: 'JETZT ERLEBEN 🔥',
+        headline: offerText.length > 40 ? offerText.slice(0, 40) + '…' : offerText,
+        subtext: `Exklusiv bei ${loc?.name || form.venue || 'uns'} — nur für kurze Zeit!`,
+        cta: 'Jetzt reservieren',
+        hashtags: ['scenvy', form.type, 'highlight'],
+        emoji: isVideo ? '🎥' : '🍹',
+        urgency: 'Nur heute gültig',
+        colorMood: moodMap[form.type] || 'purple',
+        mediaUrl: fallbackMedia,
+        imageUrl: fallbackMedia,
+        mediaType: isVideo ? 'video' : 'image',
+        duration: 5,
+        videoConcept: '5-Sekunden Video Clip'
       })
+      notify('✨ Reel mit Design-Vorlage erstellt!')
     }
     setLoading(false)
   }
 
   const save = async () => {
-    const cm={purple:C.purple,pink:C.pink,blue:C.blue,orange:C.orange,green:C.green}
-    const loc = locs.find(l=>l.id===locationId)
+    if (!result) return
+    const cm = { purple: C.purple, pink: C.pink, blue: C.blue, orange: C.orange, green: C.green }
+    const loc = locs.find(l => l.id === locationId)
+
     try {
       await saveReel.mutateAsync({
-        reel:{
-          tenant_id:tenantId,
-          location_id:locationId,
-          locationId:locationId,
-          title:result.headline,
-          type:form.type,
-          status:saveStatus,
+        reel: {
+          tenant_id: tenantId,
+          location_id: locationId,
+          locationId: locationId,
+          title: result.headline || form.offer || 'SCENVY Highlight',
+          type: form.type,
+          status: saveStatus,
           scheduledAt: scheduledAt,
           scheduled_at: scheduledAt,
-          color:cm[result.colorMood]||C.purple,
-          emoji:result.emoji,
-          cta:result.cta,
-          cta_url:form.ctaUrl,
-          cta_action:'url',
-          mediaUrl:imgPreview,
-          media_type: inputMode==='video' ? 'video' : 'image',
-          loc:loc?.name || (locationId === 'ALL' ? 'Alle Standorte' : '')
+          color: cm[result.colorMood] || C.purple,
+          emoji: result.emoji || '✨',
+          cta: result.cta || 'Jetzt ansehen',
+          cta_url: form.ctaUrl || '',
+          cta_action: 'url',
+          mediaUrl: mediaUrl,
+          media_url: mediaUrl,
+          media_type: mediaType,
+          duration: Number(duration) || 5,
+          loc: loc?.name || (locationId === 'ALL' ? 'Alle Standorte' : '')
         },
         tenantId
       })
-      notify(`✨ KI-Reel als "${saveStatus.toUpperCase()}" gespeichert!`)
-      setResult(null); setImgPreview(null); setImgDesc(''); setForm(f=>({...f,offer:'',ctaUrl:''}))
-    } catch(e) { notify('❌ ' + e.message) }
+      notify(`🚀 KI-Reel als "${saveStatus.toUpperCase()}" gespeichert!`)
+      setResult(null)
+      setMediaUrl(null)
+      setImgDesc('')
+      setForm(f => ({ ...f, offer: '', ctaUrl: '' }))
+    } catch (e) {
+      notify('❌ ' + e.message)
+    }
   }
 
-  const accent = result ? ({purple:C.purple,pink:C.pink,blue:C.blue,orange:C.orange,green:C.green}[result.colorMood]||C.purple) : C.purple
+  const accent = result ? ({ purple: C.purple, pink: C.pink, blue: C.blue, orange: C.orange, green: C.green }[result.colorMood] || C.purple) : C.purple
 
   return (
     <div>
-      <div style={{marginBottom:20}}>
-        <div style={{fontSize:11,color:C.pink,fontWeight:800,letterSpacing:2,marginBottom:4}}>GOOGLE GEMINI KI</div>
-        <div style={{fontSize:24,fontWeight:900}}>Reel Generator & KI Prompter ✨</div>
-        <div style={{fontSize:13,color:C.muted,marginTop:4}}>
-          Beschreibe dein Angebot oder lade ein Bild/Video hoch → Google Gemini KI generiert das komplette Reel inklusive fotorealistischem KI-Bild oder Video-Visual.
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 11, color: C.pink, fontWeight: 800, letterSpacing: 2, marginBottom: 4 }}>GOOGLE GEMINI KI</div>
+        <div style={{ fontSize: 24, fontWeight: 900 }}>SCENVY Flow KI Video & Image Generator ✨</div>
+        <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
+          Wähle zwischen 5-Sekunden Video-Storys, photorealistischer 9:16 KI-Bildgenerierung oder eigenem Upload für den perfekten Smartphone-Reel-Auftritt.
         </div>
       </div>
 
-      <div style={{display:'flex',gap:6,background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:4,marginBottom:20,width:'fit-content'}}>
+      {/* Mode Switcher */}
+      <div style={{ display: 'flex', gap: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 5, marginBottom: 22, width: 'fit-content', flexWrap: 'wrap' }}>
         {[
-          ['text','✏️ Prompt / Beschreibung'],
-          ['video','🎥 KI Video Reel'],
-          ['image','📸 Foto Upload']
-        ].map(([m,label])=>(
-          <button key={m} onClick={()=>setInputMode(m)} style={{padding:'8px 18px',borderRadius:9,border:'none',cursor:'pointer',background:inputMode===m?C.purple:'transparent',color:inputMode===m?C.white:C.muted,fontWeight:inputMode===m?700:400,fontSize:13,fontFamily:'inherit'}}>{label}</button>
+          ['video', '🎥 5s Video-Story (5-Sekunden Clip)'],
+          ['image', '🖼️ KI Bild-Reel (9:16 KI Bild)'],
+          ['upload', '📸 Eigenes Foto / Video']
+        ].map(([m, label]) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => { setGenMode(m); if (m === 'video') setMediaType('video'); if (m === 'image') setMediaType('image'); }}
+            style={{
+              padding: '9px 18px',
+              borderRadius: 10,
+              border: 'none',
+              cursor: 'pointer',
+              background: genMode === m ? grad(C.purple, C.pink) : 'transparent',
+              color: genMode === m ? C.white : C.muted,
+              fontWeight: genMode === m ? 800 : 500,
+              fontSize: 13,
+              fontFamily: 'inherit',
+              transition: 'all 0.2s'
+            }}
+          >
+            {label}
+          </button>
         ))}
       </div>
 
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24}}>
-        <div style={{background:C.card,borderRadius:16,padding:24,border:`1px solid ${C.border}`}}>
-          <div style={{fontSize:14,fontWeight:800,marginBottom:16}}>1. Eingabe & KI Prompter</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 24 }}>
+        {/* Left Column: Controls & Prompt */}
+        <div style={{ background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.border}` }}>
+          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span>1. Modus & Prompt konfigurieren</span>
+            <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 12, background: `${C.purple}22`, color: C.purple, fontWeight: 700 }}>
+              {genMode === 'video' ? '🎬 5s Video Engine' : genMode === 'image' ? '🖼️ 9:16 AI Image' : '📸 Custom Media'}
+            </span>
+          </div>
 
-          {inputMode==='image'&&(
-            <div style={{marginBottom:16}}>
-              <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:6,letterSpacing:1,fontWeight:600}}>BILD HOCHLADEN</label>
-              <div onClick={()=>fileRef.current?.click()} style={{border:`2px dashed ${imgPreview?C.purple:C.border}`,borderRadius:12,overflow:'hidden',cursor:'pointer',minHeight:100,display:'flex',alignItems:'center',justifyContent:'center',background:`${C.purple}08`,position:'relative'}}>
-                {uploading ? <div style={{textAlign:'center'}}><RefreshCw size={22} color={C.purple} style={{animation:'spin 1s linear infinite'}}/></div>
-                  : imgPreview ? <img src={imgPreview} style={{width:'100%',maxHeight:140,objectFit:'cover'}} alt=""/>
-                  : <div style={{textAlign:'center',padding:16}}><Image size={24} color={C.purple} style={{marginBottom:6}}/><div style={{fontSize:12,color:C.muted}}>Foto hochladen</div></div>}
-                <input ref={fileRef} type="file" accept="image/*" onChange={handleImgFile} style={{display:'none'}}/>
+          {/* Video Duration Selector */}
+          {genMode === 'video' && (
+            <div style={{ background: `${C.purple}12`, border: `1px solid ${C.purple}33`, borderRadius: 12, padding: 14, marginBottom: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <label style={{ fontSize: 11, color: C.purple, fontWeight: 800, letterSpacing: 1 }}>⏱️ VIDEO-DAUER (SEKUNDEN)</label>
+                <span style={{ fontSize: 13, fontWeight: 900, color: C.white }}>{duration} Sekunden</span>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {[3, 5, 8, 10].map(s => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setDuration(s)}
+                    style={{
+                      flex: 1,
+                      padding: '7px 0',
+                      borderRadius: 8,
+                      border: duration === s ? `2px solid ${C.purple}` : `1px solid ${C.border}`,
+                      background: duration === s ? C.purple : C.bg,
+                      color: C.white,
+                      fontWeight: duration === s ? 800 : 500,
+                      fontSize: 12,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {s}s {s === 5 ? '⭐ Standard' : ''}
+                  </button>
+                ))}
               </div>
             </div>
           )}
 
-          <div style={{marginBottom:14}}>
-            <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:6,letterSpacing:1,fontWeight:600}}>DEINE IDEE / ANGEBOTS-PROMPT *</label>
+          {/* Upload Dropzone if in upload mode */}
+          {genMode === 'upload' && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 11, color: C.muted, display: 'block', marginBottom: 6, letterSpacing: 1, fontWeight: 600 }}>FOTO ODER VIDEO DATEI</label>
+              <div
+                onClick={() => fileRef.current?.click()}
+                style={{
+                  border: `2px dashed ${mediaUrl ? C.purple : C.border}`,
+                  borderRadius: 12,
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  minHeight: 110,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: `${C.purple}08`,
+                  position: 'relative'
+                }}
+              >
+                {uploading ? (
+                  <div style={{ textAlign: 'center' }}><RefreshCw size={24} color={C.purple} style={{ animation: 'spin 1s linear infinite' }} /><div style={{ fontSize: 12, color: C.muted, marginTop: 8 }}>Wird hochgeladen...</div></div>
+                ) : mediaUrl ? (
+                  mediaType === 'video' ? (
+                    <video src={mediaUrl} autoPlay muted loop playsInline style={{ width: '100%', maxHeight: 150, objectFit: 'cover' }} />
+                  ) : (
+                    <img src={mediaUrl} style={{ width: '100%', maxHeight: 150, objectFit: 'cover' }} alt="" />
+                  )
+                ) : (
+                  <div style={{ textAlign: 'center', padding: 18 }}>
+                    <Upload size={26} color={C.purple} style={{ marginBottom: 6 }} />
+                    <div style={{ fontSize: 13, color: C.white, fontWeight: 600 }}>Foto oder MP4 Video hochladen</div>
+                    <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>MP4, MOV, JPG, PNG bis 50MB</div>
+                  </div>
+                )}
+                <input ref={fileRef} type="file" accept="video/*,image/*" onChange={handleFileUpload} style={{ display: 'none' }} />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMediathek(true)}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: `1px solid ${C.purple}66`, background: `${C.purple}15`, color: C.purple, fontSize: 12, fontWeight: 700, cursor: 'pointer', marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+              >
+                🖼️ Aus Mediathek wählen
+              </button>
+            </div>
+          )}
+
+          {/* Prompt Textarea */}
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ fontSize: 11, color: C.muted, display: 'block', marginBottom: 6, letterSpacing: 1, fontWeight: 600 }}>
+              {genMode === 'video' ? '🎬 BESCHREIBUNG FÜR DIE 5s VIDEO STORY *' : genMode === 'image' ? '🖼️ PROMPT FÜR DAS 9:16 KI BILD *' : 'TITEL / BESCHREIBUNG *'}
+            </label>
             <textarea
-              value={inputMode==='image' ? imgDesc : form.offer}
-              onChange={e => inputMode==='image' ? setImgDesc(e.target.value) : setForm(p=>({...p,offer:e.target.value}))}
+              value={genMode === 'upload' ? imgDesc : form.offer}
+              onChange={e => genMode === 'upload' ? setImgDesc(e.target.value) : setForm(p => ({ ...p, offer: e.target.value }))}
               rows={3}
-              placeholder="z.B. Saftiges Wagyu Burger Special mit Trüffel-Mayo und krossen Pommes im Kerzenschein..."
-              style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,background:C.bg,color:C.white,fontSize:13,outline:'none',resize:'vertical',fontFamily:'inherit'}}
+              placeholder={genMode === 'video' ? 'z.B. Erfrischender Aperol Spritz wird auf Eis serviert mit Orangenscheibe und prickelnder Kohlensäure...' : 'z.B. Saftiges Wagyu Burger Special mit geschmolzenem Cheddar und knusprigen Pommes im Kerzenschein...'}
+              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, background: C.bg, color: C.white, fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
             />
           </div>
 
-          {/* Quick Preset Prompts */}
-          <div style={{marginBottom:18}}>
-            <div style={{fontSize:11,color:C.muted,marginBottom:6,fontWeight:600}}>SCHNELLE PROMPT-VORLAGEN:</div>
-            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-              {PRESET_PROMPTS.map((p, idx) => (
+          {/* Presets Library */}
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 11, color: C.muted, marginBottom: 6, fontWeight: 700 }}>
+              {genMode === 'video' ? '🎥 5s VIDEO VORLAGEN (1-KLICK SOFORT-START):' : '💡 SCHNELLE PROMPT-IDEEN:'}
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {(genMode === 'video' ? PRESET_VIDEO_CLIPS : PRESET_IMAGE_PROMPTS).map((p, idx) => (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => {
-                    if (inputMode==='image') setImgDesc(p.text)
-                    else setForm(f => ({ ...f, offer: p.text }))
+                    if (genMode === 'upload') setImgDesc(p.text)
+                    else {
+                      setForm(f => ({ ...f, offer: p.text, type: p.type || f.type }))
+                      if (p.url) {
+                        setMediaUrl(p.url)
+                        setMediaType('video')
+                      }
+                    }
                   }}
                   style={{
                     fontSize: 11,
-                    padding: '4px 10px',
+                    padding: '5px 10px',
                     borderRadius: 8,
                     background: C.bg,
                     border: `1px solid ${C.border}`,
                     color: C.white,
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4
                   }}
                 >
                   {p.label}
@@ -1347,81 +1512,167 @@ function AIGenerator({ tenantId, locs, notify }) {
             </div>
           </div>
 
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+          {/* Location & Type */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
             <div>
-              <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:6,letterSpacing:1,fontWeight:600}}>STANDORT</label>
-              <select value={locationId} onChange={e=>setLocationId(e.target.value)} style={{width:'100%',padding:'10px 14px',borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.white,fontSize:13,outline:'none',fontFamily:'inherit'}}>
-                <option value="ALL">🌐 Alle Standorte (Global / ALL)</option>
-                {locs.map(l=><option key={l.id} value={l.id}>{l.name}</option>)}
+              <label style={{ fontSize: 11, color: C.muted, display: 'block', marginBottom: 6, letterSpacing: 1, fontWeight: 600 }}>STANDORT</label>
+              <select value={locationId} onChange={e => setLocationId(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.card2, color: C.white, fontSize: 13, outline: 'none', fontFamily: 'inherit' }}>
+                <option value="ALL">🌐 Alle Standorte (Global)</option>
+                {locs.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
               </select>
             </div>
             <div>
-              <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:6,letterSpacing:1,fontWeight:600}}>TYP</label>
-              <select value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))} style={{width:'100%',padding:'10px 14px',borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.white,fontSize:13,outline:'none',fontFamily:'inherit'}}>
-                <option value="offer">🏷️ Angebot</option><option value="event">🎉 Event</option><option value="menu">🍽️ Menü</option><option value="promo">⚡ Promo</option>
+              <label style={{ fontSize: 11, color: C.muted, display: 'block', marginBottom: 6, letterSpacing: 1, fontWeight: 600 }}>KATEGORIE / TYP</label>
+              <select value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.card2, color: C.white, fontSize: 13, outline: 'none', fontFamily: 'inherit' }}>
+                <option value="offer">🏷️ Angebot / Special</option>
+                <option value="event">🎉 Event & Party</option>
+                <option value="menu">🍽️ Speisekarte / Gericht</option>
+                <option value="promo">⚡ Flash Promo</option>
               </select>
             </div>
           </div>
 
-          <div style={{marginBottom:18}}>
-            <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:6,letterSpacing:1,fontWeight:600}}>CTA-BUTTON ZIEL (URL)</label>
-            <input value={form.ctaUrl} onChange={e=>setForm(p=>({...p,ctaUrl:e.target.value}))} placeholder="https://app.scenvy.de/..." style={{width:'100%',padding:'10px 14px',borderRadius:8,border:`1px solid ${C.border}`,background:C.bg,color:C.white,fontSize:13,outline:'none'}}/>
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ fontSize: 11, color: C.muted, display: 'block', marginBottom: 6, letterSpacing: 1, fontWeight: 600 }}>CTA BUTTON ZIEL-LINK (OPTIONAL)</label>
+            <input value={form.ctaUrl} onChange={e => setForm(p => ({ ...p, ctaUrl: e.target.value }))} placeholder="https://..." style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.bg, color: C.white, fontSize: 13, outline: 'none' }} />
           </div>
 
-          <button onClick={generate} disabled={loading} style={{width:'100%',padding:'14px 0',borderRadius:12,border:'none',cursor:loading?'wait':'pointer',background:loading?C.dim:grad(C.purple,C.pink),color:C.white,fontWeight:800,fontSize:15,display:'flex',alignItems:'center',justifyContent:'center',gap:10,fontFamily:'inherit'}}>
-            {loading?<><RefreshCw size={18} style={{animation:'spin 1s linear infinite'}}/>Generiere KI Reel...</>:<><Sparkles size={18}/>Reel mit Gemini KI erstellen</>}
+          {/* Action Trigger Button */}
+          <button
+            type="button"
+            onClick={() => generate()}
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '14px 0',
+              borderRadius: 12,
+              border: 'none',
+              cursor: loading ? 'wait' : 'pointer',
+              background: loading ? C.dim : grad(C.purple, C.pink),
+              color: C.white,
+              fontWeight: 800,
+              fontSize: 15,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              boxShadow: `0 4px 20px ${C.purple}44`
+            }}
+          >
+            {loading ? (
+              <><RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /> {genMode === 'video' ? 'Generiere 5s Video Story...' : 'Generiere KI Bild & Reel...'}</>
+            ) : (
+              <><Sparkles size={18} /> {genMode === 'video' ? '🎥 5s KI Video Story generieren' : '🖼️ 9:16 KI Bild Reel erstellen'}</>
+            )}
           </button>
         </div>
 
+        {/* Right Column: Live Interactive Reel Preview */}
         <div>
-          {!result ? (
-            <div style={{background:C.card,borderRadius:16,padding:24,border:`2px dashed ${C.border}`,height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',textAlign:'center'}}>
-              <Sparkles size={44} color={C.dim} style={{marginBottom:16}}/>
-              <div style={{fontSize:16,fontWeight:700,color:C.muted}}>Generierte KI Vorschau</div>
-              <div style={{fontSize:12,color:C.dim,marginTop:4,maxWidth:260}}>Klicke links auf "Reel erstellen", um Hook, Emojis, Farbstimmung & KI Visualisierung zu erhalten.</div>
+          {!result && !mediaUrl ? (
+            <div style={{ background: C.card, borderRadius: 20, padding: 32, border: `2px dashed ${C.border}`, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', minHeight: 400 }}>
+              <div style={{ width: 64, height: 64, borderRadius: 20, background: `${C.purple}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                {genMode === 'video' ? <Film size={32} color={C.purple} /> : <Sparkles size={32} color={C.purple} />}
+              </div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: C.white }}>Live Reel & Video Vorschau</div>
+              <div style={{ fontSize: 13, color: C.muted, marginTop: 6, maxWidth: 300 }}>
+                Klicke links auf "{genMode === 'video' ? '5s KI Video Story generieren' : 'KI Bild Reel erstellen'}", um dein animiertes Reel mit Video/Bild, Hook und CTA zu betrachten.
+              </div>
             </div>
           ) : (
             <div>
-              <div style={{background:`linear-gradient(160deg,${accent}28,${C.bg} 70%)`,border:`2px solid ${accent}44`,borderRadius:22,padding:20,marginBottom:14,animation:'fadeUp .3s ease'}}>
-                {imgPreview && (
-                  <div style={{position:'relative',borderRadius:14,overflow:'hidden',marginBottom:14,maxHeight:220}}>
-                    <img src={imgPreview} style={{width:'100%',maxHeight:220,objectFit:'cover',display:'block'}} alt=""/>
-                    <div style={{position:'absolute',inset:0,background:`linear-gradient(180deg,transparent 40%,${C.bg} 100%)`}}/>
+              {/* Smartphone Frame Container */}
+              <div style={{ background: `linear-gradient(160deg, ${accent}28, ${C.bg} 75%)`, border: `2px solid ${accent}66`, borderRadius: 24, padding: 20, marginBottom: 14, boxShadow: `0 8px 30px rgba(0,0,0,0.5)`, position: 'relative' }}>
+                
+                {/* Media Player Box */}
+                {mediaUrl && (
+                  <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', marginBottom: 14, maxHeight: 250, background: '#000', border: `1px solid ${C.border}` }}>
+                    {mediaType === 'video' ? (
+                      <video
+                        src={mediaUrl}
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        style={{ width: '100%', height: 240, objectFit: 'cover', display: 'block' }}
+                      />
+                    ) : (
+                      <img
+                        src={mediaUrl}
+                        style={{ width: '100%', height: 240, objectFit: 'cover', display: 'block' }}
+                        alt=""
+                      />
+                    )}
+                    <div style={{ position: 'absolute', top: 10, right: 10, padding: '4px 10px', borderRadius: 12, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', fontSize: 11, fontWeight: 800, color: C.white, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      {mediaType === 'video' ? `🎥 5s Video Loop` : `🖼️ 9:16 KI Bild`}
+                    </div>
                   </div>
                 )}
-                <div style={{background:`linear-gradient(180deg,${accent}33,${C.bg})`,borderRadius:16,padding:'24px 20px',textAlign:'center',marginBottom:14,display:'flex',flexDirection:'column',justifyContent:'space-between',minHeight:200,position:'relative',overflow:'hidden'}}>
-                  <div style={{fontSize:44,animation:'pulse 2s ease-in-out infinite',position:'relative'}}>{result.emoji}</div>
-                  <div style={{position:'relative'}}>
-                    <div style={{fontSize:12,fontWeight:800,color:accent,letterSpacing:2,marginBottom:7}}>{result.hook}</div>
-                    <div style={{fontSize:18,fontWeight:800,lineHeight:1.28,marginBottom:9}}>{result.headline}</div>
-                    <div style={{fontSize:13,color:'rgba(255,255,255,.7)',marginBottom:10}}>{result.subtext}</div>
-                    {result.urgency&&<div style={{fontSize:12,color:accent,fontWeight:600}}>⏱ {result.urgency}</div>}
+
+                {/* Typography & Hook Overlay Card */}
+                <div style={{ background: `linear-gradient(180deg, ${accent}33, ${C.bg})`, borderRadius: 16, padding: '22px 18px', textAlign: 'center', marginBottom: 14, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 180 }}>
+                  <div style={{ fontSize: 40, animation: 'pulse 2s ease-in-out infinite', marginBottom: 4 }}>
+                    {result?.emoji || '🍹'}
                   </div>
-                  <button style={{padding:'11px 28px',borderRadius:13,border:'none',background:accent,color:C.white,fontWeight:700,fontSize:15,cursor:'pointer',marginTop:12}}>{result.cta} →</button>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 900, color: accent, letterSpacing: 2, marginBottom: 6 }}>
+                      {result?.hook || 'JETZT ENTDECKEN 🔥'}
+                    </div>
+                    <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1.3, marginBottom: 8, color: C.white }}>
+                      {result?.headline || form.offer || 'SCENVY Special'}
+                    </div>
+                    <div style={{ fontSize: 13, color: 'rgba(255,255,255,.75)', marginBottom: 8 }}>
+                      {result?.subtext || 'Exklusiv für unsere Gäste vorbereitet.'}
+                    </div>
+                    {result?.urgency && (
+                      <div style={{ fontSize: 11, color: accent, fontWeight: 700 }}>
+                        ⏱ {result.urgency}
+                      </div>
+                    )}
+                  </div>
+                  <button style={{ padding: '11px 24px', borderRadius: 12, border: 'none', background: accent, color: C.white, fontWeight: 800, fontSize: 14, cursor: 'pointer', marginTop: 12, alignSelf: 'center', boxShadow: `0 4px 14px ${accent}66` }}>
+                    {result?.cta || 'Jetzt ansehen'} →
+                  </button>
+                </div>
+
+                {/* Quick 1-Click Media Switcher */}
+                <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newType = mediaType === 'video' ? 'image' : 'video'
+                      setMediaType(newType)
+                      generate({ genMode: newType })
+                    }}
+                    style={{ flex: 1, padding: '7px 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.bg, color: C.white, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                  >
+                    {mediaType === 'video' ? '🖼️ In 9:16 KI-Bild umwandeln' : '🎥 In 5s Video umwandeln'}
+                  </button>
                 </div>
               </div>
 
               {/* Status and Schedule Selection before save */}
-              <div style={{background:C.card,borderRadius:14,padding:16,border:`1px solid ${C.border}`,marginBottom:14}}>
-                <div style={{fontSize:12,fontWeight:700,marginBottom:8,color:C.white}}>VERÖFFENTLICHUNGS-STATUS:</div>
-                <div style={{display:'flex',gap:8,marginBottom:10}}>
+              <div style={{ background: C.card, borderRadius: 16, padding: 16, border: `1px solid ${C.border}`, marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, marginBottom: 8, color: C.muted, letterSpacing: 1 }}>VERÖFFENTLICHUNGS-STATUS:</div>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
                   {[
-                    ['draft', '📝 Entwurf'],
+                    ['live', '🚀 Sofort Live'],
                     ['scheduled', '📅 Geplant'],
-                    ['live', '🚀 Sofort Live']
+                    ['draft', '📝 Entwurf']
                   ].map(([st, lbl]) => (
                     <button
                       key={st}
                       type="button"
                       onClick={() => setSaveStatus(st)}
                       style={{
-                        padding: '6px 12px',
+                        flex: 1,
+                        padding: '8px 10px',
                         borderRadius: 8,
-                        border: saveStatus === st ? `1px solid ${C.purple}` : `1px solid ${C.border}`,
-                        background: saveStatus === st ? `${C.purple}22` : C.bg,
+                        border: saveStatus === st ? `2px solid ${C.purple}` : `1px solid ${C.border}`,
+                        background: saveStatus === st ? `${C.purple}25` : C.bg,
                         color: saveStatus === st ? C.white : C.muted,
                         fontSize: 12,
-                        fontWeight: saveStatus === st ? 700 : 400,
+                        fontWeight: saveStatus === st ? 800 : 500,
                         cursor: 'pointer'
                       }}
                     >
@@ -1432,27 +1683,81 @@ function AIGenerator({ tenantId, locs, notify }) {
 
                 {saveStatus === 'scheduled' && (
                   <div>
-                    <label style={{fontSize:11,color:C.orange,display:'block',marginBottom:4,fontWeight:700}}>DATUM & UHRZEIT:</label>
+                    <label style={{ fontSize: 11, color: C.orange, display: 'block', marginBottom: 4, fontWeight: 700 }}>SENDEZEITPUNKT:</label>
                     <input
                       type="datetime-local"
                       value={scheduledAt}
                       onChange={e => setScheduledAt(e.target.value)}
-                      style={{width:'100%',padding:'8px 10px',borderRadius:8,border:`1px solid ${C.orange}`,background:C.bg,color:C.white,fontSize:12}}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: `1px solid ${C.orange}`, background: C.bg, color: C.white, fontSize: 12 }}
                     />
                   </div>
                 )}
               </div>
 
-              <div style={{display:'flex',gap:10}}>
-                <button onClick={save} style={{flex:1,padding:'12px 0',borderRadius:10,border:'none',cursor:'pointer',background:accent,color:C.white,fontWeight:800,fontSize:14,fontFamily:'inherit'}}>
-                  ✓ Reel Speichern ({saveStatus.toUpperCase()})
+              {/* Final Actions */}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={save}
+                  style={{ flex: 1, padding: '13px 0', borderRadius: 12, border: 'none', cursor: 'pointer', background: grad(C.purple, C.pink), color: C.white, fontWeight: 800, fontSize: 15, boxShadow: `0 4px 16px ${C.purple}55` }}
+                >
+                  ✓ Reel Speichern & Aktivieren ({saveStatus.toUpperCase()})
                 </button>
-                <button onClick={()=>setResult(null)} style={{padding:'12px 18px',borderRadius:10,border:`1px solid ${C.border}`,background:'transparent',color:C.muted,cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>Nochmal</button>
+                <button
+                  type="button"
+                  onClick={() => { setResult(null); setMediaUrl(null); }}
+                  style={{ padding: '13px 18px', borderRadius: 12, border: `1px solid ${C.border}`, background: 'transparent', color: C.muted, cursor: 'pointer', fontSize: 13 }}
+                >
+                  Neu
+                </button>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Sub Modal: Mediathek Select */}
+      {showMediathek && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: C.card, borderRadius: 24, width: '100%', maxWidth: 800, maxHeight: '80vh', border: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '20px 24px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: 18, fontWeight: 800 }}>🖼️ Mediathek durchsuchen</div>
+              <button onClick={() => setShowMediathek(false)} style={{ background: 'none', border: 'none', color: C.white, cursor: 'pointer' }}><X size={24} /></button>
+            </div>
+            <div style={{ padding: 24, overflowY: 'auto' }}>
+              {(!mediaItems || mediaItems.length === 0) ? (
+                <div style={{ textAlign: 'center', padding: 40, color: C.muted }}>
+                  Keine Medien in deiner Mediathek vorhanden. Lade zuerst in der Mediathek hoch.
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 16 }}>
+                  {mediaItems.map(m => (
+                    <div
+                      key={m.id}
+                      onClick={() => {
+                        setMediaUrl(m.url)
+                        setMediaType(m.type === 'video' ? 'video' : 'image')
+                        setShowMediathek(false)
+                        notify('✅ Medium aus Mediathek übernommen!')
+                      }}
+                      style={{ cursor: 'pointer', borderRadius: 12, overflow: 'hidden', border: `2px solid transparent`, background: C.card2, position: 'relative' }}
+                    >
+                      {m.type === 'video' ? (
+                        <video src={m.url} style={{ width: '100%', height: 120, objectFit: 'cover' }} muted />
+                      ) : (
+                        <img src={m.url} style={{ width: '100%', height: 120, objectFit: 'cover' }} alt="" />
+                      )}
+                      <div style={{ padding: '6px 8px', fontSize: 10, background: 'rgba(0,0,0,0.8)', color: '#FFF', position: 'absolute', bottom: 0, left: 0, right: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {m.name || 'Unbenannt'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -2071,53 +2376,6 @@ function BoardShowcase({ user, tenant }) {
         </button>
       </div>
 
-      {/* WebStudio CMS Banner Card */}
-      <div style={{
-        background: 'linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(124,58,237,0.1) 100%)',
-        borderRadius: 20,
-        border: '1px solid rgba(16,185,129,0.3)',
-        padding: 28,
-        marginBottom: 28,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: 20
-      }}>
-        <div style={{ maxWidth: 640 }}>
-          <div style={{ fontSize: 11, color: '#34D399', fontWeight: 800, letterSpacing: 2, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981' }} />
-            WEBSITE & LANDING PAGE BUILDER & STUDIO
-          </div>
-          <div style={{ fontSize: 24, fontWeight: 900, color: C.white, lineHeight: 1.2, marginBottom: 8 }}>
-            🌐 SCENVY Webseiten Studio & CMS Backend
-          </div>
-          <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>
-            Erstelle und bearbeite deine Landing-Pages mit vollem visuellen Baukasten, WYSIWYG Inspector, Schriftgrößen-Anpassung, Custom CSS Animationen und sofortiger Veröffentlichung unter <code style={{ color: C.white }}>/p/{'{slug}'}</code>.
-          </div>
-        </div>
-
-        <button
-          onClick={() => nav('/website-studio')}
-          style={{
-            padding: '14px 28px',
-            borderRadius: 12,
-            background: '#10B981',
-            color: '#000',
-            border: 'none',
-            fontWeight: 900,
-            fontSize: 14,
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            boxShadow: '0 6px 20px rgba(16,185,129,0.3)'
-          }}
-        >
-          🚀 Webstudio & CMS Editor Öffnen →
-        </button>
-      </div>
-
       {/* Display Fleet Summary */}
       <div style={{ background: C.card, borderRadius: 18, border: `1px solid ${C.border}`, padding: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
@@ -2193,10 +2451,10 @@ function BoardShowcase({ user, tenant }) {
 }
 
 // ── Host Showcase Module ──────────────────────────────────
-function HostShowcase() {
+function HostShowcase({ moduleTab, setModuleTab }) {
   return (
     <div>
-      <HostDashboard />
+      <HostDashboard subTab={moduleTab} setSubTab={setModuleTab} embedded={true} />
     </div>
   )
 }
@@ -2718,10 +2976,10 @@ export default function Dashboard() {
           {page==='locations' && <LocationsPage locs={locs} tenantId={tenantId} notify={notify}/>}
           {page==='analytics' && <Analytics  tenantId={tenantId} locs={locs} reels={reels}/>}
           {page==='ai'        && <AIGenerator tenantId={tenantId} locs={locs} notify={notify}/>}
-          {(page==='menu_generator' || page==='menu') && <MenuGenerator embedded={true} initialTab={moduleTab} />}
-          {page==='orders'    && <OrderManagementDashboard />}
+          {(page==='menu_generator' || page==='menu') && <MenuGenerator embedded={true} initialTab={moduleTab} notify={notify} />}
+          {page==='orders'    && <HostDashboard initialTab="orders" subTab="orders" setSubTab={setModuleTab} embedded={true} />}
           {page==='board'     && <BoardShowcase user={user} tenant={tenant} />}
-          {page==='host'      && <HostShowcase />}
+          {page==='host'      && <HostShowcase moduleTab={moduleTab} setModuleTab={setModuleTab} />}
           {page==='qr'        && <QRPage     locs={locs} notify={notify}/>}
           {page==='media'     && <MediaLibraryPage tenantId={tenantId} notify={notify}/>}
           {page==='company'   && <CompanySettingsPage tenantId={tenantId} notify={notify}/>}

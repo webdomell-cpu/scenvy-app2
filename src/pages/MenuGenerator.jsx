@@ -6,9 +6,10 @@ import { useAuth } from '@/lib/AuthContext'
 import { useTenant, useMenuReels, useSaveMenuReel, useDeleteMenuReel, useLocations, useSaveLocation, useDeleteLocation, useMedia, uploadMedia, formatDateTime } from '@/lib/db'
 import GuestMenuReel, { isScheduleActive, JaggedStar13 } from '@/pages/GuestMenuReel'
 import { copyToClipboard } from '@/storage'
+import { touchCacheKey, autoClearExpiredCaches } from '@/lib/cacheManager'
 import { Sparkles, FileText, Upload, Edit3, Palette, Phone, Instagram, QrCode, Download, Share2, Copy, Trash2, Eye, Plus, ArrowRight, CheckCircle2, Lock, ShieldAlert, ArrowLeft, Maximize2, Minimize2, Clock, MapPin, ExternalLink, Calendar, Zap, Check, Globe, Utensils, Layers, Settings, ChefHat, Search, Filter, BookOpen, AlertCircle, DollarSign, Bell } from 'lucide-react'
 
-export default function MenuGenerator({ embedded = false, initialTab }) {
+export default function MenuGenerator({ embedded = false, initialTab, notify: propNotify }) {
   const nav = useNavigate()
   const { user } = useAuth()
   const tenantId = user?.tenant_id
@@ -35,6 +36,15 @@ export default function MenuGenerator({ embedded = false, initialTab }) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [genStep, setGenStep] = useState('')
   const [toast, setToast] = useState(null)
+
+  const notify = (msg) => {
+    if (typeof propNotify === 'function') {
+      try { propNotify(msg) } catch (e) { console.warn('Prop notify error:', e) }
+    }
+    setToast(msg)
+    setTimeout(() => setToast(null), 3500)
+  }
+
   const [showMediaModal, setShowMediaModal] = useState(false)
   const [mediaModalPurpose, setMediaModalPurpose] = useState('menu_source') // 'menu_source' | 'location_highlight'
   const [localMedia, setLocalMedia] = useState([])
@@ -1089,9 +1099,10 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
     }
   }
 
-  // Caching mechanism: Restore last generated menu on mount
+  // Caching mechanism: Restore last generated menu on mount (with automatic expiration)
   useEffect(() => {
     try {
+      autoClearExpiredCaches(false)
       const cached = localStorage.getItem('scenvy_cached_menu')
       if (cached) {
         const parsed = JSON.parse(cached)

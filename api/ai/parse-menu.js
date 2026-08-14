@@ -366,7 +366,7 @@ Raw Input Document Text:
 
       const contents = { parts }
 
-      const modelsToTry = ['gemini-3.6-flash', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-lite', 'gemini-flash-latest']
+      const modelsToTry = ['gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-3.7-flash', 'gemini-3.1-pro-preview']
       let lastErr = null
       let rawText = null
 
@@ -387,9 +387,13 @@ Raw Input Document Text:
             break
           }
         } catch (mErr) {
-          console.warn(`Model ${m} failed in parse-menu:`, mErr?.message)
-          lastErr = mErr
           const errMsg = mErr?.message || ''
+          if (errMsg.includes('503') || errMsg.includes('UNAVAILABLE') || errMsg.includes('high demand')) {
+            console.log(`[parse-menu] Model ${m} is temporarily unavailable (503), trying next model...`)
+          } else {
+            console.warn(`Model ${m} failed in parse-menu:`, errMsg)
+          }
+          lastErr = mErr
           if (errMsg.includes('quota') || errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED')) {
             throw mErr
           }

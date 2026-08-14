@@ -1,8 +1,10 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClientProvider }                    from '@tanstack/react-query'
 import { queryClient }                            from '@/lib/query-client'
 import { AuthProvider, useAuth }                  from '@/lib/AuthContext'
 import { ErrorBoundary }                          from '@/components/ErrorBoundary'
+import { initAutoCacheCleaner }                   from '@/lib/cacheManager'
 import Landing     from './pages/Landing.jsx'
 import ScenvyAuth  from './pages/ScenvyAuth.jsx'
 import GuestView   from './pages/GuestView.jsx'
@@ -80,6 +82,9 @@ function AppRoutes() {
       <Route path="/host/:locationId" element={<GuestHostView />} />
       <Route path="/guest-host/:locationId" element={<GuestHostView />} />
       <Route path="/live-dashboard/:tenantId" element={<HostDashboard />} />
+      <Route path="/live-orders/:tenantId" element={<OrderManagementDashboard />} />
+      <Route path="/live-tafel/:tenantId" element={<OrderManagementDashboard />} />
+      <Route path="/bestellzentrale" element={<OrderManagementDashboard />} />
       <Route path="/management-dashboard" element={<Protected><HostDashboard /></Protected>} />
       <Route path="/host-dashboard" element={<Protected><HostDashboard /></Protected>} />
       <Route path="/dashboard"     element={<Protected><Dashboard /></Protected>} />
@@ -92,6 +97,13 @@ function AppRoutes() {
 }
 
 export default function App() {
+  useEffect(() => {
+    const cleanup = initAutoCacheCleaner()
+    return () => {
+      if (typeof cleanup === 'function') cleanup()
+    }
+  }, [])
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

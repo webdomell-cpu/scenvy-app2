@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
 import CsvImportUtility from '@/components/CsvImportUtility'
+import OrderManagementDashboard from '@/pages/OrderManagementDashboard'
 import {
   useLocations,
   useHostDepartments,
@@ -62,12 +63,25 @@ import {
   Layers
 } from 'lucide-react'
 
-export default function HostDashboard() {
+export default function HostDashboard({ initialTab, subTab, setSubTab, embedded = false }) {
   const { tenantId: paramTenantId } = useParams()
+  const [searchParams] = useSearchParams()
   const { user } = useAuth()
   const activeTenantId = paramTenantId || user?.tenant_id || user?.tenantId || 'tenant-demo-1'
 
-  const [activeTab, setActiveTab] = useState('requests') // 'requests' | 'catalog' | 'departments' | 'qr_generator' | 'settings'
+  const queryTab = searchParams.get('tab')
+  const [activeTab, setActiveTab] = useState(initialTab || subTab || queryTab || 'orders') // 'orders' | 'requests' | 'catalog' | 'departments' | 'qr_generator' | 'settings'
+
+  useEffect(() => {
+    if (subTab && subTab !== activeTab) {
+      setActiveTab(subTab)
+    }
+  }, [subTab])
+
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab)
+    if (setSubTab) setSubTab(newTab)
+  }
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL')
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('ALL')
   const [soundEnabled, setSoundEnabled] = useState(true)
@@ -257,15 +271,16 @@ export default function HostDashboard() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {/* Combined Master Display Link */}
+          {/* Fullscreen KDS Station in new tab */}
           <Link
-            to="/dashboard?page=orders"
+            to={`/live-orders/${activeTenantId}`}
+            target="_blank"
             style={{
               padding: '10px 16px',
               borderRadius: 12,
-              background: 'rgba(139, 92, 246, 0.2)',
-              color: '#C4B5FD',
-              border: '1px solid rgba(139, 92, 246, 0.4)',
+              background: 'rgba(239, 68, 68, 0.18)',
+              color: '#FCA5A5',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
               fontSize: 12,
               fontWeight: 800,
               cursor: 'pointer',
@@ -274,10 +289,10 @@ export default function HostDashboard() {
               gap: 6,
               textDecoration: 'none'
             }}
-            title="Gastro & Host Kombinierte Live-Zentrale auf einem Display anzeigen"
+            title="KDS Großansicht für Küche & Front Desk auf separatem Bildschirm / Tablet öffnen"
           >
             <Layers size={15} />
-            <span>Kombinierte Live-Zentrale</span>
+            <span>Vollbild KDS Tafel ↗</span>
           </Link>
 
           {/* Sound Toggle Button */}
@@ -374,6 +389,7 @@ export default function HostDashboard() {
       {/* Navigation Sub-Tabs */}
       <div style={{ display: 'flex', gap: 8, borderBottom: `1px solid ${C.border}`, paddingBottom: 12, marginBottom: 24, flexWrap: 'wrap' }}>
         {[
+          { id: 'orders', label: 'Bestellzentrale (KDS Tafel)', icon: <Layers size={16} />, badge: 'LIVE' },
           { id: 'requests', label: `Gäste-Anfragen (${newCount > 0 ? `🚨 ${newCount} neu` : requests.length})`, icon: <ConciergeBell size={16} /> },
           { id: 'catalog', label: 'Service Katalog & CSV', icon: <FileSpreadsheet size={16} /> },
           { id: 'departments', label: 'Abteilungen & Staff', icon: <Users size={16} /> },
@@ -382,7 +398,7 @@ export default function HostDashboard() {
         ].map(tab => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => handleTabChange(tab.id)}
             style={{
               padding: '10px 18px',
               borderRadius: 12,
@@ -405,6 +421,13 @@ export default function HostDashboard() {
           </button>
         ))}
       </div>
+
+      {/* TAB 0: LIVE BESTELLZENTRALE / KITCHEN DISPLAY & SERVICE DISPATCH */}
+      {activeTab === 'orders' && (
+        <div style={{ marginTop: 8 }}>
+          <OrderManagementDashboard embedded={true} activeTenantId={activeTenantId} />
+        </div>
+      )}
 
       {/* TAB 1: GUEST REQUESTS FEED & ORDER DISPATCH */}
       {activeTab === 'requests' && (

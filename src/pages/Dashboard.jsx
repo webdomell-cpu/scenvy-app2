@@ -398,16 +398,20 @@ function ReelModal({ reel, locs, tenantId, onClose, onSave, notify, mediaItems }
 
 // ── Sidebar ───────────────────────────────────────────────
 function Sidebar({ page, setPage, moduleTab, setModuleTab, open, setOpen, t, user, logout, tenant, themeMode, setThemeMode }) {
-  const nav = useNavigate()
-  
-  const tenantItems = [
-    { id: 'overview', name: 'Übersicht', icon: <Home size={16}/> },
-    { id: 'locations', name: 'Standorte', icon: <MapPin size={16}/> },
-    { id: 'qr', name: 'QR-Codes & Tags', icon: <QrCode size={16}/> },
-    { id: 'media', name: 'Mediathek', icon: <Library size={16}/> },
-    { id: 'analytics', name: 'Analytics', icon: <BarChart2 size={16}/> },
-    { id: 'company', name: 'Firmendaten', icon: <Building2 size={16}/> },
-    { id: 'settings', name: 'Einstellungen', icon: <Settings size={16}/> },
+  const [hoveredItem, setHoveredItem] = useState(null)
+
+  // 1. HAUPTBEREICH (Overview & Analytics)
+  const mainCoreItems = [
+    { id: 'overview', name: 'Übersicht', icon: <Home size={16}/>, badge: 'DASHBOARD', desc: 'Performance & Quick Access' },
+    { id: 'analytics', name: 'Analytics', icon: <BarChart2 size={16}/>, badge: 'LIVE', desc: 'Scans, Aufrufe & CTR' },
+  ]
+
+  // 2. SCENVY MODULE (Product Solutions)
+  const allModuleItems = [
+    { id: 'reels', modKey: 'flow', name: 'SCENVY FLOW', sub: 'Reels & Video-Feed', badge: 'CONTENT', icon: <Film size={16}/>, color: '#8B5CF6' },
+    { id: 'menu_generator', modKey: 'menu', name: 'SCENVY MENU', sub: 'Digitale Speisekarten', badge: 'KI SNAP', icon: <Utensils size={16}/>, color: '#F97316' },
+    { id: 'board', modKey: 'board', name: 'SCENVY BOARD', sub: 'Digital Signage TV', badge: 'DISPLAY', icon: <Tv size={16}/>, color: '#3B82F6' },
+    { id: 'host', modKey: 'host', name: 'SCENVY HOST', sub: 'Bestellzentrale & Concierge', badge: 'SERVICE & KDS', icon: <ConciergeBell size={16}/>, color: '#10B981' },
   ]
 
   const moduleSubItems = {
@@ -440,250 +444,365 @@ function Sidebar({ page, setPage, moduleTab, setModuleTab, open, setOpen, t, use
     ]
   }
 
-  const allModuleItems = [
-    { id: 'reels', modKey: 'flow', name: 'SCENVY FLOW', sub: 'Reels & Video-Feed', badge: 'CONTENT', icon: <Film size={16}/>, color: '#8B5CF6' },
-    { id: 'menu_generator', modKey: 'menu', name: 'SCENVY MENU', sub: 'Digitale Speisekarten', badge: 'KI SNAP', icon: <Utensils size={16}/>, color: '#F97316' },
-    { id: 'board', modKey: 'board', name: 'SCENVY BOARD', sub: 'Digital Signage TV', badge: 'DISPLAY', icon: <Tv size={16}/>, color: '#3B82F6' },
-    { id: 'host', modKey: 'host', name: 'SCENVY HOST', sub: 'Bestellzentrale & Concierge', badge: 'SERVICE & KDS', icon: <ConciergeBell size={16}/>, color: '#10B981' },
+  // 3. VERWALTUNG & ASSETS (Operations & Tools)
+  const operationsItems = [
+    { id: 'locations', name: 'Standorte', icon: <MapPin size={16}/>, desc: 'Filialen & Venues' },
+    { id: 'qr', name: 'QR-Codes & Tags', icon: <QrCode size={16}/>, desc: 'Aufsteller & NFC Tags' },
+    { id: 'media', name: 'Mediathek', icon: <Library size={16}/>, desc: 'Fotos, Videos & Assets' },
+    { id: 'ai', name: 'KI Studio', icon: <Sparkles size={16}/>, desc: 'KI Content Creator' },
+  ]
+
+  // 4. KONTO & EINSTELLUNGEN (Account & Company)
+  const accountItems = [
+    { id: 'company', name: 'Firmendaten', icon: <Building2 size={16}/>, desc: 'Unternehmensprofil & Branding' },
+    { id: 'settings', name: 'Einstellungen', icon: <Settings size={16}/>, desc: 'Account, Tarife & Billing' },
   ]
 
   const mods = tenant?.modules || { flow: true, menu: true, board: true, host: true }
   const moduleItems = allModuleItems.filter(m => mods[m.modKey] !== false)
 
+  const isLight = themeMode === 'light'
+
+  const renderNavButton = (item, isModule = false, color = C.purple) => {
+    const isActive = page === item.id || (isModule && page === 'menu' && item.id === 'menu_generator')
+    const subItems = isModule ? (moduleSubItems[item.id] || []) : []
+    const isHovered = hoveredItem === item.id
+
+    return (
+      <div 
+        key={item.id} 
+        style={{ position: 'relative' }}
+        onMouseEnter={() => setHoveredItem(item.id)}
+        onMouseLeave={() => setHoveredItem(null)}
+      >
+        <button
+          onClick={() => setPage(item.id)}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: open ? '8px 11px' : '9px 0',
+            borderRadius: 10,
+            border: isModule 
+              ? `1px solid ${isActive ? `${color}66` : isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)'}`
+              : 'none',
+            cursor: 'pointer',
+            background: isActive 
+              ? `${color}20` 
+              : (isModule ? (isLight ? '#F1F5F9' : C.card2) : 'transparent'),
+            color: isActive ? C.white : C.muted,
+            justifyContent: open ? 'flex-start' : 'center',
+            fontFamily: 'inherit',
+            textAlign: 'left',
+            lineHeight: 1.2,
+            fontSize: 12.5,
+            fontWeight: isActive ? 700 : 500,
+            transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
+            borderLeft: !isModule && isActive ? `3px solid ${color}` : (!isModule ? '3px solid transparent' : undefined),
+            boxShadow: isActive && isModule ? `0 4px 14px ${color}20` : 'none',
+            position: 'relative'
+          }}
+          onMouseEnter={(e) => {
+            if (!isActive) {
+              e.currentTarget.style.background = isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)'
+              e.currentTarget.style.color = C.white
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isActive) {
+              e.currentTarget.style.background = isModule ? (isLight ? '#F1F5F9' : C.card2) : 'transparent'
+              e.currentTarget.style.color = C.muted
+            }
+          }}
+        >
+          <span style={{ 
+            color: isActive ? color : (isModule ? color : C.muted), 
+            flexShrink: 0, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            width: open ? 'auto' : 22,
+            transition: 'color 0.15s ease'
+          }}>
+            {item.icon}
+          </span>
+          {open && (
+            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' }}>
+                {item.name}
+              </span>
+              {item.badge && (
+                <span style={{ 
+                  fontSize: 8.5, 
+                  padding: '2px 5px', 
+                  borderRadius: 5, 
+                  background: `${color}25`, 
+                  color: color, 
+                  fontWeight: 800,
+                  letterSpacing: '0.04em',
+                  marginLeft: 6
+                }}>
+                  {item.badge}
+                </span>
+              )}
+              {isModule && subItems.length > 0 && (
+                <span style={{ marginLeft: 4 }}>
+                  {isActive ? <ChevronDown size={12} color={color} /> : <ChevronRight size={12} color={C.muted} />}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Active dot indicator when collapsed */}
+          {!open && isActive && (
+            <div style={{
+              position: 'absolute',
+              left: 3,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: 4,
+              height: 18,
+              borderRadius: 3,
+              background: color,
+              boxShadow: `0 0 8px ${color}`
+            }}/>
+          )}
+        </button>
+
+        {/* Collapsed Mode Floating Flyout Tooltip */}
+        {!open && isHovered && (
+          <div style={{
+            position: 'absolute',
+            left: 'calc(100% + 10px)',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            background: isLight ? '#FFFFFF' : '#141B26',
+            border: `1px solid ${color}55`,
+            borderRadius: 10,
+            padding: '8px 12px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+            zIndex: 9999,
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+            animation: 'fadeIn .15s ease'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: item.desc ? 2 : 0 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 800, color: C.white }}>{item.name}</span>
+              {item.badge && (
+                <span style={{ fontSize: 8.5, padding: '1px 5px', borderRadius: 4, background: `${color}28`, color: color, fontWeight: 800 }}>
+                  {item.badge}
+                </span>
+              )}
+            </div>
+            {item.desc && (
+              <div style={{ fontSize: 10.5, color: C.muted }}>{item.desc}</div>
+            )}
+          </div>
+        )}
+
+        {/* Unfolded Sub-Items for Active Module (Open Sidebar only) */}
+        {open && isModule && isActive && subItems.length > 0 && (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+            paddingLeft: 10,
+            marginLeft: 14,
+            borderLeft: `2px solid ${color}44`,
+            marginTop: 4,
+            marginBottom: 6,
+            animation: 'fadeIn 0.2s ease'
+          }}>
+            {subItems.map(sub => {
+              const isSubActive = moduleTab === sub.id
+              return (
+                <button
+                  key={sub.id}
+                  onClick={() => {
+                    if (setModuleTab) setModuleTab(sub.id)
+                  }}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    padding: '5px 8px',
+                    borderRadius: 6,
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: isSubActive ? `${color}25` : 'transparent',
+                    color: isSubActive ? C.white : C.muted,
+                    fontSize: 11.5,
+                    fontWeight: isSubActive ? 700 : 500,
+                    textAlign: 'left',
+                    fontFamily: 'inherit',
+                    transition: 'all 0.12s ease'
+                  }}
+                  onMouseEnter={(e) => { if (!isSubActive) e.currentTarget.style.background = isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.04)' }}
+                  onMouseLeave={(e) => { if (!isSubActive) e.currentTarget.style.background = 'transparent' }}
+                >
+                  <span style={{ color: isSubActive ? color : C.muted, display: 'flex', alignItems: 'center' }}>
+                    {sub.icon}
+                  </span>
+                  <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {sub.label}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div style={{
-      width: open ? 230 : 64,
+      width: open ? 240 : 68,
       background: C.card,
       borderRight: `1px solid ${C.border}`,
       flexShrink: 0,
       display: 'flex',
       flexDirection: 'column',
-      transition: 'width .25s cubic-bezier(0.16, 1, 0.3, 1)',
+      transition: 'width .24s cubic-bezier(0.16, 1, 0.3, 1)',
       height: '100vh',
       overflow: 'hidden',
       zIndex: 50,
-      boxShadow: '4px 0 24px rgba(0,0,0,0.2)'
+      boxShadow: isLight ? '2px 0 16px rgba(15,23,42,0.03)' : '4px 0 24px rgba(0,0,0,0.25)'
     }}>
       {/* Top Logo Header */}
       <div style={{
-        padding: open ? '14px 16px' : '14px 8px',
+        padding: open ? '15px 18px' : '15px 10px',
         borderBottom: `1px solid ${C.border}`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: open ? 'space-between' : 'center',
         flexShrink: 0,
-        background: C.bg
+        background: C.bg,
+        transition: 'all 0.2s ease'
       }}>
-        {open ? <ScenvyLogoFull height={42} tagline={false} /> : <ScenvyLogoIcon size={38} />}
+        {open ? <ScenvyLogoFull height={40} tagline={false} /> : <ScenvyLogoIcon size={36} />}
       </div>
 
       {/* Scrollable Navigation Area */}
       <nav 
         className="scenvy-sidebar-scroll"
         style={{
-          padding: '10px 8px',
+          padding: open ? '14px 10px' : '14px 8px',
           flex: 1,
           minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          gap: 10
+          gap: 14
         }}
       >
-        <style>{`
-          .scenvy-sidebar-scroll::-webkit-scrollbar {
-            width: 4px;
-          }
-          .scenvy-sidebar-scroll::-webkit-scrollbar-track {
-            background: rgba(15, 23, 42, 0.1);
-          }
-          .scenvy-sidebar-scroll::-webkit-scrollbar-thumb {
-            background: rgba(139, 92, 246, 0.3);
-            border-radius: 10px;
-          }
-          .scenvy-sidebar-scroll::-webkit-scrollbar-thumb:hover {
-            background: rgba(139, 92, 246, 0.7);
-          }
-        `}</style>
-
-        {/* Section 1: Mandant / Tenant Basis */}
+        {/* Section 1: HAUPTBEREICH (Overview -> Analytics) */}
         <div>
           {open && (
-            <div style={{ fontSize: 9, color: C.muted, fontWeight: 800, letterSpacing: 1.2, padding: '0 6px 6px', display: 'flex', alignItems: 'center', gap: 5 }}>
-              <Building2 size={11} color={C.purple} /> TENANT PLATTFORM
+            <div style={{ 
+              fontSize: 9.5, 
+              color: C.muted, 
+              fontWeight: 800, 
+              letterSpacing: '0.08em', 
+              padding: '0 8px 6px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 6 
+            }}>
+              <Home size={11} color={C.purple} /> HAUPTMENÜ
             </div>
           )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {tenantItems.map(item => {
-              const isActive = page === item.id
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setPage(item.id)}
-                  title={!open ? item.name : undefined}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: open ? '6px 9px' : '6px 0',
-                    borderRadius: 7,
-                    border: 'none',
-                    cursor: 'pointer',
-                    background: isActive ? `${C.purple}22` : 'transparent',
-                    color: isActive ? C.white : C.muted,
-                    justifyContent: open ? 'flex-start' : 'center',
-                    fontFamily: 'inherit',
-                    textAlign: 'left',
-                    lineHeight: 1.2,
-                    fontSize: 12,
-                    transition: 'all 0.15s ease',
-                    borderLeft: isActive ? `3px solid ${C.purple}` : '3px solid transparent'
-                  }}
-                  onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-                  onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
-                >
-                  <span style={{ color: isActive ? C.purple : C.muted, flexShrink: 0, display: 'flex', alignItems: 'center' }}>
-                    {item.icon}
-                  </span>
-                  {open && (
-                    <span style={{ fontSize: 12, fontWeight: isActive ? 700 : 500, flex: 1 }}>
-                      {item.name}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {mainCoreItems.map(item => renderNavButton(item, false, C.purple))}
           </div>
         </div>
 
-        {/* Section 2: SCENVY Sub-Brands & Modules with Accordion Folding Submenus */}
-        <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
+        {/* Section 2: SCENVY MODULE (Product Solutions) */}
+        <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
           {open && (
-            <div style={{ fontSize: 9, color: C.pink, fontWeight: 800, letterSpacing: 1.2, padding: '0 6px 6px', display: 'flex', alignItems: 'center', gap: 5 }}>
-              <Layers size={11} color={C.pink} /> GEBUCHTE MODULE
+            <div style={{ 
+              fontSize: 9.5, 
+              color: C.pink, 
+              fontWeight: 800, 
+              letterSpacing: '0.08em', 
+              padding: '0 8px 6px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 6 
+            }}>
+              <Layers size={11} color={C.pink} /> SCENVY MODULE
             </div>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {moduleItems.map(item => {
-              const isModuleActive = page === item.id || (page === 'menu' && item.id === 'menu_generator')
-              const subItems = moduleSubItems[item.id] || []
+            {moduleItems.map(item => renderNavButton(item, true, item.color))}
+          </div>
+        </div>
 
-              return (
-                <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <button
-                    onClick={() => {
-                      setPage(item.id)
-                    }}
-                    title={!open ? `${item.name} (${item.badge})` : undefined}
-                    style={{
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: open ? '7px 9px' : '7px 0',
-                      borderRadius: 8,
-                      border: `1px solid ${isModuleActive ? `${item.color}66` : 'rgba(255,255,255,0.05)'}`,
-                      cursor: 'pointer',
-                      background: isModuleActive ? `${item.color}22` : C.card2,
-                      color: isModuleActive ? C.white : C.muted,
-                      justifyContent: open ? 'flex-start' : 'center',
-                      fontFamily: 'inherit',
-                      textAlign: 'left',
-                      boxShadow: isModuleActive ? `0 4px 14px ${item.color}18` : 'none',
-                      lineHeight: 1.2,
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    <span style={{ color: item.color, flexShrink: 0, display: 'flex', alignItems: 'center', padding: open ? 0 : '0 10px' }}>
-                      {item.icon}
-                    </span>
-                    {open && (
-                      <div style={{ flex: 1, overflow: 'hidden' }}>
-                        <div style={{ fontSize: 12, fontWeight: 800, color: C.white, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span>{item.name}</span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <span style={{ fontSize: 8, padding: '1px 4px', borderRadius: 4, background: `${item.color}33`, color: item.color, fontWeight: 800 }}>
-                              {item.badge}
-                            </span>
-                            {subItems.length > 0 && (
-                              isModuleActive ? <ChevronDown size={12} color={item.color} /> : <ChevronRight size={12} color={C.muted} />
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </button>
+        {/* Section 3: VERWALTUNG & TOOLS (Locations, QR, Media, AI) */}
+        <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
+          {open && (
+            <div style={{ 
+              fontSize: 9.5, 
+              color: C.blue, 
+              fontWeight: 800, 
+              letterSpacing: '0.08em', 
+              padding: '0 8px 6px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 6 
+            }}>
+              <MapPin size={11} color={C.blue} /> VERWALTUNG & TOOLS
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {operationsItems.map(item => renderNavButton(item, false, C.blue))}
+          </div>
+        </div>
 
-                  {/* Unfolded Sub-Items Accordion */}
-                  {open && isModuleActive && subItems.length > 0 && (
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 2,
-                      paddingLeft: 12,
-                      marginLeft: 12,
-                      borderLeft: `2px solid ${item.color}44`,
-                      marginTop: 2,
-                      marginBottom: 4,
-                      animation: 'fadeUp 0.2s ease'
-                    }}>
-                      {subItems.map(sub => {
-                        const isSubActive = moduleTab === sub.id
-                        return (
-                          <button
-                            key={sub.id}
-                            onClick={() => {
-                              if (setModuleTab) setModuleTab(sub.id)
-                            }}
-                            style={{
-                              width: '100%',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 6,
-                              padding: '5px 8px',
-                              borderRadius: 6,
-                              border: 'none',
-                              cursor: 'pointer',
-                              background: isSubActive ? `${item.color}28` : 'transparent',
-                              color: isSubActive ? C.white : C.muted,
-                              fontSize: 11,
-                              fontWeight: isSubActive ? 800 : 500,
-                              textAlign: 'left',
-                              transition: 'all 0.12s ease'
-                            }}
-                            onMouseEnter={(e) => { if (!isSubActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-                            onMouseLeave={(e) => { if (!isSubActive) e.currentTarget.style.background = 'transparent' }}
-                          >
-                            <span style={{ color: isSubActive ? item.color : C.muted, display: 'flex', alignItems: 'center' }}>
-                              {sub.icon}
-                            </span>
-                            <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {sub.label}
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+        {/* Section 4: UNTERNEHMEN & EINSTELLUNGEN (Firmendaten & Einstellungen) */}
+        <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
+          {open && (
+            <div style={{ 
+              fontSize: 9.5, 
+              color: C.dim, 
+              fontWeight: 800, 
+              letterSpacing: '0.08em', 
+              padding: '0 8px 6px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 6 
+            }}>
+              <Building2 size={11} color={C.dim} /> KONTO & SYSTEM
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {accountItems.map(item => renderNavButton(item, false, C.muted))}
           </div>
         </div>
       </nav>
 
       {/* Bottom Footer Actions: Theme Toggle & Sidebar Collapse */}
-      <div style={{ padding: '8px 10px', borderTop: `1px solid ${C.border}`, flexShrink: 0, background: C.bg, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {open && (
+      <div style={{ 
+        padding: open ? '10px 12px' : '10px 8px', 
+        borderTop: `1px solid ${C.border}`, 
+        flexShrink: 0, 
+        background: C.bg, 
+        display: 'flex', 
+        flexDirection: 'column', 
+        gap: 8 
+      }}>
+        {/* Theme Switcher Button */}
+        {open ? (
           <button
             onClick={() => setThemeMode && setThemeMode(m => m === 'dark' ? 'light' : 'dark')}
             title="Design-Modus umschalten (Hell / Dunkel)"
             style={{
               width: '100%',
-              padding: '6px 8px',
-              borderRadius: 8,
+              padding: '8px 10px',
+              borderRadius: 9,
               border: `1px solid ${C.border}`,
               background: C.card2,
               color: C.white,
@@ -692,26 +811,61 @@ function Sidebar({ page, setPage, moduleTab, setModuleTab, open, setOpen, t, use
               alignItems: 'center',
               justifyContent: 'space-between',
               fontFamily: 'inherit',
-              fontSize: 11,
-              fontWeight: 700
+              fontSize: 11.5,
+              fontWeight: 700,
+              transition: 'all 0.15s ease'
             }}
+            onMouseEnter={(e) => e.currentTarget.style.borderColor = C.purple}
+            onMouseLeave={(e) => e.currentTarget.style.borderColor = C.border}
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              {themeMode === 'dark' ? <Sun size={14} color="#F59E0B" /> : <Moon size={14} color="#8B5CF6" />}
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {themeMode === 'dark' ? <Sun size={15} color="#F59E0B" /> : <Moon size={15} color="#8B5CF6" />}
               <span>{themeMode === 'dark' ? 'Helles Design' : 'Dunkles Design'}</span>
             </span>
-            <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: `${C.purple}22`, color: C.purple, fontWeight: 800 }}>
+            <span style={{ 
+              fontSize: 9, 
+              padding: '2px 7px', 
+              borderRadius: 5, 
+              background: `${C.purple}25`, 
+              color: C.purple, 
+              fontWeight: 800 
+            }}>
               {(themeMode || 'dark').toUpperCase()}
             </span>
           </button>
+        ) : (
+          <button
+            onClick={() => setThemeMode && setThemeMode(m => m === 'dark' ? 'light' : 'dark')}
+            title={`Design: ${themeMode === 'dark' ? 'Helles Design aktivieren' : 'Dunkles Design aktivieren'}`}
+            style={{
+              width: '100%',
+              height: 38,
+              borderRadius: 9,
+              border: `1px solid ${C.border}`,
+              background: C.card2,
+              color: C.white,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontFamily: 'inherit',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.borderColor = C.purple}
+            onMouseLeave={(e) => e.currentTarget.style.borderColor = C.border}
+          >
+            {themeMode === 'dark' ? <Sun size={16} color="#F59E0B" /> : <Moon size={16} color="#8B5CF6" />}
+          </button>
         )}
 
+        {/* Sidebar Toggle Button */}
         <button
           onClick={() => setOpen(o => !o)}
+          title={open ? "Sidebar einklappen" : "Sidebar ausklappen"}
           style={{
             width: '100%',
-            padding: '7px',
-            borderRadius: 8,
+            padding: '8px',
+            borderRadius: 9,
             border: `1px solid ${C.border}`,
             background: C.card,
             color: C.muted,
@@ -721,8 +875,17 @@ function Sidebar({ page, setPage, moduleTab, setModuleTab, open, setOpen, t, use
             justifyContent: 'center',
             gap: 8,
             fontFamily: 'inherit',
-            fontSize: 11,
-            fontWeight: 700
+            fontSize: 11.5,
+            fontWeight: 700,
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = C.white
+            e.currentTarget.style.borderColor = C.purple
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = C.muted
+            e.currentTarget.style.borderColor = C.border
           }}
         >
           <Menu size={15}/>
@@ -2702,7 +2865,7 @@ function Analytics({ tenantId, locs = [], reels = [] }) {
               <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <XAxis dataKey="day" stroke={C.muted} fontSize={12} tickLine={false} />
                 <YAxis stroke={C.muted} fontSize={12} tickLine={false} />
-                <Tooltip contentStyle={{ background: '#181824', border: `1px solid ${C.purple}`, borderRadius: 8, color: '#fff', fontSize: 12 }} />
+                <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.purple}`, borderRadius: 8, color: C.white, fontSize: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.18)' }} />
                 <Bar dataKey="scans" name="QR Scans" fill={C.purple} radius={[4, 4, 0, 0]} />
                 <Bar dataKey="views" name="Feed Aufrufe" fill={C.pink} radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -2718,7 +2881,7 @@ function Analytics({ tenantId, locs = [], reels = [] }) {
               <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <XAxis dataKey="day" stroke={C.muted} fontSize={12} tickLine={false} />
                 <YAxis stroke={C.muted} fontSize={12} tickLine={false} unit="%" />
-                <Tooltip contentStyle={{ background: '#181824', border: `1px solid ${C.blue}`, borderRadius: 8, color: '#fff', fontSize: 12 }} />
+                <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.blue}`, borderRadius: 8, color: C.white, fontSize: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.18)' }} />
                 <Line type="monotone" dataKey="ctr" name="CTR %" stroke={C.blue} strokeWidth={3} dot={{ fill: C.blue, r: 4 }} />
               </LineChart>
             </ResponsiveContainer>
@@ -2927,18 +3090,41 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Right: Language, domain, user avatar & Logout Button */}
-          <div style={{display:'flex',alignItems:'center',gap:12}}>
+          {/* Right: Theme switcher, Language, domain, user avatar & Logout Button */}
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            {/* Quick Theme Switcher */}
+            <button
+              onClick={() => setThemeMode(m => m === 'dark' ? 'light' : 'dark')}
+              title={`Design-Modus wechseln (${themeMode === 'dark' ? 'Helles Design' : 'Dunkles Design'})`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 34,
+                height: 34,
+                borderRadius: 8,
+                border: `1px solid ${C.border}`,
+                background: C.card2,
+                color: themeMode === 'dark' ? '#F59E0B' : '#8B5CF6',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.borderColor = C.purple}
+              onMouseLeave={(e) => e.currentTarget.style.borderColor = C.border}
+            >
+              {themeMode === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+
             <div style={{display:'flex',background:C.card2,border:`1px solid ${C.border}`,borderRadius:8,padding:2}}>
               {[['de','🇩🇪'],['en','🇬🇧']].map(([l,f])=>(
-                <button key={l} onClick={()=>{setLang(l);localStorage.setItem('scenvy_lang',l)}} style={{padding:'2px 8px',borderRadius:5,border:'none',cursor:'pointer',background:lang===l?C.purple:'transparent',fontSize:14,fontFamily:'inherit'}}>{f}</button>
+                <button key={l} onClick={()=>{setLang(l);localStorage.setItem('scenvy_lang',l)}} style={{padding:'2px 8px',borderRadius:5,border:'none',cursor:'pointer',background:lang===l?C.purple:'transparent',fontSize:13,fontFamily:'inherit'}}>{f}</button>
               ))}
             </div>
             <div style={{fontSize:12,color:C.muted,display:'none',alignItems:'center',gap:4}} className="md:flex">
               app.scenvy.de
             </div>
             <div style={{display:'flex',alignItems:'center',gap:8,padding:'4px 10px',background:C.card2,borderRadius:8,border:`1px solid ${C.border}`}}>
-              <div style={{width:24,height:24,borderRadius:'50%',background:grad(C.purple,C.pink),display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:11}}>
+              <div style={{width:24,height:24,borderRadius:'50%',background:grad(C.purple,C.pink),display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:11,color:'#fff'}}>
                 {(user?.name||user?.email||'?')[0].toUpperCase()}
               </div>
               <span style={{fontSize:12,fontWeight:600,color:C.white}}>{user?.name || user?.email?.split('@')[0]}</span>

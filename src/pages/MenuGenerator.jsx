@@ -64,8 +64,14 @@ export default function MenuGenerator({ embedded = false, initialTab, notify: pr
   const [uploadedImage, setUploadedImage] = useState(null)
   const [venue, setVenue] = useState(tenant?.name || '')
   const [style, setStyle] = useState('fine_dining')
+  const [theme, setTheme] = useState('light')
+  const [backgroundColor, setBackgroundColor] = useState('#FAF9F6')
   const [primaryColor, setPrimaryColor] = useState('#7C3AED')
   const [secondaryColor, setSecondaryColor] = useState('#FF2D8D')
+  const [logoUrl, setLogoUrl] = useState('')
+  const [allergenNotice, setAllergenNotice] = useState('')
+  const [extractedBrandingSummary, setExtractedBrandingSummary] = useState(null)
+  const logoInputRef = useRef(null)
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
@@ -1124,11 +1130,31 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
         if (parsed && parsed.categories?.length) {
           setCurrentMenu(parsed)
           if (parsed.branding) {
-            if (parsed.branding.name) setVenue(parsed.branding.name)
-            if (parsed.branding.phone) setPhone(parsed.branding.phone)
-            if (parsed.branding.address) setAddress(parsed.branding.address)
-            if (parsed.branding.whatsapp) setWhatsapp(parsed.branding.whatsapp)
-            if (parsed.branding.instagram) setInstagram(parsed.branding.instagram)
+            const b = parsed.branding
+            if (b.name) setVenue(b.name)
+            if (b.primaryColor) setPrimaryColor(b.primaryColor)
+            if (b.secondaryColor) setSecondaryColor(b.secondaryColor)
+            if (b.logoUrl) {
+              setLogoUrl(b.logoUrl)
+              setUploadedImage(b.logoUrl)
+            }
+            if (b.style) setStyle(b.style)
+            if (b.allergenNotice) setAllergenNotice(b.allergenNotice)
+            if (b.phone) setPhone(b.phone)
+            if (b.email) setEmail(b.email)
+            if (b.address) setAddress(b.address)
+            if (b.whatsapp) setWhatsapp(b.whatsapp)
+            if (b.instagram) setInstagram(b.instagram)
+
+            setExtractedBrandingSummary({
+              name: b.name,
+              logoUrl: b.logoUrl,
+              primaryColor: b.primaryColor,
+              secondaryColor: b.secondaryColor,
+              style: b.style,
+              allergenNotice: b.allergenNotice,
+              allergenCount: Object.keys(parsed.allergensLegend || {}).length
+            })
           }
         }
       }
@@ -1136,6 +1162,31 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
       console.warn('LocalStorage cache restore error:', err)
     }
   }, [])
+
+  const handleCustomLogoUpload = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const dataUrl = ev.target.result
+      setLogoUrl(dataUrl)
+      setUploadedImage(dataUrl)
+      if (currentMenu) {
+        const updated = {
+          ...currentMenu,
+          branding: {
+            ...(currentMenu.branding || {}),
+            logoUrl: dataUrl
+          }
+        }
+        setCurrentMenu(updated)
+        try { localStorage.setItem('scenvy_cached_menu', JSON.stringify(updated)) } catch (e) {}
+      }
+      setExtractedBrandingSummary(prev => prev ? { ...prev, logoUrl: dataUrl } : { logoUrl: dataUrl, name: venue, primaryColor, secondaryColor })
+      notify(`🖼️ Restaurant-Logo aktualisiert: ${file.name}`)
+    }
+    reader.readAsDataURL(file)
+  }
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0]
@@ -1250,6 +1301,7 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
 </head>
 <body>
   <div class="header">
+    ${data.branding?.logoUrl ? `<img src="${data.branding.logoUrl}" alt="Logo" style="width:64px;height:64px;border-radius:16px;object-fit:cover;margin:0 auto 12px;display:block;border:2px solid ${data.branding?.primaryColor || '#8B5CF6'};" />` : ''}
     <div class="title">${data.branding?.name || 'Speisekarte'}</div>
     <div class="subtitle">${data.branding?.address || 'Digitale Speisekarte von SCENVY'}</div>
   </div>
@@ -1274,6 +1326,14 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
     </div>
     `
   }).join('')}
+  ${data.allergensLegend ? `
+  <div style="margin-top:40px;padding:16px;background:rgba(255,255,255,0.03);border:1px solid #334155;border-radius:12px;">
+    <div style="font-weight:700;font-size:14px;color:#FFF;margin-bottom:8px;">Allergene & Zusatzstoffe</div>
+    ${data.branding?.allergenNotice ? `<div style="font-size:11px;color:#94A3B8;margin-bottom:12px;font-style:italic;">${data.branding.allergenNotice}</div>` : ''}
+    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));gap:6px;font-size:11px;color:#94A3B8;">
+      ${Object.entries(data.allergensLegend).map(([c, val]) => `<div><strong style="color:${data.branding?.primaryColor || '#8B5CF6'}">${c}:</strong> ${typeof val === 'object' ? (val.de || val.en || Object.values(val)[0]) : val}</div>`).join('')}
+    </div>
+  </div>` : ''}
 </body>
 </html>`
 
@@ -1292,11 +1352,11 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
 
     setIsGenerating(true)
     setAiError(null)
-    setGenStep('📄 PDF-Inhalte & Preise werden von KI analysiert...')
+    setGenStep('📄 Alle Speisen & Getränke (inkl. Preise) werden über alle Seiten erfasst...')
 
-    setTimeout(() => setGenStep('🧠 KI-Kategorisierung & Preiserfassung...'), 1200)
+    setTimeout(() => setGenStep('🔍 Allergen-Kennzeichnungen (fettgedruckte Codes & Legende) werden zugeordnet...'), 1200)
     setTimeout(() => setGenStep('🌐 Zweisprachige Übersetzung (DE & EN)...'), 2200)
-    setTimeout(() => setGenStep('🎨 Design & Branding werden angepasst...'), 3200)
+    setTimeout(() => setGenStep('🎨 Hintergrundfarbe & Design (Hell/Dunkel) werden analysiert...'), 3200)
 
     try {
       const res = await fetch('/api/ai/parse-menu', {
@@ -1308,6 +1368,8 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
           fileMimeType: activeMime,
           venue: venue || tenant?.name || '',
           style,
+          theme,
+          backgroundColor,
           primaryColor,
           secondaryColor,
           phone,
@@ -1358,15 +1420,38 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
         notify(`⚠️ ${parsedMenu.warning}`, 8000)
       }
 
-      // Auto-populate branding contact details from AI if detected
+      // Auto-populate branding, design, logo and contact details from document extraction (DOCUMENT PREFERRED)
       if (parsedMenu.branding) {
-        if (!venue && parsedMenu.branding.name && parsedMenu.branding.name !== 'Gourmet Bistro & Bar') setVenue(parsedMenu.branding.name)
-        if (!phone && parsedMenu.branding.phone) setPhone(parsedMenu.branding.phone)
-        if (!address && parsedMenu.branding.address) setAddress(parsedMenu.branding.address)
-        if (!whatsapp && parsedMenu.branding.whatsapp) setWhatsapp(parsedMenu.branding.whatsapp)
-        if (!instagram && parsedMenu.branding.instagram) setInstagram(parsedMenu.branding.instagram)
-        if (parsedMenu.branding.primaryColor && parsedMenu.branding.primaryColor !== '#7C3AED') setPrimaryColor(parsedMenu.branding.primaryColor)
-        if (parsedMenu.branding.secondaryColor && parsedMenu.branding.secondaryColor !== '#FF2D8D') setSecondaryColor(parsedMenu.branding.secondaryColor)
+        const b = parsedMenu.branding
+        if (b.name) setVenue(b.name)
+        if (b.primaryColor) setPrimaryColor(b.primaryColor)
+        if (b.secondaryColor) setSecondaryColor(b.secondaryColor)
+        if (b.style) setStyle(b.style)
+        if (b.theme) setTheme(b.theme)
+        if (b.backgroundColor) setBackgroundColor(b.backgroundColor)
+        if (b.logoUrl) {
+          setLogoUrl(b.logoUrl)
+          setUploadedImage(b.logoUrl)
+        }
+        if (b.allergenNotice) setAllergenNotice(b.allergenNotice)
+        if (b.phone) setPhone(b.phone)
+        if (b.email) setEmail(b.email)
+        if (b.address) setAddress(b.address)
+        if (b.whatsapp) setWhatsapp(b.whatsapp)
+        if (b.instagram) setInstagram(b.instagram)
+
+        const allergenCount = Object.keys(parsedMenu.allergensLegend || {}).length
+        setExtractedBrandingSummary({
+          name: b.name,
+          logoUrl: b.logoUrl,
+          primaryColor: b.primaryColor,
+          secondaryColor: b.secondaryColor,
+          style: b.style,
+          theme: b.theme,
+          backgroundColor: b.backgroundColor,
+          allergenNotice: b.allergenNotice,
+          allergenCount
+        })
       }
 
       // Local storage cache
@@ -1380,7 +1465,7 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
       setIsGenerating(false)
 
       const totalItems = parsedMenu.categories?.reduce((sum, c) => sum + (c.items?.length || 0), 0) || 0
-      notify(`✨ ${totalItems} Gerichte in ${parsedMenu.categories?.length || 0} Kategorien erfolgreich analysiert!`)
+      notify(`✨ Restaurant "${parsedMenu.branding?.name || 'Speisekarte'}", Design & ${totalItems} Gerichte erfolgreich übernommen!`)
 
       // Save to Database
       await saveMenuReel.mutateAsync({
@@ -1424,7 +1509,9 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
         name: venue || rawMenu.branding?.name || 'Digital Menu',
         primaryColor: primaryColor || rawMenu.branding?.primaryColor || '#7C3AED',
         secondaryColor: secondaryColor || rawMenu.branding?.secondaryColor || '#FF2D8D',
+        logoUrl: logoUrl || rawMenu.branding?.logoUrl || '',
         style: style || rawMenu.branding?.style || 'fine_dining',
+        allergenNotice: allergenNotice || rawMenu.branding?.allergenNotice || '',
         phone: phone || rawMenu.branding?.phone || '',
         whatsapp: whatsapp || rawMenu.branding?.whatsapp || '',
         instagram: instagram || rawMenu.branding?.instagram || '',
@@ -1638,7 +1725,124 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
                         )}
                         <input type="file" accept=".txt,.pdf,.docx,.png,.jpg,.jpeg,.webp,image/*" onChange={handleFileUpload} style={{ display: 'none' }} />
                       </label>
+
+                      {/* Prominent Notice: Complete scan of all articles (dishes + drinks) and bold allergen codes */}
+                      <div style={{
+                        marginTop: 10,
+                        padding: '12px 14px',
+                        borderRadius: 10,
+                        background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.12) 0%, rgba(255, 45, 141, 0.08) 100%)',
+                        border: '1px solid rgba(124, 58, 237, 0.3)',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 10,
+                        fontSize: 12,
+                        color: '#EDE9FE',
+                        lineHeight: 1.45
+                      }}>
+                        <Sparkles size={17} color={C.purple} style={{ flexShrink: 0, marginTop: 2 }} />
+                        <div>
+                          <strong style={{ color: '#FFFFFF' }}>Vollständige Erfassung garantiert:</strong> Alle Artikel – sowohl Speisen als auch Getränke – werden über alle Seiten des Dokuments vollständig ausgelesen. Fettgedruckte Allergen-Codes (z. B. <strong>A, C, G</strong>) werden automatisch als klickbare Kennzeichnungen und als vollständige Legende am Ende der Karte angelegt.
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Extracted Branding & Design summary card from Document */}
+                    {(extractedBrandingSummary || (currentMenu && currentMenu.branding?.name)) && (
+                      <div style={{
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        border: `1px solid ${primaryColor}55`,
+                        borderRadius: 14,
+                        padding: '14px 16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 12,
+                        animation: 'fadeIn 0.25s ease'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: C.white, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Sparkles size={14} color={secondaryColor} /> AUS DOKUMENT ÜBERNOMMEN
+                          </div>
+                          <span style={{ fontSize: 9.5, padding: '2px 8px', borderRadius: 6, background: `${primaryColor}25`, color: primaryColor, fontWeight: 800 }}>
+                            DOKUMENT-DATEN AKTIV
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                          {/* Logo Preview & quick change */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            {logoUrl ? (
+                              <img src={logoUrl} alt="Logo" style={{ width: 46, height: 46, borderRadius: 12, objectFit: 'cover', border: `2px solid ${primaryColor}`, background: '#000' }} />
+                            ) : (
+                              <div style={{ width: 46, height: 46, borderRadius: 12, background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, color: '#fff', fontSize: 18 }}>
+                                🍽️
+                              </div>
+                            )}
+                            <div>
+                              <div style={{ fontSize: 10, color: C.muted, fontWeight: 700 }}>RESTAURANT-LOGO</div>
+                              <button
+                                type="button"
+                                onClick={() => logoInputRef.current?.click()}
+                                style={{ background: 'none', border: 'none', color: primaryColor, fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                              >
+                                Logo anpassen
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Restaurant Name */}
+                          <div style={{ flex: 1, minWidth: 150 }}>
+                            <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, marginBottom: 3 }}>RESTAURANT-NAME</div>
+                            <input
+                              value={venue}
+                              onChange={(e) => {
+                                setVenue(e.target.value)
+                                if (currentMenu) {
+                                  const updated = { ...currentMenu, branding: { ...(currentMenu.branding || {}), name: e.target.value } }
+                                  setCurrentMenu(updated)
+                                }
+                              }}
+                              style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '6px 10px', fontSize: 12, color: C.white, fontWeight: 700 }}
+                            />
+                          </div>
+
+                          {/* Colors */}
+                          <div>
+                            <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, marginBottom: 4 }}>DOKUMENT-FARBEN</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', background: C.bg, padding: '4px 6px', borderRadius: 6, border: `1px solid ${C.border}` }}>
+                                <input type="color" value={primaryColor} onChange={(e) => {
+                                  setPrimaryColor(e.target.value)
+                                  if (currentMenu) {
+                                    const updated = { ...currentMenu, branding: { ...(currentMenu.branding || {}), primaryColor: e.target.value } }
+                                    setCurrentMenu(updated)
+                                  }
+                                }} style={{ width: 22, height: 22, borderRadius: 4, border: 'none', cursor: 'pointer', background: 'transparent' }} />
+                                <span style={{ fontSize: 11, fontFamily: 'monospace', color: C.white }}>{primaryColor}</span>
+                              </label>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', background: C.bg, padding: '4px 6px', borderRadius: 6, border: `1px solid ${C.border}` }}>
+                                <input type="color" value={secondaryColor} onChange={(e) => {
+                                  setSecondaryColor(e.target.value)
+                                  if (currentMenu) {
+                                    const updated = { ...currentMenu, branding: { ...(currentMenu.branding || {}), secondaryColor: e.target.value } }
+                                    setCurrentMenu(updated)
+                                  }
+                                }} style={{ width: 22, height: 22, borderRadius: 4, border: 'none', cursor: 'pointer', background: 'transparent' }} />
+                                <span style={{ fontSize: 11, fontFamily: 'monospace', color: C.white }}>{secondaryColor}</span>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Allergen info banner */}
+                        <div style={{ fontSize: 11, color: '#D1D5DB', background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <ShieldAlert size={15} color={secondaryColor} style={{ flexShrink: 0 }} />
+                          <span style={{ lineHeight: 1.4 }}>
+                            <strong>Allergene & Hinweise:</strong> {allergenNotice || 'Allergene & Kennzeichnungen aus Speisekarte ausgelesen.'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
 
                     <div>
                       <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 8 }}>
@@ -1676,26 +1880,121 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
 
                 {/* Tab C: Branding Input */}
                 {inputTab === 'branding' && (
-                  <div style={{ display: 'grid', gap: 14 }}>
+                  <div style={{ display: 'grid', gap: 16 }}>
+                    {/* Hidden Logo Input */}
+                    <input type="file" ref={logoInputRef} accept="image/*" onChange={handleCustomLogoUpload} style={{ display: 'none' }} />
+
+                    {/* Logo Section */}
+                    <div>
+                      <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6 }}>
+                        RESTAURANT-LOGO (AUS DOKUMENT ODER EIGENES BILD)
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: C.bg, padding: 12, borderRadius: 12, border: `1px solid ${C.border}` }}>
+                        {logoUrl ? (
+                          <img src={logoUrl} alt="Logo" style={{ width: 56, height: 56, borderRadius: 14, objectFit: 'cover', border: `2px solid ${primaryColor}`, background: '#000' }} />
+                        ) : (
+                          <div style={{ width: 56, height: 56, borderRadius: 14, background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 900, color: '#fff' }}>
+                            🍽️
+                          </div>
+                        )}
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: C.white, marginBottom: 2 }}>
+                            {logoUrl ? 'Logo aktiv (wird im Menü-Kopf angezeigt)' : 'Noch kein Logo hochgeladen'}
+                          </div>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button
+                              type="button"
+                              onClick={() => logoInputRef.current?.click()}
+                              style={{ padding: '6px 12px', borderRadius: 8, background: C.purple, color: '#fff', border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                            >
+                              <Upload size={12} /> {logoUrl ? 'Logo austauschen' : 'Logo hochladen'}
+                            </button>
+                            {logoUrl && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setLogoUrl('')
+                                  if (currentMenu) {
+                                    const updated = { ...currentMenu, branding: { ...(currentMenu.branding || {}), logoUrl: '' } }
+                                    setCurrentMenu(updated)
+                                  }
+                                  notify('Logo zurückgesetzt.')
+                                }}
+                                style={{ padding: '6px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.06)', color: C.muted, border: `1px solid ${C.border}`, fontSize: 11, cursor: 'pointer' }}
+                              >
+                                Entfernen
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Restaurant Name */}
+                    <div>
+                      <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6 }}>RESTAURANT NAME</label>
+                      <input
+                        value={venue}
+                        onChange={(e) => {
+                          setVenue(e.target.value)
+                          if (currentMenu) {
+                            const updated = { ...currentMenu, branding: { ...(currentMenu.branding || {}), name: e.target.value } }
+                            setCurrentMenu(updated)
+                          }
+                        }}
+                        placeholder="z. B. Ristorante Bellavista"
+                        style={{ width: '100%', padding: 10, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }}
+                      />
+                    </div>
+
+                    {/* Colors */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div>
                         <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6 }}>HAUPTFARBE</label>
-                        <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ width: '100%', height: 40, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'transparent' }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.bg, padding: '4px 8px', borderRadius: 8, border: `1px solid ${C.border}` }}>
+                          <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ width: 34, height: 32, borderRadius: 6, border: 'none', cursor: 'pointer', background: 'transparent' }} />
+                          <input value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ flex: 1, background: 'none', border: 'none', color: C.white, fontSize: 12, fontFamily: 'monospace', outline: 'none' }} />
+                        </div>
                       </div>
                       <div>
                         <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6 }}>AKZENTFARBE</label>
-                        <input type="color" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} style={{ width: '100%', height: 40, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'transparent' }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.bg, padding: '4px 8px', borderRadius: 8, border: `1px solid ${C.border}` }}>
+                          <input type="color" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} style={{ width: 34, height: 32, borderRadius: 6, border: 'none', cursor: 'pointer', background: 'transparent' }} />
+                          <input value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} style={{ flex: 1, background: 'none', border: 'none', color: C.white, fontSize: 12, fontFamily: 'monospace', outline: 'none' }} />
+                        </div>
                       </div>
                     </div>
 
+                    {/* Allergen Notice */}
                     <div>
-                      <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6 }}>TELEFON</label>
-                      <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+49 30 1234567" style={{ width: '100%', padding: 10, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} />
+                      <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6 }}>
+                        ALLERGEN-HINWEIS & DISCLAIMER (FÜR GÄSTE)
+                      </label>
+                      <textarea
+                        value={allergenNotice}
+                        onChange={(e) => {
+                          setAllergenNotice(e.target.value)
+                          if (currentMenu) {
+                            const updated = { ...currentMenu, branding: { ...(currentMenu.branding || {}), allergenNotice: e.target.value } }
+                            setCurrentMenu(updated)
+                          }
+                        }}
+                        placeholder="z. B. Liebe Gäste, bei Fragen zu Allergenen und Zusatzstoffen berät Sie gerne unser Servicepersonal..."
+                        rows={3}
+                        style={{ width: '100%', padding: 10, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 12, outline: 'none', resize: 'vertical' }}
+                      />
                     </div>
 
-                    <div>
-                      <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6 }}>WHATSAPP NUMBER</label>
-                      <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="+491701234567" style={{ width: '100%', padding: 10, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} />
+                    {/* Contact fields */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6 }}>TELEFON</label>
+                        <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+49 30 1234567" style={{ width: '100%', padding: 10, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6 }}>WHATSAPP NUMBER</label>
+                        <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="+491701234567" style={{ width: '100%', padding: 10, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} />
+                      </div>
                     </div>
 
                     <div>
@@ -2393,6 +2692,28 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
                 <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 16, color: C.white }}>Restaurant Profil & Farben</div>
                 <div style={{ display: 'grid', gap: 16 }}>
                   <div>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6 }}>RESTAURANT-LOGO</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: C.bg, padding: 12, borderRadius: 10, border: `1px solid ${C.border}` }}>
+                      {logoUrl ? (
+                        <img src={logoUrl} alt="Logo" style={{ width: 52, height: 52, borderRadius: 12, objectFit: 'cover', border: `2px solid ${primaryColor}`, background: '#000' }} />
+                      ) : (
+                        <div style={{ width: 52, height: 52, borderRadius: 12, background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 900, color: '#fff' }}>
+                          🍽️
+                        </div>
+                      )}
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => logoInputRef.current?.click()}
+                          style={{ padding: '6px 12px', borderRadius: 8, background: C.purple, color: '#fff', border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                        >
+                          <Upload size={13} /> {logoUrl ? 'Logo ändern' : 'Logo hochladen'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
                     <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6 }}>RESTAURANT NAME</label>
                     <input value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="Mein Restaurant" style={{ width: '100%', padding: 10, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} />
                   </div>
@@ -2414,10 +2735,76 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
                   </div>
 
                   <div>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6 }}>HINTERGRUND-THEME & FARBE (DIGITAL-MENÜ)</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12 }}>
+                      <select 
+                        value={theme} 
+                        onChange={(e) => {
+                          const val = e.target.value
+                          setTheme(val)
+                          if (val === 'light' && (backgroundColor === '#09090E' || !backgroundColor)) {
+                            setBackgroundColor('#FAF9F6')
+                          } else if (val === 'dark' && (backgroundColor === '#FAF9F6' || !backgroundColor)) {
+                            setBackgroundColor('#09090E')
+                          }
+                          if (currentMenu) {
+                            setCurrentMenu({
+                              ...currentMenu,
+                              branding: {
+                                ...(currentMenu.branding || {}),
+                                theme: val,
+                                backgroundColor: val === 'light' ? '#FAF9F6' : '#09090E'
+                              }
+                            })
+                          }
+                        }} 
+                        style={{ width: '100%', padding: 10, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }}
+                      >
+                        <option value="light">☀️ Hell (Originaler heller Hintergrund)</option>
+                        <option value="dark">🌙 Dunkel (Eleganter Dark Mode)</option>
+                      </select>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input 
+                          type="color" 
+                          value={backgroundColor.startsWith('#') ? backgroundColor : (theme === 'light' ? '#FAF9F6' : '#09090E')} 
+                          onChange={(e) => {
+                            setBackgroundColor(e.target.value)
+                            if (currentMenu) {
+                              setCurrentMenu({
+                                ...currentMenu,
+                                branding: { ...(currentMenu.branding || {}), backgroundColor: e.target.value }
+                              })
+                            }
+                          }} 
+                          style={{ width: 44, height: 38, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'transparent' }} 
+                        />
+                        <input 
+                          value={backgroundColor} 
+                          onChange={(e) => {
+                            setBackgroundColor(e.target.value)
+                            if (currentMenu) {
+                              setCurrentMenu({
+                                ...currentMenu,
+                                branding: { ...(currentMenu.branding || {}), backgroundColor: e.target.value }
+                              })
+                            }
+                          }} 
+                          placeholder="#FAF9F6"
+                          style={{ flex: 1, padding: 8, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 12, fontFamily: 'monospace' }} 
+                        />
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
+                      {theme === 'light' ? '💡 Heller Hintergrund aktiv: Das Menü bleibt auch digital hell, passend zur hellen Originalkarte.' : '🌙 Dunkler Hintergrund aktiv.'}
+                    </div>
+                  </div>
+
+                  <div>
                     <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6 }}>STIL / DESIGN THEME</label>
                     <select value={style} onChange={(e) => setStyle(e.target.value)} style={{ width: '100%', padding: 10, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }}>
-                      <option value="fine_dining">🍷 Fine Dining & Elegance (Dunkel & Gold)</option>
-                      <option value="street_food">🍔 Street Food & Fast Casual (Aktiv & Bunt)</option>
+                      <option value="fine_dining">🍷 Fine Dining & Elegance</option>
+                      <option value="street_food">🍔 Street Food & Fast Casual</option>
                       <option value="cafe">☕ Café & Bakery (Warm & Hell)</option>
                       <option value="trattoria">🍕 Trattoria & Pizzeria (Klassisch)</option>
                     </select>
@@ -2434,8 +2821,32 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
                     </div>
                   </div>
 
-                  <button onClick={() => notify('✅ Branding-Einstellungen gespeichert!')} style={{ padding: '12px 20px', borderRadius: 10, background: C.purple, color: C.white, border: 'none', fontWeight: 700, cursor: 'pointer', marginTop: 10 }}>
-                    Branding Einstellungen Speichern
+                  <button 
+                    onClick={() => {
+                      if (currentMenu) {
+                        const updated = {
+                          ...currentMenu,
+                          branding: {
+                            ...(currentMenu.branding || {}),
+                            name: venue,
+                            theme,
+                            backgroundColor,
+                            primaryColor,
+                            secondaryColor,
+                            style,
+                            logoUrl,
+                            phone,
+                            instagram,
+                            address
+                          }
+                        }
+                        setCurrentMenu(updated)
+                      }
+                      notify('✅ Branding- & Hintergrund-Einstellungen gespeichert!')
+                    }} 
+                    style={{ padding: '12px 20px', borderRadius: 10, background: C.purple, color: C.white, border: 'none', fontWeight: 700, cursor: 'pointer', marginTop: 10 }}
+                  >
+                    Branding & Theme Einstellungen Speichern
                   </button>
                 </div>
               </div>
@@ -2443,8 +2854,19 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
               <div style={{ background: C.card, borderRadius: 18, border: `1px solid ${C.border}`, padding: 24 }}>
                 <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 16, color: C.white }}>Vorschau Design Theme</div>
                 <div style={{ background: '#090D16', borderRadius: 16, padding: 20, border: `2px solid ${primaryColor}` }}>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: primaryColor, marginBottom: 4 }}>{venue || 'Dein Restaurant'}</div>
-                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>{address || 'Musterstraße 1, Berlin'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                    {logoUrl ? (
+                      <img src={logoUrl} alt="Logo" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', border: `2px solid ${primaryColor}` }} />
+                    ) : (
+                      <div style={{ width: 44, height: 44, borderRadius: 10, background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 900, color: '#fff' }}>
+                        🍽️
+                      </div>
+                    )}
+                    <div>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: primaryColor }}>{venue || 'Dein Restaurant'}</div>
+                      <div style={{ fontSize: 12, color: C.muted }}>{address || 'Musterstraße 1, Berlin'}</div>
+                    </div>
+                  </div>
                   <div style={{ height: 2, background: secondaryColor, width: '40%', marginBottom: 16 }} />
                   <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 8 }}>Vorspeisen</div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.white, borderBottom: '1px dashed #334155', paddingBottom: 6 }}>

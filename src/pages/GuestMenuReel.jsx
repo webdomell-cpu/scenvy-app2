@@ -82,6 +82,7 @@ export default function GuestMenuReel({ initialMenu, isPreview = false, onSaveMe
   const [callType, setCallType] = useState('waiter') // 'waiter' | 'bill'
   const [orderSentSuccess, setOrderSentSuccess] = useState(false)
   const [callSentSuccess, setCallSentSuccess] = useState(false)
+  const [activeDetailItem, setActiveDetailItem] = useState(null)
 
   const submitOrder = useSubmitOrder()
   const submitServiceCall = useSubmitServiceCall()
@@ -99,6 +100,28 @@ export default function GuestMenuReel({ initialMenu, isPreview = false, onSaveMe
   const allergensLegend = menu?.allergensLegend || {}
   const primaryColor = branding.primaryColor || '#7C3AED'
   const secondaryColor = branding.secondaryColor || '#FF2D8D'
+
+  const [colorTheme, setColorTheme] = useState(() => (branding.theme === 'dark' ? 'dark' : 'light'))
+
+  useEffect(() => {
+    if (branding.theme) {
+      setColorTheme(branding.theme)
+    }
+  }, [branding.theme])
+
+  const isLight = colorTheme === 'light'
+  const currentBg = branding.backgroundColor || (isLight ? '#FAF9F6' : '#09090E')
+  const currentText = isLight ? '#18181B' : '#ECECF1'
+  const currentHeading = isLight ? '#0F172A' : '#FFFFFF'
+  const currentCardBg = isLight ? '#FFFFFF' : 'rgba(255,255,255,0.03)'
+  const currentCardBorder = isLight ? '1px solid #E2E8F0' : '1px solid rgba(255,255,255,0.07)'
+  const currentShadow = isLight ? '0 4px 14px rgba(0,0,0,0.05)' : 'none'
+  const currentSubText = isLight ? '#64748B' : '#A1A1AA'
+  const currentNavBg = isLight ? 'rgba(250, 249, 246, 0.94)' : 'rgba(9, 9, 14, 0.94)'
+  const currentNavBorder = isLight ? '#E2E8F0' : 'rgba(255,255,255,0.08)'
+  const currentHeaderBg = isLight
+    ? `linear-gradient(180deg, ${primaryColor}16 0%, ${currentBg} 100%)`
+    : `linear-gradient(180deg, ${primaryColor}22 0%, #09090E 100%)`
 
   const downloadSingleHtml = () => {
     notify('📄 Generiere autarke HTML Datei...')
@@ -365,7 +388,7 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
   const publicUrl = `${window.location.origin}/m/${menu.id || menuId || 'demo'}`
 
   return (
-    <div style={{ minHeight: '100vh', background: '#09090E', color: '#ECECF1', fontFamily: "'Inter', system-ui, sans-serif", paddingBottom: 100 }}>
+    <div style={{ minHeight: '100vh', background: currentBg, color: currentText, fontFamily: "'Inter', system-ui, sans-serif", paddingBottom: 100, transition: 'background-color 0.3s ease, color 0.3s ease' }}>
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -374,19 +397,19 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
 
       {/* Editor Bar if preview or inline editor mode enabled */}
       {(isPreview || onSaveMenu) && (
-        <div style={{ position: 'sticky', top: 0, zIndex: 1000, background: 'rgba(13,13,20,0.95)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.1)', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ position: 'sticky', top: 0, zIndex: 1000, background: isLight ? 'rgba(255,255,255,0.96)' : 'rgba(13,13,20,0.95)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${isLight ? '#E2E8F0' : 'rgba(255,255,255,0.1)'}`, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 800, padding: '4px 8px', borderRadius: 6, background: `${primaryColor}33`, color: primaryColor, border: `1px solid ${primaryColor}66` }}>
+            <span style={{ fontSize: 11, fontWeight: 800, padding: '4px 8px', borderRadius: 6, background: `${primaryColor}22`, color: primaryColor, border: `1px solid ${primaryColor}55` }}>
               AI MENU REEL & DIGITAL WEB
             </span>
-            <span style={{ fontSize: 13, fontWeight: 700 }}>{branding.name}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: currentHeading }}>{branding.name}</span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             {onSaveMenu && (
               <button 
                 onClick={() => {
-                  onSaveMenu(menu)
+                  onSaveMenu({ ...menu, branding: { ...menu?.branding, theme: colorTheme } })
                   notify('💾 Speisekarte erfolgreich gespeichert!')
                 }} 
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg, #10B981, #059669)', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 800, boxShadow: '0 4px 12px rgba(16,185,129,0.4)' }}
@@ -395,15 +418,15 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
               </button>
             )}
 
-            <button onClick={() => setEditorMode(!editorMode)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: `1px solid ${editorMode ? primaryColor : 'rgba(255,255,255,0.2)'}`, background: editorMode ? primaryColor : 'transparent', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+            <button onClick={() => setEditorMode(!editorMode)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: `1px solid ${editorMode ? primaryColor : (isLight ? '#CBD5E1' : 'rgba(255,255,255,0.2)')}`, background: editorMode ? primaryColor : (isLight ? '#F8FAFC' : 'transparent'), color: editorMode ? '#fff' : currentText, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
               <Edit3 size={14} /> {editorMode ? 'WYSIWYG Beenden' : 'WYSIWYG Editor'}
             </button>
 
-            <button onClick={() => setShowQrModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+            <button onClick={() => setShowQrModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: `1px solid ${isLight ? '#CBD5E1' : 'rgba(255,255,255,0.2)'}`, background: isLight ? '#F8FAFC' : 'transparent', color: currentText, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
               <QrCode size={14} /> Dual QR & Links
             </button>
 
-            <button onClick={downloadSingleHtml} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: `1px solid ${secondaryColor}`, background: `${secondaryColor}22`, color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+            <button onClick={downloadSingleHtml} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: `1px solid ${secondaryColor}`, background: `${secondaryColor}18`, color: secondaryColor, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
               <Download size={14} /> Standalone HTML
             </button>
 
@@ -415,43 +438,54 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
       )}
 
       {/* Header Branding Banner */}
-      <div style={{ position: 'relative', overflow: 'hidden', padding: '36px 20px 24px', background: `linear-gradient(180deg, ${primaryColor}22 0%, #09090E 100%)`, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+      <div style={{ position: 'relative', overflow: 'hidden', padding: '36px 20px 24px', background: currentHeaderBg, borderBottom: `1px solid ${currentNavBorder}` }}>
         <div style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center', position: 'relative', zIndex: 2 }}>
-          {/* Top Row: Language & Back */}
+          {/* Top Row: Language & Theme Switcher */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             {isPreview ? (
-              <span style={{ fontSize: 11, color: '#A1A1AA', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 11, color: currentSubText, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Sparkles size={13} color={primaryColor} /> Dynamic Preview
               </span>
             ) : (
-              <span style={{ fontSize: 11, color: '#A1A1AA' }}>scenvy Digital Menu</span>
+              <span style={{ fontSize: 11, color: currentSubText }}>scenvy Digital Menu</span>
             )}
 
-            {/* Language Switcher */}
-            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.08)', borderRadius: 20, padding: 3, border: '1px solid rgba(255,255,255,0.1)' }}>
-              <button onClick={() => setLang('de')} style={{ padding: '4px 10px', borderRadius: 16, border: 'none', background: lang === 'de' ? primaryColor : 'transparent', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                🇩🇪 DE
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {/* Theme Switcher Button (☀️ Hell / 🌙 Dunkel) */}
+              <button 
+                onClick={() => setColorTheme(isLight ? 'dark' : 'light')} 
+                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 16, border: `1px solid ${isLight ? '#CBD5E1' : 'rgba(255,255,255,0.15)'}`, background: isLight ? '#FFFFFF' : 'rgba(255,255,255,0.08)', color: currentText, fontSize: 11, fontWeight: 800, cursor: 'pointer' }}
+                title={isLight ? 'Zu Dunkelmodus wechseln' : 'Zu Hellmodus wechseln'}
+              >
+                {isLight ? '☀️ Hell' : '🌙 Dunkel'}
               </button>
-              <button onClick={() => setLang('en')} style={{ padding: '4px 10px', borderRadius: 16, border: 'none', background: lang === 'en' ? primaryColor : 'transparent', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                🇬🇧 EN
-              </button>
+
+              {/* Language Switcher */}
+              <div style={{ display: 'flex', background: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)', borderRadius: 20, padding: 3, border: `1px solid ${isLight ? '#E2E8F0' : 'rgba(255,255,255,0.1)'}` }}>
+                <button onClick={() => setLang('de')} style={{ padding: '4px 10px', borderRadius: 16, border: 'none', background: lang === 'de' ? primaryColor : 'transparent', color: lang === 'de' ? '#fff' : currentSubText, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                  🇩🇪 DE
+                </button>
+                <button onClick={() => setLang('en')} style={{ padding: '4px 10px', borderRadius: 16, border: 'none', background: lang === 'en' ? primaryColor : 'transparent', color: lang === 'en' ? '#fff' : currentSubText, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                  🇬🇧 EN
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Logo or Icon */}
           {branding.logoUrl ? (
-            <img src={branding.logoUrl} alt={branding.name} style={{ width: 72, height: 72, borderRadius: 20, objectFit: 'cover', margin: '0 auto 14px', border: `2px solid ${primaryColor}` }} />
+            <img src={branding.logoUrl} alt={branding.name} style={{ width: 72, height: 72, borderRadius: 20, objectFit: 'cover', margin: '0 auto 14px', border: `2px solid ${primaryColor}`, background: isLight ? '#FFF' : '#000', boxShadow: currentShadow }} />
           ) : (
-            <div style={{ width: 64, height: 64, borderRadius: 18, background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: 28, fontWeight: 900, boxShadow: `0 10px 30px ${primaryColor}44` }}>
+            <div style={{ width: 64, height: 64, borderRadius: 18, background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: 28, fontWeight: 900, boxShadow: `0 10px 30px ${primaryColor}44`, color: '#FFF' }}>
               🍽️
             </div>
           )}
 
-          <h1 style={{ fontSize: 26, fontWeight: 900, margin: '0 0 6px', letterSpacing: -0.5, color: '#FFF' }}>
+          <h1 style={{ fontSize: 26, fontWeight: 900, margin: '0 0 6px', letterSpacing: -0.5, color: currentHeading }}>
             {branding.name || 'Gourmet Restaurant'}
           </h1>
           {branding.address && (
-            <div style={{ fontSize: 12, color: '#A1A1AA', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 8 }}>
+            <div style={{ fontSize: 12, color: currentSubText, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 8 }}>
               <MapPin size={13} color={secondaryColor} /> {branding.address}
               {locationData?.googleMapsUrl && (
                 <a href={locationData.googleMapsUrl} target="_blank" rel="noreferrer" style={{ color: primaryColor, textDecoration: 'none', fontWeight: 700, marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
@@ -607,12 +641,12 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
       </div>
 
       {/* Sticky Category Bar */}
-      <div className="hide-scrollbar" style={{ position: 'sticky', top: 0, zIndex: 900, background: 'rgba(9,9,14,0.92)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '12px 16px', overflowX: 'auto', display: 'flex', gap: 8 }}>
+      <div className="hide-scrollbar" style={{ position: 'sticky', top: 0, zIndex: 900, background: currentNavBg, backdropFilter: 'blur(16px)', borderBottom: `1px solid ${currentNavBorder}`, padding: '12px 16px', overflowX: 'auto', display: 'flex', gap: 8 }}>
         {categories.map((cat) => {
           const catName = typeof cat.name === 'object' ? cat.name[lang] || cat.name.de : cat.name
           const isActive = activeCat === cat.id
           return (
-            <button key={cat.id} onClick={() => scrollToCat(cat.id)} style={{ flexShrink: 0, padding: '8px 16px', borderRadius: 24, border: `1px solid ${isActive ? primaryColor : 'rgba(255,255,255,0.1)'}`, background: isActive ? primaryColor : 'rgba(255,255,255,0.04)', color: isActive ? '#FFF' : '#A1A1AA', fontSize: 13, fontWeight: isActive ? 800 : 500, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button key={cat.id} onClick={() => scrollToCat(cat.id)} style={{ flexShrink: 0, padding: '8px 16px', borderRadius: 24, border: `1px solid ${isActive ? primaryColor : (isLight ? '#CBD5E1' : 'rgba(255,255,255,0.1)')}`, background: isActive ? primaryColor : (isLight ? '#F1F5F9' : 'rgba(255,255,255,0.04)'), color: isActive ? '#FFF' : currentSubText, fontSize: 13, fontWeight: isActive ? 800 : 600, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 6, boxShadow: isActive ? `0 4px 12px ${primaryColor}33` : 'none' }}>
               <span>{cat.icon || '🍴'}</span>
               <span>{catName}</span>
               <span style={{ fontSize: 10, opacity: 0.6 }}>({cat.items?.length || 0})</span>
@@ -632,9 +666,9 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 22 }}>{cat.icon || '🍴'}</span>
                   {editorMode ? (
-                    <input value={catName} onChange={(e) => updateCategoryName(catIdx, e.target.value)} style={{ fontSize: 20, fontWeight: 800, background: 'rgba(255,255,255,0.1)', border: `1px solid ${primaryColor}`, color: '#FFF', borderRadius: 8, padding: '4px 8px', outline: 'none' }} />
+                    <input value={catName} onChange={(e) => updateCategoryName(catIdx, e.target.value)} style={{ fontSize: 20, fontWeight: 800, background: isLight ? '#F1F5F9' : 'rgba(255,255,255,0.1)', border: `1px solid ${primaryColor}`, color: currentHeading, borderRadius: 8, padding: '4px 8px', outline: 'none' }} />
                   ) : (
-                    <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: '#FFF' }}>{catName}</h2>
+                    <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: currentHeading }}>{catName}</h2>
                   )}
                 </div>
 
@@ -652,7 +686,23 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
                   const itemDesc = typeof item.description === 'object' ? (item.description[lang] || item.description.de || item.description.en || Object.values(item.description)[0]) : (item.description || '')
 
                   return (
-                    <div key={item.id || itemIdx} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 16, border: item.highlight ? `1px solid ${primaryColor}88` : '1px solid rgba(255,255,255,0.07)', padding: 16, display: 'flex', gap: 14, position: 'relative', overflow: 'hidden', transition: 'all 0.2s', boxShadow: item.highlight ? `0 4px 20px ${primaryColor}15` : 'none' }}>
+                    <div 
+                      key={item.id || itemIdx} 
+                      onClick={() => !editorMode && setActiveDetailItem(item)}
+                      style={{ 
+                        background: currentCardBg, 
+                        borderRadius: 16, 
+                        border: item.highlight ? `1.5px solid ${primaryColor}99` : currentCardBorder, 
+                        padding: 16, 
+                        display: 'flex', 
+                        gap: 14, 
+                        position: 'relative', 
+                        overflow: 'hidden', 
+                        transition: 'all 0.2s ease', 
+                        boxShadow: item.highlight ? `0 4px 20px ${primaryColor}18` : currentShadow,
+                        cursor: editorMode ? 'default' : 'pointer'
+                      }}
+                    >
                       {/* Highlight Ribbon */}
                       {item.highlight && (
                         <div style={{ position: 'absolute', top: 0, right: 0, background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`, color: '#FFF', fontSize: 9, fontWeight: 800, padding: '3px 10px 3px 8px', borderRadius: '0 16px 0 10px', letterSpacing: 0.5, textTransform: 'uppercase' }}>
@@ -662,7 +712,7 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
 
                       {/* Cover Image */}
                       {item.imageUrl && (
-                        <div style={{ width: 90, height: 90, borderRadius: 12, flexShrink: 0, overflow: 'hidden', position: 'relative' }}>
+                        <div style={{ width: 92, height: 92, borderRadius: 12, flexShrink: 0, overflow: 'hidden', position: 'relative', background: isLight ? '#F1F5F9' : '#000' }}>
                           <img 
                             src={item.imageUrl} 
                             alt={itemName} 
@@ -677,22 +727,22 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
                         <div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, paddingRight: item.highlight ? 60 : 0 }}>
                             {editorMode ? (
-                              <input value={itemName} onChange={(e) => updateItemField(catIdx, itemIdx, 'name', e.target.value)} style={{ fontSize: 15, fontWeight: 700, background: 'rgba(255,255,255,0.1)', border: `1px solid ${primaryColor}`, color: '#FFF', borderRadius: 6, padding: '2px 6px', width: '100%' }} />
+                              <input value={itemName} onClick={(e) => e.stopPropagation()} onChange={(e) => updateItemField(catIdx, itemIdx, 'name', e.target.value)} style={{ fontSize: 15, fontWeight: 700, background: isLight ? '#F8FAFC' : 'rgba(255,255,255,0.1)', border: `1px solid ${primaryColor}`, color: currentHeading, borderRadius: 6, padding: '2px 6px', width: '100%' }} />
                             ) : (
-                              <div style={{ fontSize: 15, fontWeight: 700, color: '#FFF' }}>{itemName}</div>
+                              <div style={{ fontSize: 15.5, fontWeight: 800, color: currentHeading }}>{itemName}</div>
                             )}
 
                             {!editorMode && (
-                              <div style={{ fontSize: 15, fontWeight: 800, color: secondaryColor, whiteSpace: 'nowrap' }}>
+                              <div style={{ fontSize: 15, fontWeight: 900, color: secondaryColor, whiteSpace: 'nowrap' }}>
                                 {item.price}
                               </div>
                             )}
                           </div>
 
                           {editorMode ? (
-                            <textarea value={itemDesc} onChange={(e) => updateItemField(catIdx, itemIdx, 'description', e.target.value)} rows={2} style={{ fontSize: 12, background: 'rgba(255,255,255,0.1)', border: `1px solid ${primaryColor}`, color: '#FFF', borderRadius: 6, padding: '4px 6px', width: '100%', marginTop: 6, outline: 'none' }} />
+                            <textarea value={itemDesc} onClick={(e) => e.stopPropagation()} onChange={(e) => updateItemField(catIdx, itemIdx, 'description', e.target.value)} rows={2} style={{ fontSize: 12, background: isLight ? '#F8FAFC' : 'rgba(255,255,255,0.1)', border: `1px solid ${primaryColor}`, color: currentText, borderRadius: 6, padding: '4px 6px', width: '100%', marginTop: 6, outline: 'none' }} />
                           ) : (
-                            <div style={{ fontSize: 12, color: '#A1A1AA', marginTop: 4, lineHeight: 1.4 }}>
+                            <div style={{ fontSize: 12.5, color: currentSubText, marginTop: 4, lineHeight: 1.45 }}>
                               {itemDesc}
                             </div>
                           )}
@@ -700,9 +750,9 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
 
                         {/* Price editor field */}
                         {editorMode && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                            <span style={{ fontSize: 11, color: '#A1A1AA' }}>Preis:</span>
-                            <input value={item.price} onChange={(e) => updateItemField(catIdx, itemIdx, 'price', e.target.value)} style={{ fontSize: 13, fontWeight: 700, background: 'rgba(255,255,255,0.1)', border: `1px solid ${secondaryColor}`, color: secondaryColor, borderRadius: 6, padding: '2px 6px', width: 90 }} />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }} onClick={(e) => e.stopPropagation()}>
+                            <span style={{ fontSize: 11, color: currentSubText }}>Preis:</span>
+                            <input value={item.price} onChange={(e) => updateItemField(catIdx, itemIdx, 'price', e.target.value)} style={{ fontSize: 13, fontWeight: 700, background: isLight ? '#F8FAFC' : 'rgba(255,255,255,0.1)', border: `1px solid ${secondaryColor}`, color: secondaryColor, borderRadius: 6, padding: '2px 6px', width: 90 }} />
                           </div>
                         )}
 
@@ -712,7 +762,7 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
                             {item.variants.map((v, vIdx) => {
                               const vName = typeof v.name === 'object' ? v.name[lang] || v.name.de : v.name
                               return (
-                                <span key={vIdx} style={{ fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#D4D4D8' }}>
+                                <span key={vIdx} style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 8, background: isLight ? '#F1F5F9' : 'rgba(255,255,255,0.06)', border: `1px solid ${isLight ? '#E2E8F0' : 'rgba(255,255,255,0.1)'}`, color: currentText }}>
                                   {vName}: <strong style={{ color: secondaryColor }}>{v.price}</strong>
                                 </span>
                               )
@@ -720,29 +770,57 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
                           </div>
                         )}
 
-                        {/* Badges: Diet & Allergens */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                        {/* Badges: Diet & Bold Allergens */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
                           {item.diet?.map((d) => (
-                            <span key={d} style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 12, background: d === 'vegan' ? '#10B98122' : '#F59E0B22', color: d === 'vegan' ? '#10B981' : '#F59E0B', border: `1px solid ${d === 'vegan' ? '#10B98144' : '#F59E0B44'}` }}>
+                            <span key={d} style={{ fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 12, background: d === 'vegan' ? '#10B98122' : '#F59E0B22', color: d === 'vegan' ? '#10B981' : '#F59E0B', border: `1px solid ${d === 'vegan' ? '#10B98144' : '#F59E0B44'}` }}>
                               {d === 'vegan' ? '🌱 Vegan' : d === 'vegetarian' ? '🧀 Veggie' : d === 'glutenfree' ? '🌾 Glutenfrei' : '🌙 Halal'}
                             </span>
                           ))}
 
+                          {/* Bold Allergen Code Badges (A, G, etc.) */}
                           {item.allergens?.map((a) => (
-                            <button key={a} onClick={() => setSelectedAllergen(a)} style={{ fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: 'rgba(255,255,255,0.1)', color: '#A1A1AA', border: 'none', cursor: 'pointer' }} title="Allergen Info">
-                              {a}
+                            <button 
+                              key={a} 
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setSelectedAllergen(a)
+                              }} 
+                              style={{ 
+                                fontSize: 10, 
+                                fontWeight: 900, 
+                                padding: '2px 7px', 
+                                borderRadius: 6, 
+                                background: isLight ? '#F1F5F9' : 'rgba(255,255,255,0.12)', 
+                                color: primaryColor, 
+                                border: `1px solid ${isLight ? '#CBD5E1' : 'rgba(255,255,255,0.2)'}`, 
+                                cursor: 'pointer',
+                                letterSpacing: '0.5px'
+                              }} 
+                              title={`Allergen ${a}: ${allergensLegend[a]?.[lang] || allergensLegend[a]?.de || ''} (Klicken für Details)`}
+                            >
+                              <strong>{a}</strong>
                             </button>
                           ))}
+
+                          {!editorMode && (
+                            <span style={{ fontSize: 10.5, color: primaryColor, fontWeight: 700, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 2 }}>
+                              Details & Allergene ›
+                            </span>
+                          )}
                         </div>
 
                         {!editorMode && (
                           <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
                             <button
-                              onClick={() => addToCart(item)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                addToCart(item)
+                              }}
                               style={{
                                 padding: '6px 14px',
                                 borderRadius: 10,
-                                background: 'linear-gradient(135deg, #7C3AED 0%, #C026D3 100%)',
+                                background: `linear-gradient(135deg, ${primaryColor} 0%, #C026D3 100%)`,
                                 color: '#FFF',
                                 border: 'none',
                                 fontSize: 12,
@@ -751,7 +829,7 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: 6,
-                                boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)'
+                                boxShadow: `0 4px 12px ${primaryColor}33`
                               }}
                             >
                               <Plus size={14} /> {lang === 'de' ? 'Hinzufügen' : 'Add to Order'}
@@ -760,7 +838,7 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
                         )}
 
                         {editorMode && (
-                          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }} onClick={(e) => e.stopPropagation()}>
                             <button onClick={() => deleteItemFromCategory(catIdx, itemIdx)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 6, background: '#EF444422', border: '1px solid #EF444444', color: '#EF4444', fontSize: 11, cursor: 'pointer' }}>
                               <Trash2 size={12} /> Löschen
                             </button>
@@ -775,17 +853,29 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
           )
         })}
 
-        {/* Allergen Legend at Bottom */}
-        <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', padding: 20, marginTop: 40 }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: '#FFF', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <ShieldAlert size={16} color={secondaryColor} /> {lang === 'de' ? 'Allergene & Zusatzstoffe' : 'Allergens & Additives'}
+        {/* Allergen Legend at Bottom of One-Page Menu */}
+        <div style={{ background: currentCardBg, borderRadius: 18, border: currentCardBorder, padding: 22, marginTop: 40, boxShadow: currentShadow }}>
+          <div style={{ fontSize: 15, fontWeight: 900, color: currentHeading, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ShieldAlert size={18} color={secondaryColor} />
+            <span>{lang === 'de' ? 'Allergene & Zusatzstoffe (Vollständige Legende)' : 'Allergens & Additives (Full Legend)'}</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
+          {(branding.allergenNotice || menu?.allergenNotice) && (
+            <div style={{ fontSize: 12, color: isLight ? '#334155' : '#D4D4D8', marginBottom: 16, fontStyle: 'italic', background: isLight ? '#F8FAFC' : 'rgba(255,255,255,0.04)', padding: '12px 16px', borderRadius: 12, borderLeft: `4px solid ${secondaryColor}`, lineHeight: 1.5 }}>
+              💬 {branding.allergenNotice || menu?.allergenNotice}
+            </div>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 10 }}>
             {Object.entries(allergensLegend).map(([code, dict]) => {
-              const label = typeof dict === 'object' ? dict[lang] || dict.de : dict
+              const label = typeof dict === 'object' ? dict[lang] || dict.de || dict.en : dict
               return (
-                <div key={code} style={{ fontSize: 11, color: '#A1A1AA', display: 'flex', gap: 6 }}>
-                  <strong style={{ color: primaryColor, minWidth: 16 }}>{code}:</strong> <span>{label}</span>
+                <div 
+                  key={code} 
+                  onClick={() => setSelectedAllergen(code)}
+                  style={{ fontSize: 11.5, color: currentSubText, display: 'flex', gap: 8, alignItems: 'flex-start', padding: '6px 8px', borderRadius: 8, cursor: 'pointer', background: isLight ? '#F8FAFC' : 'rgba(255,255,255,0.02)', border: `1px solid ${isLight ? '#F1F5F9' : 'transparent'}` }}
+                  title="Klicken für Allergen-Pop-up"
+                >
+                  <strong style={{ color: primaryColor, minWidth: 22, fontSize: 12, fontWeight: 900 }}>{code}:</strong> 
+                  <span style={{ color: currentText, lineHeight: 1.35 }}>{label}</span>
                 </div>
               )
             })}
@@ -1135,21 +1225,200 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
         </div>
       )}
 
-      {/* Allergen Modal */}
+      {/* DISH DETAIL MODAL (Bericht & Ausführliche Ansicht mit Allergenen am Ende) */}
+      {activeDetailItem && (() => {
+        const item = activeDetailItem
+        const itemName = typeof item.name === 'object' ? (item.name[lang] || item.name.de || item.name.en || Object.values(item.name)[0]) : (item.name || 'Gericht')
+        const itemDesc = typeof item.description === 'object' ? (item.description[lang] || item.description.de || item.description.en || Object.values(item.description)[0]) : (item.description || '')
+        const itemAllergens = item.allergens || []
+
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(10px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setActiveDetailItem(null)}>
+            <div style={{ background: isLight ? '#FFFFFF' : '#14141E', color: currentText, border: `1px solid ${isLight ? '#E2E8F0' : 'rgba(255,255,255,0.12)'}`, borderRadius: 24, maxWidth: 520, width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 60px rgba(0,0,0,0.35)', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+              {/* Cover Photo */}
+              {item.imageUrl && (
+                <div style={{ width: '100%', height: 210, position: 'relative', overflow: 'hidden', borderRadius: '24px 24px 0 0', background: isLight ? '#F1F5F9' : '#000' }}>
+                  <img 
+                    src={item.imageUrl} 
+                    alt={itemName} 
+                    onError={(e) => { e.target.onerror=null; e.target.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop' }} 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                  />
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.6) 100%)' }} />
+                  {item.highlight && (
+                    <span style={{ position: 'absolute', top: 16, left: 16, background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`, color: '#FFF', fontSize: 10, fontWeight: 900, padding: '4px 12px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      ⭐ Empfehlung
+                    </span>
+                  )}
+                  <button onClick={() => setActiveDetailItem(null)} style={{ position: 'absolute', top: 14, right: 14, width: 34, height: 34, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <X size={17} />
+                  </button>
+                </div>
+              )}
+
+              <div style={{ padding: '22px 24px 26px' }}>
+                {!item.imageUrl && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+                    <button onClick={() => setActiveDetailItem(null)} style={{ width: 32, height: 32, borderRadius: '50%', background: isLight ? '#F1F5F9' : 'rgba(255,255,255,0.1)', border: 'none', color: currentText, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
+
+                {/* Title & Price */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
+                  <h2 style={{ fontSize: 21, fontWeight: 900, color: currentHeading, margin: 0, lineHeight: 1.25 }}>
+                    {itemName}
+                  </h2>
+                  <div style={{ fontSize: 19, fontWeight: 900, color: secondaryColor, whiteSpace: 'nowrap' }}>
+                    {item.price}
+                  </div>
+                </div>
+
+                {/* Dietary Badges */}
+                {item.diet && item.diet.length > 0 && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+                    {item.diet.map((d) => (
+                      <span key={d} style={{ fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 14, background: d === 'vegan' ? '#10B98122' : '#F59E0B22', color: d === 'vegan' ? '#10B981' : '#F59E0B', border: `1px solid ${d === 'vegan' ? '#10B98144' : '#F59E0B44'}` }}>
+                        {d === 'vegan' ? '🌱 Vegan' : d === 'vegetarian' ? '🧀 Vegetarisch' : d === 'glutenfree' ? '🌾 Glutenfrei' : '🌙 Halal'}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Long Description Text */}
+                <div style={{ fontSize: 13.5, color: currentSubText, lineHeight: 1.55, marginBottom: 20 }}>
+                  {itemDesc || (lang === 'de' ? 'Frisch zubereitet nach Rezeptur unseres Hauses mit besten Zutaten.' : 'Freshly prepared according to our house recipe with finest ingredients.')}
+                </div>
+
+                {/* Variants Box if available */}
+                {item.variants && item.variants.length > 0 && (
+                  <div style={{ marginBottom: 18, padding: '12px 14px', borderRadius: 12, background: isLight ? '#F8FAFC' : 'rgba(255,255,255,0.04)', border: `1px solid ${isLight ? '#E2E8F0' : 'rgba(255,255,255,0.08)'}` }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: currentSubText, marginBottom: 8 }}>
+                      {lang === 'de' ? 'Größen & Varianten' : 'Sizes & Variants'}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {item.variants.map((v, vIdx) => {
+                        const vName = typeof v.name === 'object' ? v.name[lang] || v.name.de : v.name
+                        return (
+                          <span key={vIdx} style={{ fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 8, background: isLight ? '#FFFFFF' : 'rgba(255,255,255,0.08)', border: `1px solid ${isLight ? '#CBD5E1' : 'rgba(255,255,255,0.15)'}`, color: currentText }}>
+                            {vName}: <strong style={{ color: secondaryColor }}>{v.price}</strong>
+                          </span>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* ALLERGENS SECTION AT THE END OF THE DESCRIPTION / DISH DETAIL */}
+                <div style={{ background: isLight ? '#F8FAFC' : 'rgba(255,255,255,0.04)', border: `1px solid ${isLight ? '#E2E8F0' : 'rgba(255,255,255,0.08)'}`, borderRadius: 16, padding: 16, marginBottom: 22 }}>
+                  <div style={{ fontSize: 13, fontWeight: 900, color: currentHeading, display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
+                    <ShieldAlert size={16} color={secondaryColor} />
+                    <span>{lang === 'de' ? 'Allergene & Kennzeichnung (Zusatzstoffe)' : 'Allergens & Additives Labeling'}</span>
+                  </div>
+
+                  {itemAllergens.length > 0 ? (
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      {itemAllergens.map((code) => {
+                        const allergenInfo = allergensLegend[code]?.[lang] || allergensLegend[code]?.de || allergensLegend[code]?.en || 'Information auf Anfrage'
+                        return (
+                          <div 
+                            key={code} 
+                            onClick={() => setSelectedAllergen(code)}
+                            style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 10px', borderRadius: 10, background: isLight ? '#FFFFFF' : 'rgba(255,255,255,0.06)', border: `1px solid ${isLight ? '#E2E8F0' : 'rgba(255,255,255,0.08)'}`, cursor: 'pointer', transition: 'all 0.15s' }}
+                            title="Klicken für Allergen-Pop-up"
+                          >
+                            <span style={{ fontSize: 12, fontWeight: 900, padding: '3px 8px', borderRadius: 6, background: `${primaryColor}22`, color: primaryColor, border: `1px solid ${primaryColor}44`, minWidth: 26, textAlign: 'center' }}>
+                              {code}
+                            </span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 12, fontWeight: 800, color: currentHeading }}>
+                                Allergen {code}
+                              </div>
+                              <div style={{ fontSize: 11.5, color: currentSubText, marginTop: 1 }}>
+                                {allergenInfo}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: currentSubText, fontStyle: 'italic' }}>
+                      {lang === 'de' ? 'Keine meldepflichtigen Allergene für dieses Gericht deklariert.' : 'No declarable allergens specified for this dish.'}
+                    </div>
+                  )}
+
+                  {(branding.allergenNotice || menu?.allergenNotice) && (
+                    <div style={{ fontSize: 11, color: currentSubText, marginTop: 12, paddingTop: 10, borderTop: `1px dashed ${isLight ? '#CBD5E1' : 'rgba(255,255,255,0.1)'}`, fontStyle: 'italic', lineHeight: 1.45 }}>
+                      💬 {branding.allergenNotice || menu?.allergenNotice}
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    onClick={() => {
+                      addToCart(item)
+                      setActiveDetailItem(null)
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '13px',
+                      borderRadius: 14,
+                      background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+                      color: '#FFF',
+                      border: 'none',
+                      fontSize: 13.5,
+                      fontWeight: 900,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      boxShadow: `0 8px 24px ${primaryColor}44`
+                    }}
+                  >
+                    <Plus size={16} /> {lang === 'de' ? 'In Tisch-Bestellung legen' : 'Add to Order'}
+                  </button>
+                  <button
+                    onClick={() => setActiveDetailItem(null)}
+                    style={{
+                      padding: '13px 20px',
+                      borderRadius: 14,
+                      background: isLight ? '#F1F5F9' : 'rgba(255,255,255,0.1)',
+                      color: currentText,
+                      border: `1px solid ${isLight ? '#CBD5E1' : 'rgba(255,255,255,0.15)'}`,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {lang === 'de' ? 'Schließen' : 'Close'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Quick Allergen Popup Modal (Klick auf Abkürzung) */}
       {selectedAllergen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setSelectedAllergen(null)}>
-          <div style={{ background: '#181824', border: `1px solid ${primaryColor}`, borderRadius: 20, padding: 24, maxWidth: 360, width: '100%', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ width: 48, height: 48, borderRadius: '50%', background: `${primaryColor}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', color: primaryColor, fontSize: 20, fontWeight: 900 }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', zIndex: 2200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setSelectedAllergen(null)}>
+          <div style={{ background: isLight ? '#FFFFFF' : '#181824', color: currentText, border: `2px solid ${primaryColor}`, borderRadius: 22, padding: 26, maxWidth: 380, width: '100%', textAlign: 'center', boxShadow: '0 20px 50px rgba(0,0,0,0.4)' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ width: 52, height: 52, borderRadius: '50%', background: `${primaryColor}22`, border: `2px solid ${primaryColor}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', color: primaryColor, fontSize: 24, fontWeight: 900 }}>
               {selectedAllergen}
             </div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: '#FFF', marginBottom: 8 }}>
-              Allergen {selectedAllergen}
+            <div style={{ fontSize: 17, fontWeight: 900, color: currentHeading, marginBottom: 8 }}>
+              Allergen-Code {selectedAllergen}
             </div>
-            <div style={{ fontSize: 13, color: '#A1A1AA', marginBottom: 20 }}>
-              {allergensLegend[selectedAllergen]?.[lang] || allergensLegend[selectedAllergen]?.de || 'Information auf Anfrage bei unseren Servicemitarbeitern.'}
+            <div style={{ fontSize: 13, color: currentSubText, lineHeight: 1.5, marginBottom: 20 }}>
+              {allergensLegend[selectedAllergen]?.[lang] || allergensLegend[selectedAllergen]?.de || allergensLegend[selectedAllergen]?.en || 'Information auf Anfrage bei unseren Servicemitarbeitern.'}
             </div>
-            <button onClick={() => setSelectedAllergen(null)} style={{ padding: '10px 24px', borderRadius: 12, background: primaryColor, color: '#FFF', border: 'none', fontWeight: 700, cursor: 'pointer', width: '100%' }}>
-              Schließen
+            <button onClick={() => setSelectedAllergen(null)} style={{ padding: '11px 24px', borderRadius: 12, background: primaryColor, color: '#FFF', border: 'none', fontWeight: 800, cursor: 'pointer', width: '100%', fontSize: 13, boxShadow: `0 4px 14px ${primaryColor}44` }}>
+              {lang === 'de' ? 'Verstanden / Schließen' : 'Close'}
             </button>
           </div>
         </div>
@@ -1304,9 +1573,10 @@ function generateStandaloneHTML(menu) {
   const allergensLegend = menu.allergensLegend || {}
   const primaryColor = branding.primaryColor || '#7C3AED'
   const secondaryColor = branding.secondaryColor || '#FF2D8D'
+  const initialTheme = branding.theme === 'dark' ? 'dark' : 'light'
 
   return `<!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="${initialTheme}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1321,11 +1591,27 @@ function generateStandaloneHTML(menu) {
     :root {
       --primary: ${primaryColor};
       --secondary: ${secondaryColor};
-      --bg-cream: #FAF7F2;
+      --bg-cream: #FAF9F6;
       --card-bg: #FFFFFF;
-      --text-dark: #1F2937;
-      --text-muted: #6B7280;
-      --border-color: #E5E7EB;
+      --text-dark: #18181B;
+      --text-muted: #64748B;
+      --border-color: #E2E8F0;
+      --header-bg: linear-gradient(180deg, ${primaryColor}14 0%, #FAF9F6 100%);
+      --modal-bg: #FFFFFF;
+      --input-bg: #FFFFFF;
+      --tag-bg: #F1F5F9;
+    }
+
+    [data-theme="dark"] {
+      --bg-cream: #09090E;
+      --card-bg: #14141E;
+      --text-dark: #ECECF1;
+      --text-muted: #A1A1AA;
+      --border-color: rgba(255, 255, 255, 0.09);
+      --header-bg: linear-gradient(180deg, ${primaryColor}22 0%, #09090E 100%);
+      --modal-bg: #14141E;
+      --input-bg: #1A1A26;
+      --tag-bg: rgba(255, 255, 255, 0.08);
     }
     
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1336,6 +1622,7 @@ function generateStandaloneHTML(menu) {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       line-height: 1.5;
       padding-bottom: 90px;
+      transition: background-color 0.3s ease, color 0.3s ease;
     }
 
     h1, h2, h3, .brand-title {
@@ -1344,7 +1631,7 @@ function generateStandaloneHTML(menu) {
 
     /* HEADER */
     .header {
-      background: linear-gradient(180deg, #F3ECE1 0%, #FAF7F2 100%);
+      background: var(--header-bg);
       padding: 40px 20px 28px;
       text-align: center;
       border-bottom: 1px solid var(--border-color);
@@ -1400,7 +1687,8 @@ function generateStandaloneHTML(menu) {
       padding: 12px 18px;
       border-radius: 30px;
       border: 1px solid var(--border-color);
-      background: #FFFFFF;
+      background: var(--input-bg);
+      color: var(--text-dark);
       font-size: 14px;
       outline: none;
       box-shadow: 0 2px 8px rgba(0,0,0,0.04);
@@ -1414,7 +1702,7 @@ function generateStandaloneHTML(menu) {
       position: sticky;
       top: 0;
       z-index: 1000;
-      background: rgba(250, 247, 242, 0.95);
+      background: var(--bg-cream);
       backdrop-filter: blur(12px);
       padding: 12px 16px;
       border-bottom: 1px solid var(--border-color);
@@ -1430,7 +1718,7 @@ function generateStandaloneHTML(menu) {
       padding: 8px 18px;
       border-radius: 20px;
       border: 1px solid var(--border-color);
-      background: #FFFFFF;
+      background: var(--card-bg);
       color: var(--text-muted);
       font-size: 13px;
       font-weight: 600;
@@ -1679,9 +1967,13 @@ function generateStandaloneHTML(menu) {
 
   <!-- HEADER -->
   <header class="header">
+    ${branding.logoUrl ? `<img src="${branding.logoUrl}" alt="${branding.name || 'Logo'}" style="width:72px;height:72px;border-radius:18px;object-fit:cover;margin:0 auto 14px;border:2px solid var(--primary);box-shadow:0 4px 14px rgba(0,0,0,0.06);display:block;">` : ''}
     <h1 class="brand-title">${branding.name || 'Restaurant'}</h1>
     <p class="brand-sub">${branding.address || ''}</p>
     <div class="contact-bar">
+      <button type="button" class="contact-link" onclick="toggleTheme()" id="themeBtn" style="cursor:pointer;border:1px solid var(--border-color);">
+        ${initialTheme === 'dark' ? '🌙 Dunkel' : '☀️ Hell'}
+      </button>
       ${branding.phone ? `<a href="tel:${branding.phone}" class="contact-link">📞 ${branding.phone}</a>` : ''}
       ${branding.email ? `<a href="mailto:${branding.email}" class="contact-link">✉️ ${branding.email}</a>` : ''}
       ${branding.whatsapp ? `<a href="https://wa.me/${branding.whatsapp.replace(/\+/g, '')}" target="_blank" class="contact-link" style="color:#10B981;">💬 WhatsApp</a>` : ''}
@@ -1716,9 +2008,10 @@ function generateStandaloneHTML(menu) {
           ${(cat.items || []).map((item) => {
             const name = typeof item.name === 'object' ? (item.name.de || item.name.en) : item.name
             const desc = typeof item.description === 'object' ? (item.description.de || item.description.en) : item.description
+            const allergensStr = (item.allergens || []).join(',')
             
             return `
-              <article class="dish-card ${item.highlight ? 'highlight' : ''}" data-search="${(name + ' ' + desc + ' ' + (item.price || '')).toLowerCase()}">
+              <article class="dish-card ${item.highlight ? 'highlight' : ''}" style="cursor:pointer;" onclick="openDishModal(this)" data-name="${encodeURIComponent(name)}" data-desc="${encodeURIComponent(desc || '')}" data-price="${encodeURIComponent(item.price || '')}" data-img="${encodeURIComponent(item.imageUrl || '')}" data-allergens="${allergensStr}" data-search="${(name + ' ' + desc + ' ' + (item.price || '')).toLowerCase()}">
                 ${item.imageUrl ? `<img src="${item.imageUrl}" class="dish-img" alt="${name}" loading="lazy">` : ''}
                 <div class="dish-details">
                   <div>
@@ -1747,7 +2040,11 @@ function generateStandaloneHTML(menu) {
                         ${d === 'vegan' ? '🌱 Vegan' : d === 'vegetarian' ? '🧀 Veggie' : d === 'glutenfree' ? '🌾 Glutenfrei' : '🌙 Halal'}
                       </span>
                     `).join('')}
-                    ${(item.allergens || []).map(a => `<span class="badge">${a}</span>`).join('')}
+                    ${(item.allergens || []).map(a => `
+                      <button type="button" class="badge" onclick="event.stopPropagation(); showAllergenPopup('${a}')" style="cursor:pointer;border:1px solid #CBD5E1;font-weight:900;background:#F1F5F9;color:var(--primary);" title="Allergen ${a} Details">
+                        <strong>${a}</strong>
+                      </button>
+                    `).join('')}
                   </div>
                 </div>
               </article>
@@ -1759,15 +2056,120 @@ function generateStandaloneHTML(menu) {
 
     <!-- ALLERGEN LEGEND -->
     <section class="allergen-legend">
-      <h3 class="legend-title">⚠️ Allergene & Zusatzstoffe</h3>
+      <h3 class="legend-title">⚠️ Allergene & Zusatzstoffe (Vollständige Legende)</h3>
+      ${branding.allergenNotice ? `
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;font-style:italic;background:#F9F6F0;padding:12px 14px;border-radius:10px;border-left:3px solid var(--secondary);line-height:1.45;">
+          💬 ${branding.allergenNotice}
+        </div>
+      ` : ''}
       <div class="legend-grid">
         ${Object.entries(allergensLegend).map(([code, dict]) => {
           const label = typeof dict === 'object' ? (dict.de || dict.en) : dict
-          return `<div><strong style="color:var(--primary);">${code}:</strong> ${label}</div>`
+          return `<div style="cursor:pointer;padding:4px 6px;border-radius:6px;" onclick="showAllergenPopup('${code}')"><strong style="color:var(--primary);font-weight:900;">${code}:</strong> ${label}</div>`
         }).join('')}
       </div>
     </section>
   </main>
+
+  <!-- ALLERGEN POPUP MODAL -->
+  <div id="allergenModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:20px;" onclick="closeAllergenPopup()">
+    <div style="background:var(--modal-bg);color:var(--text-dark);border-radius:20px;padding:26px;max-width:360px;width:100%;text-align:center;box-shadow:0 20px 40px rgba(0,0,0,0.3);border:2px solid var(--primary);" onclick="event.stopPropagation()">
+      <div id="popupAllergenCode" style="width:48px;height:48px;border-radius:50%;background:#F3E8FF;color:var(--primary);font-size:22px;font-weight:900;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;border:2px solid var(--primary);">A</div>
+      <div id="popupAllergenTitle" style="font-size:16px;font-weight:900;color:var(--text-dark);margin-bottom:8px;">Allergen-Code</div>
+      <div id="popupAllergenDesc" style="font-size:13px;color:var(--text-muted);line-height:1.5;margin-bottom:20px;">Beschreibung</div>
+      <button type="button" onclick="closeAllergenPopup()" style="width:100%;padding:10px;border-radius:10px;background:var(--primary);color:#FFF;border:none;font-weight:800;cursor:pointer;">Schließen</button>
+    </div>
+  </div>
+
+  <!-- DISH DETAIL MODAL -->
+  <div id="dishModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);z-index:9998;align-items:center;justify-content:center;padding:16px;" onclick="closeDishModal()">
+    <div style="background:var(--modal-bg);color:var(--text-dark);border:1px solid var(--border-color);border-radius:22px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,0.3);position:relative;" onclick="event.stopPropagation()">
+      <div id="dishModalImgWrap" style="width:100%;height:200px;overflow:hidden;position:relative;background:#EEE;">
+        <img id="dishModalImg" src="" style="width:100%;height:100%;object-fit:cover;">
+        <button onclick="closeDishModal()" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,0.6);border:none;color:#FFF;cursor:pointer;font-size:16px;font-weight:bold;">✕</button>
+      </div>
+      <div style="padding:22px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;">
+          <h2 id="dishModalName" style="font-size:20px;font-weight:900;color:var(--text-dark);margin:0;"></h2>
+          <div id="dishModalPrice" style="font-size:18px;font-weight:900;color:var(--secondary);white-space:nowrap;"></div>
+        </div>
+        <p id="dishModalDesc" style="font-size:13px;color:var(--text-muted);line-height:1.5;margin-bottom:18px;"></p>
+        
+        <div style="background:var(--tag-bg);border:1px solid var(--border-color);border-radius:12px;padding:14px;margin-bottom:18px;">
+          <div style="font-size:12px;font-weight:900;color:var(--text-dark);margin-bottom:6px;">⚠️ Allergene & Kennzeichnung:</div>
+          <div id="dishModalAllergens" style="font-size:12px;color:var(--text-muted);line-height:1.4;"></div>
+        </div>
+
+        <button type="button" onclick="closeDishModal()" style="width:100%;padding:12px;border-radius:12px;background:var(--primary);color:#FFF;border:none;font-weight:800;font-size:13px;cursor:pointer;">Schließen</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ALLERGENS_DICT = ${JSON.stringify(allergensLegend)};
+
+    function toggleTheme() {
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme') || 'light';
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      const btn = document.getElementById('themeBtn');
+      if (btn) btn.innerText = next === 'dark' ? '🌙 Dunkel' : '☀️ Hell';
+    }
+
+    function showAllergenPopup(code) {
+      const modal = document.getElementById('allergenModal');
+      const clean = (code || '').trim().toUpperCase();
+      const info = ALLERGENS_DICT[clean] ? (ALLERGENS_DICT[clean].de || ALLERGENS_DICT[clean]) : 'Allergen Information auf Anfrage.';
+      document.getElementById('popupAllergenCode').innerText = clean;
+      document.getElementById('popupAllergenTitle').innerText = 'Allergen ' + clean;
+      document.getElementById('popupAllergenDesc').innerText = info;
+      modal.style.display = 'flex';
+    }
+
+    function closeAllergenPopup() {
+      document.getElementById('allergenModal').style.display = 'none';
+    }
+
+    function openDishModal(card) {
+      const name = decodeURIComponent(card.getAttribute('data-name') || '');
+      const desc = decodeURIComponent(card.getAttribute('data-desc') || '');
+      const price = decodeURIComponent(card.getAttribute('data-price') || '');
+      const img = decodeURIComponent(card.getAttribute('data-img') || '');
+      const allergensStr = card.getAttribute('data-allergens') || '';
+
+      document.getElementById('dishModalName').innerText = name;
+      document.getElementById('dishModalPrice').innerText = price;
+      document.getElementById('dishModalDesc').innerText = desc || 'Frisch zubereitet mit ausgewählten Zutaten.';
+
+      const imgEl = document.getElementById('dishModalImg');
+      const imgWrap = document.getElementById('dishModalImgWrap');
+      if (img) {
+        imgEl.src = img;
+        imgWrap.style.display = 'block';
+      } else {
+        imgWrap.style.display = 'none';
+      }
+
+      const allergensWrap = document.getElementById('dishModalAllergens');
+      if (allergensStr) {
+        const codes = allergensStr.split(',').filter(Boolean);
+        allergensWrap.innerHTML = codes.map(c => {
+          const dict = ALLERGENS_DICT[c];
+          const text = dict ? (dict.de || dict) : 'Keine Information';
+          return '<div><strong>' + c + ':</strong> ' + text + '</div>';
+        }).join('');
+      } else {
+        allergensWrap.innerHTML = '<em>Keine meldepflichtigen Allergene deklariert.</em>';
+      }
+
+      document.getElementById('dishModal').style.display = 'flex';
+    }
+
+    function closeDishModal() {
+      document.getElementById('dishModal').style.display = 'none';
+    }
+  </script>
 
   <!-- FOOTER -->
   <footer class="footer">

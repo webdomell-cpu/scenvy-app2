@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { C, grad } from '@/tokens'
 import { ScenvyLogoFull } from '@/components/ScenvyLogo'
@@ -7,7 +7,7 @@ import { useTenant, useMenuReels, useSaveMenuReel, useDeleteMenuReel, useLocatio
 import GuestMenuReel, { isScheduleActive, JaggedStar13 } from '@/pages/GuestMenuReel'
 import { copyToClipboard } from '@/storage'
 import { touchCacheKey, autoClearExpiredCaches } from '@/lib/cacheManager'
-import { Sparkles, FileText, Upload, Edit3, Palette, Phone, Instagram, QrCode, Download, Share2, Copy, Trash2, Eye, Plus, ArrowRight, CheckCircle2, Lock, ShieldAlert, ArrowLeft, Maximize2, Minimize2, Clock, MapPin, ExternalLink, Calendar, Zap, Check, Globe, Utensils, Layers, Settings, ChefHat, Search, Filter, BookOpen, AlertCircle, DollarSign, Bell } from 'lucide-react'
+import { Sparkles, FileText, Upload, Edit3, Palette, Phone, Instagram, QrCode, Download, Share2, Copy, Trash2, Eye, Plus, ArrowRight, CheckCircle2, Lock, ShieldAlert, ArrowLeft, Maximize2, Minimize2, Clock, MapPin, ExternalLink, Calendar, Zap, Check, Globe, Utensils, Layers, Settings, ChefHat, Search, Filter, BookOpen, AlertCircle, AlertTriangle, RotateCcw, DollarSign, Bell } from 'lucide-react'
 
 export default function MenuGenerator({ embedded = false, initialTab, notify: propNotify }) {
   const nav = useNavigate()
@@ -36,13 +36,19 @@ export default function MenuGenerator({ embedded = false, initialTab, notify: pr
   const [isGenerating, setIsGenerating] = useState(false)
   const [genStep, setGenStep] = useState('')
   const [toast, setToast] = useState(null)
+  const toastTimeoutRef = useRef(null)
+  const [aiError, setAiError] = useState(null) // { title, message, details, canRetry, failedBase64, failedMime, failedFileName }
 
-  const notify = (msg) => {
+  const notify = (msg, duration) => {
+    const isError = typeof msg === 'string' && (msg.includes('⚠️') || msg.includes('❌') || msg.toLowerCase().includes('fehler') || msg.toLowerCase().includes('error'))
+    const time = duration || (isError ? 12000 : 3500)
+
     if (typeof propNotify === 'function') {
-      try { propNotify(msg) } catch (e) { console.warn('Prop notify error:', e) }
+      try { propNotify(msg, time) } catch (e) { console.warn('Prop notify error:', e) }
     }
     setToast(msg)
-    setTimeout(() => setToast(null), 3500)
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current)
+    toastTimeoutRef.current = setTimeout(() => setToast(null), time)
   }
 
   const [showMediaModal, setShowMediaModal] = useState(false)
@@ -529,11 +535,12 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
 
   const processCollectionFlowAi = async () => {
     if (collectionFlowPages.length === 0) {
-      notify('⚠️ Bitte füge mindestens 1 Seite zum Sammlungsflow hinzu.')
+      notify('⚠️ Bitte füge mindestens 1 Seite zum Sammlungsflow hinzu.', 6000)
       return
     }
 
     setIsGenerating(true)
+    setAiError(null)
     setGenStep(`🔄 Sammlungsflow gestartet (${collectionFlowPages.length} Seiten werden analysiert)...`)
 
     const combinedText = collectionFlowPages.map((p, idx) => `=== SAMMLUNG SEITE ${idx + 1}: ${p.title} ===\n${p.text || ''}`).join('\n\n')
@@ -559,7 +566,8 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
       })
 
       if (!res.ok) {
-        throw new Error('Serverfehler bei Sammlungsflow KI-Analyse')
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData?.message || 'Serverfehler bei Sammlungsflow KI-Analyse')
       }
 
       const parsedMenu = await res.json()
@@ -588,7 +596,14 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
     } catch (err) {
       console.error('Sammlungsflow Error:', err)
       setIsGenerating(false)
-      notify('⚠️ Fehler beim Sammlungsflow. Bitte erneut versuchen.')
+      const errorMsg = err?.message || 'Fehler beim Sammlungsflow.'
+      setAiError({
+        title: 'Fehler beim Sammlungsflow',
+        message: errorMsg,
+        details: 'Bitte prüfe die hochgeladenen Dokumente oder versuche es erneut.',
+        canRetry: true
+      })
+      notify(`⚠️ ${errorMsg} Bitte erneut versuchen.`, 12000)
     }
   }
 
@@ -1276,6 +1291,7 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
     const activeDocText = overrideFileName ? `[PDF/Dokument: ${overrideFileName}]` : documentText
 
     setIsGenerating(true)
+    setAiError(null)
     setGenStep('📄 PDF-Inhalte & Preise werden von KI analysiert...')
 
     setTimeout(() => setGenStep('🧠 KI-Kategorisierung & Preiserfassung...'), 1200)
@@ -1308,19 +1324,38 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
       } else {
         const errData = await res.json().catch(() => ({}))
         console.error('Menu parsing API error:', errData)
-        notify(`⚠️ Fehler bei der KI-Analyse: ${errData?.message || 'Serverfehler oder zu viele Anfragen.'}`)
+        const errorMsg = errData?.message || 'Serverfehler oder temporäre KI-Überlastung.'
+        setAiError({
+          title: 'Fehler bei der KI-Analyse',
+          message: errorMsg,
+          details: errData?.error || 'Mögliche Ursachen: Dateiformat unleserlich, kurzzeitige Google-API-Auslastung oder Netzwerkunterbrechung.',
+          canRetry: true,
+          failedBase64: activeBase64,
+          failedMime: activeMime,
+          failedFileName: overrideFileName || fileName
+        })
+        notify(`⚠️ Fehler bei der KI-Analyse: ${errorMsg}`, 12000)
         setIsGenerating(false)
         return
       }
 
       if (!parsedMenu || !parsedMenu.categories) {
-        notify('⚠️ Die KI konnte das Dokument nicht vollständig parsen. Bitte prüfe die Lesbarkeit oder erstelle Einträge manuell.')
+        setAiError({
+          title: 'Unvollständiges Ergebnis',
+          message: 'Die KI konnte keine Speisen oder Kategorien im Dokument erkennen.',
+          details: 'Bitte prüfe die Lesbarkeit der PDF/Datei oder gib den Text direkt in das Textfeld ein.',
+          canRetry: true,
+          failedBase64: activeBase64,
+          failedMime: activeMime,
+          failedFileName: overrideFileName || fileName
+        })
+        notify('⚠️ Die KI konnte das Dokument nicht vollständig parsen. Bitte prüfe die Lesbarkeit oder erstelle Einträge manuell.', 12000)
         setIsGenerating(false)
         return
       }
 
       if (parsedMenu.warning) {
-        notify(`⚠️ ${parsedMenu.warning}`)
+        notify(`⚠️ ${parsedMenu.warning}`, 8000)
       }
 
       // Auto-populate branding contact details from AI if detected
@@ -1358,8 +1393,18 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
       }).catch(err => console.warn('Save menu reel warning:', err))
     } catch (err) {
       console.error('Error generating menu:', err)
+      const errorMsg = err?.message || 'Verbindungsfehler zur KI-Schnittstelle.'
+      setAiError({
+        title: 'Verbindungsfehler',
+        message: errorMsg,
+        details: 'Die Anfrage konnte nicht abgeschlossen werden. Bitte prüfe deine Internetverbindung und versuche es erneut.',
+        canRetry: true,
+        failedBase64: activeBase64,
+        failedMime: activeMime,
+        failedFileName: overrideFileName || fileName
+      })
       setIsGenerating(false)
-      notify('⚠️ Fehler bei der KI-Analyse. Bitte erneut versuchen.')
+      notify(`⚠️ Fehler bei der KI-Analyse: ${errorMsg}`, 12000)
     }
   }
 
@@ -1656,6 +1701,89 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
                     <div>
                       <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6 }}>INSTAGRAM HANDLE</label>
                       <input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="@scenvy_gourmet" style={{ width: '100%', padding: 10, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }} />
+                    </div>
+                  </div>
+                )}
+
+                {/* Error Banner if AI analysis failed */}
+                {aiError && (
+                  <div style={{
+                    marginTop: 16,
+                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(185, 28, 28, 0.1))',
+                    border: '1px solid rgba(239, 68, 68, 0.5)',
+                    borderRadius: 12,
+                    padding: '16px 18px',
+                    color: '#FEE2E2',
+                    fontSize: 13,
+                    lineHeight: 1.5,
+                    animation: 'fadeUp .25s ease'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, color: '#FCA5A5', fontSize: 14 }}>
+                        <AlertTriangle size={18} color="#EF4444" />
+                        <span>{aiError.title || 'Fehler bei der Analyse'}</span>
+                      </div>
+                      <button
+                        onClick={() => setAiError(null)}
+                        style={{ background: 'transparent', border: 'none', color: '#9CA3AF', cursor: 'pointer', fontSize: 16, padding: '0 4px', lineHeight: 1 }}
+                        title="Schließen"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <div style={{ marginTop: 8, color: '#F3F4F6' }}>
+                      {aiError.message}
+                    </div>
+
+                    {aiError.details && (
+                      <div style={{ marginTop: 4, fontSize: 11, color: '#9CA3AF' }}>
+                        {aiError.details}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                      {aiError.canRetry && (
+                        <button
+                          onClick={() => {
+                            setAiError(null)
+                            triggerMenuGeneration(aiError.failedBase64, aiError.failedMime, aiError.failedFileName)
+                          }}
+                          style={{
+                            background: C.purple,
+                            border: 'none',
+                            color: '#fff',
+                            padding: '6px 14px',
+                            borderRadius: 8,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6
+                          }}
+                        >
+                          <RotateCcw size={13} /> Erneut versuchen
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setInputTab('manual')
+                          setAiError(null)
+                        }}
+                        style={{
+                          background: 'rgba(255,255,255,0.08)',
+                          border: '1px solid rgba(255,255,255,0.15)',
+                          color: '#E5E7EB',
+                          padding: '6px 12px',
+                          borderRadius: 8,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ✍️ Manuell eingeben
+                      </button>
                     </div>
                   </div>
                 )}
@@ -3740,8 +3868,36 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
       )}
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)', background: C.purple, color: C.white, padding: '12px 24px', borderRadius: 14, fontSize: 13, fontWeight: 700, zIndex: 9999 }}>
-          {toast}
+        <div
+          onClick={() => setToast(null)}
+          title="Klicken zum Schließen"
+          style={{
+            position: 'fixed',
+            bottom: 28,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: typeof toast === 'string' && (toast.includes('⚠️') || toast.includes('❌') || toast.toLowerCase().includes('fehler'))
+              ? 'linear-gradient(135deg, rgba(30, 15, 25, 0.96), rgba(45, 15, 25, 0.96))'
+              : C.purple,
+            border: typeof toast === 'string' && (toast.includes('⚠️') || toast.includes('❌') || toast.toLowerCase().includes('fehler'))
+              ? '1px solid rgba(239, 68, 68, 0.6)'
+              : `1px solid ${C.border}`,
+            color: C.white,
+            padding: '12px 20px',
+            borderRadius: 14,
+            fontSize: 13,
+            fontWeight: 700,
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            boxShadow: '0 12px 30px rgba(0,0,0,0.6)',
+            cursor: 'pointer',
+            maxWidth: '90vw'
+          }}
+        >
+          <span>{toast}</span>
+          <span style={{ opacity: 0.6, fontSize: 16, marginLeft: 6 }}>✕</span>
         </div>
       )}
     </div>

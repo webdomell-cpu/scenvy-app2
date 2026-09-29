@@ -484,9 +484,18 @@ function Sidebar({ page, setPage, moduleTab, setModuleTab, open, setOpen, t, use
             gap: 10,
             padding: open ? '8px 11px' : '9px 0',
             borderRadius: 10,
-            border: isModule 
-              ? `1px solid ${isActive ? `${color}66` : isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)'}`
+            borderTop: isModule 
+              ? `1px solid ${isActive ? `${color}66` : (isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)')}`
               : 'none',
+            borderRight: isModule 
+              ? `1px solid ${isActive ? `${color}66` : (isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)')}`
+              : 'none',
+            borderBottom: isModule 
+              ? `1px solid ${isActive ? `${color}66` : (isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)')}`
+              : 'none',
+            borderLeft: isModule 
+              ? `1px solid ${isActive ? `${color}66` : (isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)')}`
+              : (isActive ? `3px solid ${color}` : '3px solid transparent'),
             cursor: 'pointer',
             background: isActive 
               ? `${color}20` 
@@ -499,7 +508,6 @@ function Sidebar({ page, setPage, moduleTab, setModuleTab, open, setOpen, t, use
             fontSize: 12.5,
             fontWeight: isActive ? 700 : 500,
             transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
-            borderLeft: !isModule && isActive ? `3px solid ${color}` : (!isModule ? '3px solid transparent' : undefined),
             boxShadow: isActive && isModule ? `0 4px 14px ${color}20` : 'none',
             position: 'relative'
           }}
@@ -3001,7 +3009,14 @@ export default function Dashboard() {
   }
 
   const t = T[lang]
-  const notify = msg => { setToast(msg); setTimeout(()=>setToast(null), 3000) }
+  const toastTimerRef = useRef(null)
+  const notify = (msg, duration) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    setToast(msg)
+    const isError = typeof msg === 'string' && (msg.includes('⚠️') || msg.includes('❌') || msg.toLowerCase().includes('fehler') || msg.toLowerCase().includes('error'))
+    const time = duration || (isError ? 10000 : 3500)
+    toastTimerRef.current = setTimeout(() => setToast(null), time)
+  }
 
   if (reelsLoading || locsLoading || tenantLoading) return (
     <div style={{height:'100vh',background:C.bg,display:'flex',alignItems:'center',justifyContent:open?'center':'center'}}>
@@ -3239,7 +3254,40 @@ export default function Dashboard() {
       </div>
     </div>
 
-    {toast&&<div style={{position:'fixed',bottom:28,left:'50%',transform:'translateX(-50%)',background:C.purple,color:C.white,padding:'12px 24px',borderRadius:14,fontSize:13,fontWeight:600,zIndex:9999,animation:'fadeUp .25s ease'}}>{toast}</div>}
+    {toast && (
+      <div
+        onClick={() => setToast(null)}
+        title="Klicken zum Schließen"
+        style={{
+          position: 'fixed',
+          bottom: 28,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: typeof toast === 'string' && (toast.includes('⚠️') || toast.includes('❌') || toast.toLowerCase().includes('fehler'))
+            ? 'linear-gradient(135deg, rgba(30, 15, 25, 0.96), rgba(45, 15, 25, 0.96))'
+            : C.purple,
+          border: typeof toast === 'string' && (toast.includes('⚠️') || toast.includes('❌') || toast.toLowerCase().includes('fehler'))
+            ? '1px solid rgba(239, 68, 68, 0.6)'
+            : `1px solid ${C.border}`,
+          color: C.white,
+          padding: '12px 20px',
+          borderRadius: 14,
+          fontSize: 13,
+          fontWeight: 600,
+          zIndex: 9999,
+          animation: 'fadeUp .25s ease',
+          boxShadow: '0 12px 30px rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          cursor: 'pointer',
+          maxWidth: '90vw'
+        }}
+      >
+        <span>{toast}</span>
+        <span style={{ opacity: 0.6, fontSize: 16, marginLeft: 6 }}>✕</span>
+      </div>
+    )}
   </div>
   )
 }

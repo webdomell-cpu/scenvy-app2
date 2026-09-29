@@ -116,10 +116,15 @@ export async function executeAiTask(taskExecutor) {
   })
 
   if (availableKeys.length === 0) {
-    console.warn('⚠️ All AI API keys in pool are in cooldown or disabled. Trying primary key as last resort.')
+    console.warn('⚠️ All AI API keys in pool are in cooldown or disabled. Resetting primary key and trying as last resort.')
     const primary = keyPool[0]
     if (primary) {
-      const ai = new GoogleGenAI({ apiKey: primary.apiKey })
+      primary.cooldownUntil = 0
+      primary.status = 'active'
+      const ai = new GoogleGenAI({
+        apiKey: primary.apiKey,
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      })
       return await taskExecutor(ai, primary)
     }
     throw new Error('NO_API_KEYS_AVAILABLE')
@@ -154,10 +159,10 @@ export async function executeAiTask(taskExecutor) {
       console.warn(`🚨 [Multi-AI Pool] Key [${currentKeyObj.id}] failed (Attempt ${attempts}/${maxAttempts}):`, errMsg)
 
       if (isQuotaOrRateLimit) {
-        // Put key on 2-minute cooldown
-        currentKeyObj.cooldownUntil = Date.now() + 2 * 60 * 1000
+        // Short 8-second cooldown (not 2 minutes!) so temporary rate limits resolve quickly
+        currentKeyObj.cooldownUntil = Date.now() + 8 * 1000
         currentKeyObj.status = 'cooldown'
-        console.warn(`⏳ [Multi-AI Pool] Placed key [${currentKeyObj.id}] on 2-minute cooldown. Rotating to next key in pool...`)
+        console.warn(`⏳ [Multi-AI Pool] Placed key [${currentKeyObj.id}] on 8-second cooldown. Rotating to next key in pool...`)
       }
 
       if (attempts >= maxAttempts) {

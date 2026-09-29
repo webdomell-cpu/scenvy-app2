@@ -196,20 +196,30 @@ export default async function handler(req, res) {
       cleanBase64 = cleanBase64.split(';base64,')[1]
     }
 
-    if (fileBase64.startsWith('data:application/pdf') || (fileMimeType && fileMimeType.includes('pdf'))) {
+    if (fileBase64.startsWith('data:application/pdf') || (fileMimeType && fileMimeType.includes('pdf')) || cleanMime.includes('pdf')) {
       cleanMime = 'application/pdf'
       try {
         const pdfBuffer = Buffer.from(cleanBase64, 'base64')
-        const { createRequire } = await import('module')
-        const req = createRequire(import.meta.url)
-        const pdfParse = req('pdf-parse')
-        const pdfData = await pdfParse(pdfBuffer)
-        if (pdfData && pdfData.text) {
-          extractedPdfText = pdfData.text.trim()
-          console.log(`📄 PDF parsed via pdf-parse: ${pdfData.numpages || '?'} pages, ${extractedPdfText.length} characters extracted.`)
+        const { PDFParse } = await import('pdf-parse')
+        const parser = new PDFParse({ data: pdfBuffer })
+        const pdfResult = await parser.getText()
+        if (pdfResult && pdfResult.text && pdfResult.text.trim()) {
+          extractedPdfText = pdfResult.text.trim()
+          console.log(`📄 PDF parsed via PDFParse: ${pdfResult.total || '?'} pages, ${extractedPdfText.length} characters extracted.`)
         }
       } catch (pdfErr) {
-        console.warn('pdf-parse extraction notice:', pdfErr?.message || pdfErr)
+        console.warn('PDFParse extraction notice:', pdfErr?.message || pdfErr)
+        try {
+          const { createRequire } = await import('module')
+          const req = createRequire(import.meta.url)
+          const legacyPdf = req('pdf-parse')
+          if (typeof legacyPdf === 'function') {
+            const pdfData = await legacyPdf(Buffer.from(cleanBase64, 'base64'))
+            if (pdfData && pdfData.text) {
+              extractedPdfText = pdfData.text.trim()
+            }
+          }
+        } catch (e2) {}
       }
     } else if (fileBase64.startsWith('data:image/png')) {
       cleanMime = 'image/png'
@@ -350,52 +360,64 @@ Raw Input Document Text:
 """${rawInput.slice(0, 80000)}"""`
 
     const parsed = await executeAiTask(async (ai) => {
-      const parts = []
-
-      // If we have a Base64 file (PDF or Image), pass it directly via inlineData!
-      if (cleanBase64) {
-        parts.push({
-          inlineData: {
-            data: cleanBase64,
-            mimeType: cleanMime
-          }
-        })
-      }
-
-      parts.push({ text: promptText })
-
-      const contents = { parts }
-
-      const modelsToTry = ['gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-3.7-flash', 'gemini-3.1-pro-preview']
-      let lastErr = null
+      const modelsToTry = ['gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-3.7-flash', 'gemini-3.8-flash']
       let rawText = null
 
-      for (const m of modelsToTry) {
-        try {
-          console.log(`🤖 Requesting Gemini model [${m}] for menu extraction...`)
-          const response = await ai.models.generateContent({
-            model: m,
-            contents,
-            config: { 
-              responseMimeType: 'application/json',
-              maxOutputTokens: 16384
+      // Strategy 1: If fileBase64 is provided and reasonable size (< 12MB base64), try multimodal first
+      const canTryMultimodal = cleanBase64 && cleanBase64.length < 12 * 1024 * 1024
+      if (canTryMultimodal) {
+        const multimodalContents = {
+          parts: [
+            { inlineData: { data: cleanBase64, mimeType: cleanMime } },
+            { text: promptText }
+          ]
+        }
+
+        for (const m of modelsToTry) {
+          try {
+            console.log(`🤖 [parse-menu] Trying multimodal Gemini [${m}]...`)
+            const response = await ai.models.generateContent({
+              model: m,
+              contents: multimodalContents,
+              config: { 
+                responseMimeType: 'application/json',
+                maxOutputTokens: 16384
+              }
+            })
+            if (response?.text) {
+              rawText = response.text
+              console.log(`✅ [parse-menu] Multimodal Gemini [${m}] succeeded (${rawText.length} chars).`)
+              break
             }
-          })
-          if (response?.text) {
-            rawText = response.text
-            console.log(`✅ Gemini model [${m}] responded successfully (${rawText.length} chars).`)
-            break
+          } catch (mErr) {
+            console.warn(`[parse-menu] Multimodal model [${m}] notice:`, mErr?.message || mErr)
           }
-        } catch (mErr) {
-          const errMsg = mErr?.message || ''
-          if (errMsg.includes('503') || errMsg.includes('UNAVAILABLE') || errMsg.includes('high demand')) {
-            console.log(`[parse-menu] Model ${m} is temporarily unavailable (503), trying next model...`)
-          } else {
-            console.warn(`Model ${m} failed in parse-menu:`, errMsg)
-          }
-          lastErr = mErr
-          if (errMsg.includes('quota') || errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED')) {
-            throw mErr
+        }
+      }
+
+      // Strategy 2: If multimodal didn't yield text or wasn't suitable, try text-only prompt
+      if (!rawText) {
+        console.log('📄 [parse-menu] Trying text-based AI extraction with extracted text & prompt...')
+        const textOnlyContents = { parts: [{ text: promptText }] }
+
+        for (const m of modelsToTry) {
+          try {
+            console.log(`🤖 [parse-menu] Trying text Gemini [${m}]...`)
+            const response = await ai.models.generateContent({
+              model: m,
+              contents: textOnlyContents,
+              config: { 
+                responseMimeType: 'application/json',
+                maxOutputTokens: 16384
+              }
+            })
+            if (response?.text) {
+              rawText = response.text
+              console.log(`✅ [parse-menu] Text Gemini [${m}] succeeded (${rawText.length} chars).`)
+              break
+            }
+          } catch (tErr) {
+            console.warn(`[parse-menu] Text model [${m}] notice:`, tErr?.message || tErr)
           }
         }
       }
@@ -473,11 +495,17 @@ Raw Input Document Text:
     return res.status(200).json(finalMenu)
   } catch (err) {
     console.error('AI parse-menu error:', err)
-    if (extractedPdfText) {
-      const fallback = parsePdfTextFallback(extractedPdfText, venue, style, primaryColor, secondaryColor)
-      if (fallback) return res.status(200).json(fallback)
+    if (extractedPdfText || rawInput.trim()) {
+      const fallback = parsePdfTextFallback(extractedPdfText || rawInput, venue, style, primaryColor, secondaryColor)
+      if (fallback && fallback.categories?.length > 0) {
+        fallback.warning = 'Dokument wurde über Direktextraktion eingelesen (KI-Verbindung temporär überlastet).'
+        return res.status(200).json(fallback)
+      }
     }
-    return res.status(500).json({ error: 'AI processing failed', message: err.message })
+    return res.status(500).json({ 
+      error: 'AI processing failed', 
+      message: err?.message || 'Die KI-Verbindung konnte die Speisekarte nicht verarbeiten. Bitte prüfe das Dokument oder füge den Text direkt ein.' 
+    })
   }
 }
 

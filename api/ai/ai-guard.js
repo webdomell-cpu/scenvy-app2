@@ -1,7 +1,7 @@
 const requestCounts = new Map()
 
 // Clean up old entries every 5 minutes
-setInterval(() => {
+const cleanupTimer = setInterval(() => {
   const now = Date.now()
   for (const [key, timestamp] of requestCounts.entries()) {
     if (now - timestamp > 60000) {
@@ -9,8 +9,9 @@ setInterval(() => {
     }
   }
 }, 300000)
+if (cleanupTimer.unref) cleanupTimer.unref()
 
-export function checkRateLimitAndAuth(req, limitPerMinute = 20) {
+export function checkRateLimitAndAuth(req, limitPerMinute = 40) {
   const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown'
   const userToken = req.headers['authorization'] || req.headers['x-user-id'] || clientIp
   

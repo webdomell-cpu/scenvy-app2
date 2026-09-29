@@ -50,7 +50,7 @@ Respond ONLY with valid, compact JSON:
   try {
     parsed = await executeAiTask(async (ai) => {
       let textRes = null
-      const modelsToTry = ['gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-3.7-flash', 'gemini-3.1-pro-preview']
+      const modelsToTry = ['gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-3.7-flash', 'gemini-3.8-flash']
       
       for (const m of modelsToTry) {
         try {

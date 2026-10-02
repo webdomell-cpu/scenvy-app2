@@ -76,10 +76,74 @@ function extractAllergenCodes(str) {
   return Array.from(codes)
 }
 
+function detectDocumentLanguage(text) {
+  if (!text || typeof text !== 'string') return 'en'
+  const t = text.toLowerCase()
+  const enKeywords = ['starter', 'starters', 'main', 'mains', 'dessert', 'desserts', 'beverage', 'beverages', 'drink', 'drinks', 'coffee', 'tea', 'beer', 'beers', 'wine', 'wines', 'salad', 'burger', 'burgers', 'soup', 'soups', 'sandwich', 'with', 'served with', 'allergy', 'allergens', 'price', 'water', 'juice', 'cocktail', 'cocktails', 'sides']
+  const deKeywords = ['vorspeise', 'vorspeisen', 'hauptspeise', 'hauptgerichte', 'nachspeise', 'dessert', 'desserts', 'getränk', 'getränke', 'kaffee', 'tee', 'bier', 'biere', 'wein', 'weine', 'salat', 'salate', 'suppe', 'suppen', 'mit', 'serviert mit', 'allergene', 'allergen', 'preis', 'preise', 'wasser', 'saft', 'flasche', 'glas', 'beilagen']
+  
+  let enCount = 0
+  let deCount = 0
+  enKeywords.forEach(k => {
+    const matches = t.match(new RegExp(`\\b${k}\\b`, 'g'))
+    if (matches) enCount += matches.length
+  })
+  deKeywords.forEach(k => {
+    const matches = t.match(new RegExp(`\\b${k}\\b`, 'g'))
+    if (matches) deCount += matches.length
+  })
+  return enCount >= deCount ? 'en' : 'de'
+}
+
+function extractPriceAndVariants(str) {
+  if (!str || typeof str !== 'string') return null
+  
+  // 1. Matches with currency symbol: € 14.50 | 14,50 € | 14.50 EUR | 14,- € | $ 12.00 | £ 9.50
+  const currencyRegex = /(\b\d{1,3}(?:[.,]\d{2}|[.,]-)\s*(?:€|EUR|\$|£|CHF)|(?:€|EUR|\$|£|CHF)\s*\d{1,3}(?:[.,]\d{2}|[.,]-)?)/gi
+  const currencyMatches = [...str.matchAll(currencyRegex)]
+  if (currencyMatches.length > 0) {
+    if (currencyMatches.length === 1) {
+      return { price: currencyMatches[0][0].trim(), rawMatch: currencyMatches[0][0] }
+    } else {
+      return { 
+        price: currencyMatches.map(m => m[0].trim()).join(' / '), 
+        rawMatch: currencyMatches[currencyMatches.length - 1][0] 
+      }
+    }
+  }
+
+  // 2. Trailing price at the end of the line (e.g. "Coca Cola 0.33l 3.50")
+  // MUST NOT match volume numbers like 0.33l, 0.5l, 0.75l, 250ml, 4cl
+  const trailingPriceRegex = /(?:^|\s)(\d{1,3}[.,]\d{2})(?!\s*(?:l|ml|cl|oz|g|kg|cm|mm|min)\b)(?:\s*€|\s*EUR)?(?:\s*[\(\[]?[A-R,\s\d]*[\)\]]?)?\s*$/i
+  const trailingMatch = str.match(trailingPriceRegex)
+  if (trailingMatch) {
+    const p = trailingMatch[1].replace(',', '.')
+    return { price: `${p} €`, rawMatch: trailingMatch[1] }
+  }
+
+  // 3. Any standalone price number not followed by volume units
+  const standalonePriceRegex = /\b(\d{1,3}[.,]\d{2})\b(?!\s*(?:l|ml|cl|oz|g|kg|cm|mm|min)\b)/gi
+  const allMatches = [...str.matchAll(standalonePriceRegex)]
+  const valid = allMatches.filter(m => {
+    const after = str.slice(m.index + m[0].length, m.index + m[0].length + 6).toLowerCase()
+    return !/^\s*(l|ml|cl|oz|g|kg)/.test(after)
+  })
+
+  if (valid.length > 0) {
+    const last = valid[valid.length - 1]
+    const p = last[0].replace(',', '.')
+    return { price: `${p} €`, rawMatch: last[0] }
+  }
+
+  return null
+}
+
 function parsePdfTextFallback(text, venue, style, primaryColor, secondaryColor, extractedLogo) {
   if (!text || typeof text !== 'string') return null
   const rawLines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0)
   if (rawLines.length === 0) return null
+
+  const detectedLanguage = detectDocumentLanguage(text)
 
   // Clean lines and skip PDF metadata
   const lines = rawLines.filter(l => {
@@ -92,7 +156,7 @@ function parsePdfTextFallback(text, venue, style, primaryColor, secondaryColor, 
   let detectedVenue = ''
   for (let i = 0; i < Math.min(10, lines.length); i++) {
     const l = lines[i]
-    if (l.length >= 3 && l.length <= 50 && !l.includes('€') && !l.includes('EUR') && !/\b\d+[,.]\d{2}\b/.test(l) && !l.toLowerCase().startsWith('speisekarte') && !l.toLowerCase().startsWith('menu') && !l.toLowerCase().startsWith('drinks') && !l.toLowerCase().startsWith('karte')) {
+    if (l.length >= 3 && l.length <= 50 && !extractPriceAndVariants(l) && !l.toLowerCase().startsWith('speisekarte') && !l.toLowerCase().startsWith('menu') && !l.toLowerCase().startsWith('drinks') && !l.toLowerCase().startsWith('karte')) {
       detectedVenue = l
       break
     }
@@ -109,35 +173,38 @@ function parsePdfTextFallback(text, venue, style, primaryColor, secondaryColor, 
     }
   }
 
-  const finalName = detectedVenue || venue || 'Speisekarte'
+  const finalName = detectedVenue || venue || (detectedLanguage === 'en' ? 'Restaurant Menu' : 'Speisekarte')
   const finalPrimary = primaryColor || '#7C3AED'
   const finalSecondary = secondaryColor || '#FF2D8D'
   const finalLogo = extractedLogo || generateMonogramSvg(finalName, finalPrimary, finalSecondary)
 
-  const priceRegex = /(\d+[,.]\d{2}\s*€|€\s*\d+[,.]\d{2}|\d+\s*€|\d+[,.]\d{2}\s*EUR|\b\d{1,3}[,.]\d{2}\b|\d+[,.]-\s*€?)/i
-  const categoryKeywordsRegex = /^(Vorspeisen|Antipasti|Starters|Suppen|Soups|Salate|Salads|Pasta|Pizza|Hauptgerichte|Hauptspeisen|Fleisch|Fleischgerichte|Meat|Fisch|Fish|Meeresfrüchte|Burger|Spezialitäten|Beilagen|Sides|Desserts|Nachtisch|Nachspeisen|Süßspeisen|Getränke|Drinks|Beverages|Alkoholfreie Getränke|Softdrinks|Wasser|Säfte|Heißgetränke|Kaffee|Tee|Biere|Beer|Weine|Wine|Offene Weine|Flaschenweine|Rotweine|Weißweine|Cocktails|Longdrinks|Aperitif|Digestif|Spirituosen)/i
+  // Category keyword matchers - comprehensive for both food AND drinks in English, German & Italian
+  const categoryKeywordsRegex = /(?:^|\b)(Vorspeisen|Antipasti|Starters|Appetizers|Suppen|Soups|Salate|Salads|Pasta|Pizza|Hauptgerichte|Hauptspeisen|Mains|Main Courses|Entrees|Fleisch|Fleischgerichte|Meat|Steaks|Grill|Fisch|Fish|Meeresfrüchte|Seafood|Burger|Burgers|Sandwiches|Spezialitäten|Specialties|Beilagen|Sides|Side Orders|Desserts|Nachtisch|Nachspeisen|Süßspeisen|Sweets|Getränke|Drinks|Beverages|Alkoholfreie Getränke|Softdrinks|Soft Drinks|Cold Drinks|Erfrischungsgetränke|Mineralwasser|Wasser|Water|Mineral Water|Säfte|Juices|Heißgetränke|Hot Drinks|Kaffee|Coffee|Tee|Tea|Kaffeespezialitäten|Coffee Specialties|Biere|Beer|Beers|Fassbier|Draft Beer|Draught Beer|Flaschenbier|Bottled Beer|Cider|Weine|Wine|Wines|Offene Weine|Wines by the Glass|Flaschenweine|Bottled Wine|Rotweine|Red Wines|Red Wine|Weißweine|White Wines|White Wine|Rosé|Roséweine|Schaumwein|Sparkling Wine|Prosecco|Champagne|Cocktails|Signature Cocktails|Longdrinks|Long Drinks|Mocktails|Aperitif|Aperitifs|Digestif|Digestifs|Spirituosen|Spirits|Liquors|Shots)(?:\b|$)/i
 
   const categories = []
   let currentCategory = {
     id: 'cat_extracted_1',
-    name: 'Speisen & Spezialitäten',
+    name: detectedLanguage === 'en' ? 'Dishes & Specialties' : 'Speisen & Spezialitäten',
     icon: '🍽️',
     items: []
   }
 
   const getCategoryIcon = (title) => {
     const lower = (title || '').toLowerCase()
-    if (lower.includes('getränk') || lower.includes('drink') || lower.includes('soft') || lower.includes('wasser') || lower.includes('saft')) return '🥤'
-    if (lower.includes('kaffee') || lower.includes('tee') || lower.includes('heiß') || lower.includes('espresso')) return '☕'
-    if (lower.includes('bier') || lower.includes('beer')) return '🍺'
-    if (lower.includes('wein') || lower.includes('wine')) return '🍷'
-    if (lower.includes('dessert') || lower.includes('eis') || lower.includes('kuchen') || lower.includes('tiramisu')) return '🍰'
-    if (lower.includes('salat')) return '🥗'
+    if (lower.includes('getränk') || lower.includes('drink') || lower.includes('beverage') || lower.includes('soft') || lower.includes('wasser') || lower.includes('water') || lower.includes('saft') || lower.includes('juice')) return '🥤'
+    if (lower.includes('kaffee') || lower.includes('coffee') || lower.includes('tee') || lower.includes('tea') || lower.includes('heiß') || lower.includes('hot') || lower.includes('espresso')) return '☕'
+    if (lower.includes('bier') || lower.includes('beer') || lower.includes('cider') || lower.includes('draft') || lower.includes('draught')) return '🍺'
+    if (lower.includes('wein') || lower.includes('wine') || lower.includes('prosecco') || lower.includes('champagne')) return '🍷'
+    if (lower.includes('cocktail') || lower.includes('longdrink') || lower.includes('spirit') || lower.includes('aperitif') || lower.includes('digestif')) return '🍸'
+    if (lower.includes('dessert') || lower.includes('eis') || lower.includes('kuchen') || lower.includes('tiramisu') || lower.includes('sweet')) return '🍰'
+    if (lower.includes('salat') || lower.includes('salad')) return '🥗'
     if (lower.includes('pizza')) return '🍕'
     if (lower.includes('pasta') || lower.includes('spaghetti')) return '🍝'
-    if (lower.includes('fleisch') || lower.includes('steak') || lower.includes('burger')) return '🥩'
-    if (lower.includes('fisch') || lower.includes('lachs')) return '🐟'
-    if (lower.includes('suppe')) return '🥣'
+    if (lower.includes('burger') || lower.includes('sandwich')) return '🍔'
+    if (lower.includes('fleisch') || lower.includes('steak') || lower.includes('meat') || lower.includes('grill')) return '🥩'
+    if (lower.includes('fisch') || lower.includes('fish') || lower.includes('salmon') || lower.includes('seafood')) return '🐟'
+    if (lower.includes('suppe') || lower.includes('soup')) return '🥣'
+    if (lower.includes('starter') || lower.includes('appetizer') || lower.includes('vorspeise')) return '🧆'
     return '🍽️'
   }
 
@@ -152,15 +219,22 @@ function parsePdfTextFallback(text, venue, style, primaryColor, secondaryColor, 
       continue
     }
 
-    // Check if line is a Category Header
-    const isExplicitCategory = categoryKeywordsRegex.test(line)
-    const isAllCapsShort = line.length <= 36 && line === line.toUpperCase() && !priceRegex.test(line) && !line.includes('(') && !line.includes(')') && !/^\d+\./.test(line) && line.length > 3
+    const priceInfo = extractPriceAndVariants(line)
+
+    // Check if line is a Category Header:
+    // 1) Contains category keywords, or
+    // 2) Is short uppercase header without price, or
+    // 3) Has dashed/starred framing like "--- DRINKS ---"
+    const cleanHeaderCandidate = line.replace(/^[\s•\-\*#\d\.\)]+/, '').replace(/[\s•\-\*#\d\.\)]+$/, '').trim()
+    const isExplicitCategory = categoryKeywordsRegex.test(cleanHeaderCandidate)
+    const isFramedHeader = (line.startsWith('--') || line.startsWith('==') || line.startsWith('••')) && cleanHeaderCandidate.length > 2 && cleanHeaderCandidate.length < 35 && !priceInfo
+    const isAllCapsShort = cleanHeaderCandidate.length <= 36 && cleanHeaderCandidate === cleanHeaderCandidate.toUpperCase() && !priceInfo && !line.includes('(') && !line.includes(')') && !/^\d+\./.test(line) && cleanHeaderCandidate.length > 3
     
-    if (isExplicitCategory || isAllCapsShort) {
+    if ((isExplicitCategory || isFramedHeader || isAllCapsShort) && !priceInfo) {
       if (currentCategory.items.length > 0) {
         categories.push(currentCategory)
       }
-      const cleanTitle = line.split(/\s+/).map(w => {
+      const cleanTitle = cleanHeaderCandidate.split(/\s+/).map(w => {
         if (w.toLowerCase() === '&') return '&'
         return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
       }).join(' ')
@@ -168,7 +242,7 @@ function parsePdfTextFallback(text, venue, style, primaryColor, secondaryColor, 
       currentCategory = {
         id: `cat_extracted_${categories.length + 1}`,
         name: cleanTitle,
-        icon: getCategoryIcon(line),
+        icon: getCategoryIcon(cleanHeaderCandidate),
         items: []
       }
       i++
@@ -176,19 +250,16 @@ function parsePdfTextFallback(text, venue, style, primaryColor, secondaryColor, 
     }
 
     // Case 1: Line has a price on it
-    const priceMatch = line.match(priceRegex)
-    if (priceMatch) {
-      let rawPrice = priceMatch[0].trim()
-      let priceStr = rawPrice.includes('€') || rawPrice.includes('EUR') ? rawPrice : `${rawPrice} €`
-      if (!priceStr.includes('€') && !priceStr.includes('EUR')) priceStr += ' €'
+    if (priceInfo) {
+      let priceStr = priceInfo.price
 
-      let dishName = line.replace(priceRegex, '')
+      let dishName = line.replace(priceInfo.rawMatch, '')
         .replace(/^\d+[\.\)]\s*/, '') // Remove leading numbers like "1. " or "24) "
         .replace(/[\(\[][A-R,\s\d]+[\)\]]/gi, '') // Remove allergen parens
         .trim()
 
       if (!dishName) {
-        dishName = `Artikel ${currentCategory.items.length + 1}`
+        dishName = `${detectedLanguage === 'en' ? 'Item' : 'Artikel'} ${currentCategory.items.length + 1}`
       }
 
       const allergens = extractAllergenCodes(line)
@@ -202,7 +273,9 @@ function parsePdfTextFallback(text, venue, style, primaryColor, secondaryColor, 
       // Check if next line is a description (no price, length > 4, not a category)
       if (i + 1 < lines.length) {
         const nextLine = lines[i + 1]
-        if (!priceRegex.test(nextLine) && !categoryKeywordsRegex.test(nextLine) && nextLine.length > 4 && nextLine !== nextLine.toUpperCase()) {
+        const nextPrice = extractPriceAndVariants(nextLine)
+        const nextIsCategory = categoryKeywordsRegex.test(nextLine) || (nextLine.length <= 36 && nextLine === nextLine.toUpperCase() && !nextPrice)
+        if (!nextPrice && !nextIsCategory && nextLine.length > 4) {
           description = nextLine
           const extraAllergens = extractAllergenCodes(nextLine)
           extraAllergens.forEach(a => { if (!allergens.includes(a)) allergens.push(a) })
@@ -218,43 +291,46 @@ function parsePdfTextFallback(text, venue, style, primaryColor, secondaryColor, 
         allergens,
         diet,
         spicy: lLow.includes('scharf') || lLow.includes('spicy') || lLow.includes('chili'),
-        highlight: currentCategory.items.length === 0
+        highlight: currentCategory.items.length === 0,
+        imageUrl: '' // NEVER invent stock image
       })
       i++
       continue
     }
 
     // Case 2: Line has NO price, but NEXT line has price (e.g. Name on line 1, Price on line 2)
-    if (i + 1 < lines.length && priceRegex.test(lines[i + 1]) && !categoryKeywordsRegex.test(lines[i + 1])) {
+    if (i + 1 < lines.length) {
       const nextLine = lines[i + 1]
-      const priceMatch2 = nextLine.match(priceRegex)
-      let rawPrice = priceMatch2[0].trim()
-      let priceStr = rawPrice.includes('€') || rawPrice.includes('EUR') ? rawPrice : `${rawPrice} €`
-      if (!priceStr.includes('€') && !priceStr.includes('EUR')) priceStr += ' €'
+      const nextPriceInfo = extractPriceAndVariants(nextLine)
+      const nextIsCat = categoryKeywordsRegex.test(nextLine)
+      if (nextPriceInfo && !nextIsCat) {
+        let priceStr = nextPriceInfo.price
 
-      let dishName = line.replace(/^\d+[\.\)]\s*/, '')
-        .replace(/[\(\[][A-R,\s\d]+[\)\]]/gi, '')
-        .trim()
-      
-      const allergens = [...extractAllergenCodes(line), ...extractAllergenCodes(nextLine)]
-      const diet = []
-      const lLow = (line + ' ' + nextLine).toLowerCase()
-      if (lLow.includes('vegan')) diet.push('vegan')
-      else if (lLow.includes('veggie') || lLow.includes('vegetar')) diet.push('vegetarian')
-      if (lLow.includes('glutenfrei') || lLow.includes('gluten free')) diet.push('glutenfree')
+        let dishName = line.replace(/^\d+[\.\)]\s*/, '')
+          .replace(/[\(\[][A-R,\s\d]+[\)\]]/gi, '')
+          .trim()
+        
+        const allergens = [...extractAllergenCodes(line), ...extractAllergenCodes(nextLine)]
+        const diet = []
+        const lLow = (line + ' ' + nextLine).toLowerCase()
+        if (lLow.includes('vegan')) diet.push('vegan')
+        else if (lLow.includes('veggie') || lLow.includes('vegetar')) diet.push('vegetarian')
+        if (lLow.includes('glutenfrei') || lLow.includes('gluten free')) diet.push('glutenfree')
 
-      currentCategory.items.push({
-        id: `item_pdf_${categories.length}_${currentCategory.items.length + 1}`,
-        name: dishName || `Artikel ${currentCategory.items.length + 1}`,
-        description: nextLine.replace(priceRegex, '').trim(),
-        price: priceStr,
-        allergens: Array.from(new Set(allergens)),
-        diet,
-        spicy: lLow.includes('scharf') || lLow.includes('spicy') || lLow.includes('chili'),
-        highlight: currentCategory.items.length === 0
-      })
-      i += 2
-      continue
+        currentCategory.items.push({
+          id: `item_pdf_${categories.length}_${currentCategory.items.length + 1}`,
+          name: dishName || `${detectedLanguage === 'en' ? 'Item' : 'Artikel'} ${currentCategory.items.length + 1}`,
+          description: nextLine.replace(nextPriceInfo.rawMatch, '').trim(),
+          price: priceStr,
+          allergens: Array.from(new Set(allergens)),
+          diet,
+          spicy: lLow.includes('scharf') || lLow.includes('spicy') || lLow.includes('chili'),
+          highlight: currentCategory.items.length === 0,
+          imageUrl: '' // NEVER invent stock image
+        })
+        i += 2
+        continue
+      }
     }
 
     // Line without price - might be allergen code or note for previous item
@@ -287,17 +363,20 @@ function parsePdfTextFallback(text, venue, style, primaryColor, secondaryColor, 
       textColor: '#18181B',
       primaryColor: finalPrimary,
       secondaryColor: finalSecondary,
+      primaryLanguage: detectedLanguage,
       logoUrl: finalLogo,
-      allergenNotice: detectedAllergenNotice || 'Liebe Gäste, bei Fragen zu Allergenen und Zusatzstoffen berät Sie gerne unser geschultes Servicepersonal.'
+      allergenNotice: detectedAllergenNotice || (detectedLanguage === 'en' 
+        ? 'Dear guests, if you have allergies or dietary restrictions, please speak to our trained service staff.'
+        : 'Liebe Gäste, bei Fragen zu Allergenen und Zusatzstoffen berät Sie gerne unser geschultes Servicepersonal.')
     },
     allergensLegend: {
-      "A": { "de": "Glutenhaltiges Getreide (Weizen, Roggen, Gerste, Hafer)", "en": "Cereals containing gluten" },
+      "A": { "de": "Glutenhaltiges Getreide (Weizen, Roggen, Gerste, Hafer)", "en": "Cereals containing gluten (wheat, rye, barley, oats)" },
       "B": { "de": "Krebstiere und Krebstiererzeugnisse", "en": "Crustaceans and crustacean products" },
       "C": { "de": "Eier und Eierzeugnisse", "en": "Eggs and egg products" },
       "D": { "de": "Fische und Fischerzeugnisse", "en": "Fish and fish products" },
       "E": { "de": "Erdnüsse und Erdnusserzeugnisse", "en": "Peanuts and peanut products" },
       "F": { "de": "Sojabohnen und Sojaerzeugnisse", "en": "Soybeans and soybean products" },
-      "G": { "de": "Milch und Milcherzeugnisse (einschl. Laktose)", "en": "Milk and dairy products" },
+      "G": { "de": "Milch und Milcherzeugnisse (einschl. Laktose)", "en": "Milk and dairy products (including lactose)" },
       "H": { "de": "Schalenfrüchte / Nüsse", "en": "Tree nuts" },
       "L": { "de": "Sellerie und Sellerieerzeugnisse", "en": "Celery and celery products" },
       "M": { "de": "Senf und Senferzeugnisse", "en": "Mustard and mustard products" },
@@ -408,7 +487,7 @@ export default async function handler(req, res) {
     return res.status(guard.status).json({ error: guard.error })
   }
 
-  const { documentText, menuItemsText, venue, style, primaryColor, secondaryColor, phone, whatsapp, address, instagram, fileBase64, fileMimeType } = req.body || {}
+  const { documentText, menuItemsText, venue, style, primaryColor, secondaryColor, phone, whatsapp, address, instagram, fileBase64, fileMimeType, cartEnabled, primaryLanguage } = req.body || {}
 
   let rawInput = (documentText || '') + '\n' + (menuItemsText || '')
 
@@ -571,35 +650,47 @@ ${pageCountInfo}
 
 CRITICAL DESIGN & COMPLETE EXTRACTION MANDATE (DOCUMENT CONTENT OVERRIDES ANY DEFAULTS):
 
-1. COMPLETE EXTRACTION OF ALL DISHES & ALL DRINKS (~46 ITEMS):
-   - You MUST extract EVERY SINGLE DISH AND EVERY SINGLE DRINK across ALL pages and sections of the document.
-   - Speisen: Vorspeisen, Suppen, Salate, Hauptgerichte, Fleisch, Fisch, Pasta, Pizza, Burger, Beilagen, Desserts.
-   - Getränke: Alkoholfreie Getränke, Softdrinks, Mineralwasser, Kaffeespezialitäten, Tee, Biere, Offene Weine, Flaschenweine, Cocktails, Spirituosen.
-   - DO NOT STOP AFTER 15 OR 19 ITEMS! The document contains multiple pages and sections with ~46 total items.
-   - If there are drinks on later pages, they MUST be extracted as their own drink categories!
+1. COMPLETE EXTRACTION OF ALL DISHES & ALL DRINKS (~46 ITEMS TOTAL):
+   - Restaurant menus contain BOTH food sections AND drink/beverage sections.
+   - You MUST extract EVERY SINGLE DISH AND EVERY SINGLE DRINK across ALL pages and sections of the document!
+   - FOOD CATEGORIES: Starters, Soups, Salads, Pasta, Pizza, Main Courses, Steaks, Fish & Seafood, Burgers, Sides, Desserts.
+   - DRINK & BEVERAGE CATEGORIES (DO NOT OMIT DRINKS!): Soft Drinks, Mineral Water, Juices, Hot Drinks, Coffee & Tea, Beers (Draught & Bottle), Wines (White, Red, Rosé, Sparkling / Prosecco / Champagne), Cocktails & Longdrinks, Spirits / Liquors.
+   - Later pages of multi-page PDFs contain the beverage and drinks list: YOU MUST EXTRACT EVERY SINGLE DRINK!
    - Every single item with a price in the document MUST appear in the JSON categories.
+   - Group drinks into clear, dedicated drink categories matching the menu structure (e.g. "Soft Drinks", "Beers & Ciders", "Wines by the Glass", "Cocktails").
 
-2. RESTAURANT NAME & TAGLINE:
+2. STRICT RULE: NO INVENTED OR HALLUCINATED IMAGES:
+   - If an item in the menu does NOT have an actual picture in the uploaded document, its "imageUrl" MUST be empty string: "".
+   - DO NOT invent, hallucinate, or insert Unsplash or generic stock photo URLs for dishes or drinks!
+   - The user strictly requires: if an item has no image in the source document, leave "imageUrl": "" so it displays as a clean text card.
+
+3. PRESERVE ORIGINAL DOCUMENT LANGUAGE AS PRIMARY:
+   - Detect the document's primary language (e.g. 'en', 'de', 'fr', 'it', 'es').
+   - Put this language code in "branding.primaryLanguage": "en" (or "de", "fr", etc.).
+   - If the menu is in English:
+     * "branding.primaryLanguage" MUST be "en".
+     * Category names MUST be in English as printed in the PDF (e.g., "Starters", "Main Courses", "Burgers & Sandwiches", "Sides", "Soft Drinks & Juices", "Beers", "Wines", "Cocktails", "Hot Beverages", "Desserts").
+     * Dish and drink names and descriptions MUST be in English as in the document!
+
+4. RESTAURANT NAME & TAGLINE:
    - You MUST extract the REAL restaurant/venue name directly from the document (look at the cover page, prominent header, logo text, headline, or footer).
    - Put this in "branding.name".
    - Extract any restaurant slogan, subtitle, or concept into "branding.tagline".
 
-3. BACKGROUND COLOR & THEME DETECTION (LIGHT VS DARK):
+5. BACKGROUND COLOR & THEME DETECTION (LIGHT VS DARK):
    - Detect whether the menu document is on a LIGHT background (white, off-white, light cream, ivory, beige #FFFFFF / #FAF9F6 / #F8FAFC) or a DARK background (black #09090E, dark slate).
    - "branding.theme": Set to "light" if document is light/white/cream paper; set to "dark" if black.
    - "branding.backgroundColor": Set the detected background color (e.g. "#FAF9F6" or "#FFFFFF" for light, or "#09090E" for dark).
    - "branding.textColor": Set to "#18181B" for light theme, or "#ECECF1" for dark theme.
 
-4. BRAND COLOR PALETTE & DESIGN:
+6. BRAND COLOR PALETTE & DESIGN:
    - "branding.primaryColor": Extract dominant primary brand/accent color as HEX (e.g. #1E3A8A, #B91C1C, #047857, #7C3AED, #B45309).
    - "branding.secondaryColor": Extract secondary accent color as HEX (e.g. #F59E0B, #EC4899, #10B981, #D97706).
    - "branding.style": Select aesthetic: "fine_dining" | "street_food" | "cafe" | "trattoria" | "cocktail_bar" | "bistro" | "modern" | "rustic" | "asian".
 
-5. ALLERGENS, DIETARY CODES & ALLERGY NOTICES (MANDATORY):
-   - In restaurant menus, bold capital letters or abbreviations (e.g. A, B, C, D, E, F, G, H, L, M, N, O, P, R or numbers) appear next to dishes (e.g. 'Pizza Margherita (A, G)' or 'Carpaccio G').
-   - You MUST extract these exact codes into the item's "allergens" array: ["A", "G"].
+7. ALLERGENS, DIETARY CODES & ALLERGY NOTICES (MANDATORY):
+   - Bold capital letters or abbreviations (e.g. A, B, C, D, E, F, G, H, L, M, N, O, P, R or numbers) next to dishes (e.g. 'Pizza Margherita (A, G)' or 'Carpaccio G') MUST be extracted into the item's "allergens" array: ["A", "G"].
    - Extract any general allergy disclaimer from the menu into "branding.allergenNotice".
-   - Extract or provide the full dictionary mapping in "allergensLegend".
    - Detect dietary flags in "diet": ["vegan", "vegetarian", "glutenfree"] and boolean "spicy": true/false.
 
 Return strictly JSON matching this structure:
@@ -612,6 +703,7 @@ Return strictly JSON matching this structure:
     "textColor": "#18181B",
     "primaryColor": "#1E3A8A",
     "secondaryColor": "#D97706",
+    "primaryLanguage": "en",
     "style": "fine_dining",
     "phone": "",
     "email": "",
@@ -623,7 +715,7 @@ Return strictly JSON matching this structure:
     "allergenNotice": "General allergy disclaimer from document"
   },
   "allergensLegend": {
-    "A": { "de": "Glutenhaltiges Getreide (Weizen, Roggen, Gerste, Hafer)", "en": "Cereals containing gluten" },
+    "A": { "de": "Glutenhaltiges Getreide (Weizen, Roggen, Gerste, Hafer)", "en": "Cereals containing gluten (wheat, rye, barley, oats)" },
     "C": { "de": "Eier und Eierzeugnisse", "en": "Eggs and egg products" },
     "G": { "de": "Milch und Milcherzeugnisse (einschl. Laktose)", "en": "Milk and dairy products" },
     "H": { "de": "Schalenfrüchte / Nüsse", "en": "Tree nuts" }
@@ -753,8 +845,8 @@ Raw Input Document Text (Includes all pages):
     }
 
     // Completeness verification & missing items merge:
-    // If the document had ~46 items, but AI output was truncated or missed sections (e.g. drinks on page 2/3),
-    // merge the missing items from fallback parser so ZERO dishes or drinks are lost!
+    // If the document had ~46 items, or AI missed sections (e.g. drinks on page 2/3),
+    // merge any missing drinks or categories from fallback parser so ZERO dishes or drinks are lost!
     if (extractedPdfText || rawInput.trim()) {
       const fallbackMenu = parsePdfTextFallback(extractedPdfText || rawInput, venue, style, primaryColor, secondaryColor, extractedLogoFromDoc)
       if (fallbackMenu && fallbackMenu.categories?.length > 0) {
@@ -763,9 +855,7 @@ Raw Input Document Text (Includes all pages):
 
         console.log(`📊 Completeness check: AI extracted ${aiTotalItems} items, Fallback found ${fallbackTotalItems} items.`)
 
-        if (finalMenu && finalMenu.categories?.length > 0 && fallbackTotalItems > aiTotalItems && fallbackTotalItems >= 10) {
-          console.log(`⚠️ Document contains ${fallbackTotalItems} items but AI extracted only ${aiTotalItems}. Merging missing items & drinks...`)
-          
+        if (finalMenu && finalMenu.categories?.length > 0) {
           const existingNames = new Set()
           finalMenu.categories.forEach(cat => {
             (cat.items || []).forEach(it => {
@@ -774,6 +864,7 @@ Raw Input Document Text (Includes all pages):
             })
           })
 
+          let mergedCount = 0
           fallbackMenu.categories.forEach(fallbackCat => {
             const missingItems = (fallbackCat.items || []).filter(fbItem => {
               const fbName = (typeof fbItem.name === 'object' ? fbItem.name.de || fbItem.name.en : fbItem.name || '').toLowerCase().trim()
@@ -799,12 +890,15 @@ Raw Input Document Text (Includes all pages):
               missingItems.forEach(it => {
                 const n = (typeof it.name === 'object' ? it.name.de || it.name.en : it.name || '').toLowerCase().trim()
                 if (n) existingNames.add(n)
+                mergedCount++
               })
             }
           })
 
-          const finalTotal = finalMenu.categories.reduce((sum, c) => sum + (c.items?.length || 0), 0)
-          console.log(`✅ Completeness merge finished: Menu now contains ${finalTotal} items across ${finalMenu.categories.length} categories!`)
+          if (mergedCount > 0) {
+            const finalTotal = finalMenu.categories.reduce((sum, c) => sum + (c.items?.length || 0), 0)
+            console.log(`✅ Completeness merge: Added ${mergedCount} missing items/drinks! Menu now contains ${finalTotal} items across ${finalMenu.categories.length} categories.`)
+          }
         }
       }
     }
@@ -820,6 +914,7 @@ Raw Input Document Text (Includes all pages):
             style: style || 'fine_dining',
             primaryColor: fallbackPCol,
             secondaryColor: fallbackSCol,
+            primaryLanguage: 'en',
             logoUrl: extractedLogoFromDoc || generateMonogramSvg(fallbackName, fallbackPCol, fallbackSCol),
             allergenNotice: 'Informationen zu Allergenen erhalten Sie auf Nachfrage bei unserem Servicepersonal.',
             phone: phone || '',
@@ -843,6 +938,12 @@ Raw Input Document Text (Includes all pages):
     // Only fallback restaurant name if AI didn't find one
     if (!finalMenu.branding.name || finalMenu.branding.name === 'Speisekarte' || finalMenu.branding.name.toLowerCase().includes('extracted restaurant')) {
       if (venue) finalMenu.branding.name = venue
+    }
+
+    // Language detection: if not set by AI, detect from extracted text or document
+    if (!finalMenu.branding.primaryLanguage) {
+      const allText = (extractedPdfText || '') + ' ' + (rawInput || '')
+      finalMenu.branding.primaryLanguage = detectDocumentLanguage(allText)
     }
 
     // Only fallback colors if AI didn't detect valid hex colors from the document
@@ -899,29 +1000,27 @@ Raw Input Document Text (Includes all pages):
     }
 
     if (!finalMenu.branding.allergenNotice) {
-      finalMenu.branding.allergenNotice = 'Liebe Gäste, bei Fragen zu Allergenen und Zusatzstoffen berät Sie gerne unser geschultes Servicepersonal.'
+      finalMenu.branding.allergenNotice = finalMenu.branding.primaryLanguage === 'en'
+        ? 'Dear guests, if you have allergies or dietary restrictions, please speak to our trained service staff.'
+        : 'Liebe Gäste, bei Fragen zu Allergenen und Zusatzstoffen berät Sie gerne unser geschultes Servicepersonal.'
     }
 
-    // Enrich items with IDs and stock images if missing
-    const foodStock = [
-      'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&auto=format&fit=crop'
-    ]
+    // Set cartEnabled flag
+    finalMenu.cartEnabled = cartEnabled === true
+    if (!finalMenu.branding) finalMenu.branding = {}
+    finalMenu.branding.cartEnabled = cartEnabled === true
 
-    let imgIdx = 0
+    // Enrich items with clean IDs and DO NOT invent fake stock images:
+    // If an item has no image, keep imageUrl as "" so it renders as a clean text card
     finalMenu.categories.forEach((cat, cIdx) => {
       if (!cat.id) cat.id = `cat_${cIdx + 1}`
       if (!cat.items || !Array.isArray(cat.items)) cat.items = []
       
       cat.items.forEach((item, iIdx) => {
         if (!item.id) item.id = `item_${cIdx + 1}_${iIdx + 1}`
-        if (!item.imageUrl) {
-          item.imageUrl = foodStock[imgIdx % foodStock.length]
-          imgIdx++
+        // Never invent images for items that don't have them in the document
+        if (!item.imageUrl || item.imageUrl.includes('unsplash.com') || item.imageUrl.includes('placeholder') || item.imageUrl.includes('stock') || item.imageUrl === 'none' || item.imageUrl === 'null') {
+          item.imageUrl = ''
         }
       })
     })

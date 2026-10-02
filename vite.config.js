@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
 function apiPlugin() {
@@ -78,7 +79,57 @@ function apiPlugin() {
 }
 
 export default defineConfig({
-  plugins: [react(), apiPlugin()],
+  plugins: [
+    react(),
+    apiPlugin(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['scenvy-icon.png', 'scenvy-badge.png', 'scenvy-full.png'],
+      manifest: {
+        id: '/app',
+        name: 'SCENVY Partner — Mobile App',
+        short_name: 'SCENVY App',
+        description: 'Die mobile Mandanten-App für Gastronomie & Hotellerie: Speisekarten, Live-Bestellungen & Tisch-QR-Codes.',
+        theme_color: '#09090E',
+        background_color: '#09090E',
+        display: 'standalone',
+        start_url: '/app',
+        scope: '/',
+        icons: [
+          {
+            src: '/scenvy-icon.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/scenvy-icon.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/scenvy-badge.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'maskable'
+          },
+          {
+            src: '/scenvy-full.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
+          }
+        ]
+      },
+      devOptions: {
+        enabled: true
+      },
+      workbox: {
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024
+      }
+    })
+  ],
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') },
   },

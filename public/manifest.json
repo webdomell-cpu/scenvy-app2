@@ -1,20 +1,39 @@
 {
-  "name": "SCENVY Digital Menu",
-  "short_name": "SCENVY",
-  "start_url": "/",
+  "id": "/app",
+  "name": "SCENVY Partner — Mobile App",
+  "short_name": "SCENVY App",
+  "description": "Die mobile Mandanten-App für Gastronomie & Hotellerie: Speisekarten, Live-Bestellungen, KDS & Tisch-QR-Codes direkt auf dem Smartphone verwalten.",
+  "start_url": "/app",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0D0D14",
-  "theme_color": "#0D0D14",
+  "orientation": "portrait",
+  "background_color": "#09090E",
+  "theme_color": "#09090E",
+  "categories": ["business", "food", "productivity"],
   "icons": [
     {
       "src": "/scenvy-icon.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/scenvy-icon.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/scenvy-badge.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/scenvy-full.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

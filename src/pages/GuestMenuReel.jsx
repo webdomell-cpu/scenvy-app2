@@ -65,7 +65,7 @@ export default function GuestMenuReel({ initialMenu, isPreview = false, onSaveMe
   const [locationData, setLocationData] = useState(null)
   const [showHighlightBanner, setShowHighlightBanner] = useState(true)
   const [loading, setLoading] = useState(!initialMenu)
-  const [lang, setLang] = useState('de') // 'de' | 'en'
+  const [lang, setLang] = useState(() => initialMenu?.branding?.primaryLanguage || initialMenu?.primaryLanguage || 'en') // 'en' | 'de'
   const [activeCat, setActiveCat] = useState('')
   const [selectedAllergen, setSelectedAllergen] = useState(null)
   const [editorMode, setEditorMode] = useState(false)
@@ -100,6 +100,8 @@ export default function GuestMenuReel({ initialMenu, isPreview = false, onSaveMe
   const allergensLegend = menu?.allergensLegend || {}
   const primaryColor = branding.primaryColor || '#7C3AED'
   const secondaryColor = branding.secondaryColor || '#FF2D8D'
+  const orderingEnabled = menu?.orderingEnabled ?? branding?.orderingEnabled ?? false
+  const isCartEnabled = menu?.cartEnabled === true || branding?.cartEnabled === true
 
   const [colorTheme, setColorTheme] = useState(() => (branding.theme === 'dark' ? 'dark' : 'light'))
 
@@ -108,6 +110,22 @@ export default function GuestMenuReel({ initialMenu, isPreview = false, onSaveMe
       setColorTheme(branding.theme)
     }
   }, [branding.theme])
+
+  useEffect(() => {
+    const prefLang = branding.primaryLanguage || menu?.primaryLanguage
+    if (prefLang && (prefLang === 'en' || prefLang === 'de' || prefLang === 'fr' || prefLang === 'it' || prefLang === 'es')) {
+      setLang(prefLang)
+    }
+  }, [branding.primaryLanguage, menu?.primaryLanguage])
+
+  const getLocalized = (val, currentLang) => {
+    if (!val) return ''
+    if (typeof val === 'string') return val
+    if (typeof val === 'object') {
+      return val[currentLang] || (currentLang === 'en' ? (val.en || val.de) : (val.de || val.en)) || Object.values(val)[0] || ''
+    }
+    return String(val)
+  }
 
   const isLight = colorTheme === 'light'
   const currentBg = branding.backgroundColor || (isLight ? '#FAF9F6' : '#09090E')
@@ -342,7 +360,7 @@ export default function GuestMenuReel({ initialMenu, isPreview = false, onSaveMe
       allergens: ['A'],
       diet: ['vegetarian'],
       highlight: false,
-      imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop'
+      imageUrl: ''
     }
     updated.categories[catIndex].items.push(newItem)
     setMenu(updated)
@@ -643,7 +661,7 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
       {/* Sticky Category Bar */}
       <div className="hide-scrollbar" style={{ position: 'sticky', top: 0, zIndex: 900, background: currentNavBg, backdropFilter: 'blur(16px)', borderBottom: `1px solid ${currentNavBorder}`, padding: '12px 16px', overflowX: 'auto', display: 'flex', gap: 8 }}>
         {categories.map((cat) => {
-          const catName = typeof cat.name === 'object' ? cat.name[lang] || cat.name.de : cat.name
+          const catName = getLocalized(cat.name, lang) || 'Category'
           const isActive = activeCat === cat.id
           return (
             <button key={cat.id} onClick={() => scrollToCat(cat.id)} style={{ flexShrink: 0, padding: '8px 16px', borderRadius: 24, border: `1px solid ${isActive ? primaryColor : (isLight ? '#CBD5E1' : 'rgba(255,255,255,0.1)')}`, background: isActive ? primaryColor : (isLight ? '#F1F5F9' : 'rgba(255,255,255,0.04)'), color: isActive ? '#FFF' : currentSubText, fontSize: 13, fontWeight: isActive ? 800 : 600, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 6, boxShadow: isActive ? `0 4px 12px ${primaryColor}33` : 'none' }}>
@@ -658,7 +676,7 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
       {/* Categories & Dish Cards */}
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '20px 16px' }}>
         {categories.map((cat, catIdx) => {
-          const catName = typeof cat.name === 'object' ? (cat.name[lang] || cat.name.de || cat.name.en || Object.values(cat.name)[0]) : (cat.name || 'Kategorie')
+          const catName = getLocalized(cat.name, lang) || (lang === 'en' ? 'Category' : 'Kategorie')
           return (
             <div key={cat.id || catIdx} id={cat.id} style={{ marginBottom: 36, scrollMarginTop: 110, animation: 'fadeIn 0.4s ease' }}>
               {/* Category Title */}
@@ -674,7 +692,7 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
 
                 {editorMode && (
                   <button onClick={() => addItemToCategory(catIdx)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 8, background: primaryColor, color: '#FFF', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
-                    <Plus size={13} /> Gericht hinzufügen
+                    <Plus size={13} /> {lang === 'en' ? 'Add Item' : 'Gericht hinzufügen'}
                   </button>
                 )}
               </div>
@@ -682,8 +700,8 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
               {/* Items List */}
               <div style={{ display: 'grid', gap: 16 }}>
                 {cat.items?.map((item, itemIdx) => {
-                  const itemName = typeof item.name === 'object' ? (item.name[lang] || item.name.de || item.name.en || Object.values(item.name)[0]) : (item.name || 'Gericht')
-                  const itemDesc = typeof item.description === 'object' ? (item.description[lang] || item.description.de || item.description.en || Object.values(item.description)[0]) : (item.description || '')
+                  const itemName = getLocalized(item.name, lang) || (lang === 'en' ? 'Item' : 'Artikel')
+                  const itemDesc = getLocalized(item.description, lang)
 
                   return (
                     <div 
@@ -706,17 +724,20 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
                       {/* Highlight Ribbon */}
                       {item.highlight && (
                         <div style={{ position: 'absolute', top: 0, right: 0, background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`, color: '#FFF', fontSize: 9, fontWeight: 800, padding: '3px 10px 3px 8px', borderRadius: '0 16px 0 10px', letterSpacing: 0.5, textTransform: 'uppercase' }}>
-                          ⭐ Empfehlung
+                          ⭐ {lang === 'en' ? 'Recommended' : 'Empfehlung'}
                         </div>
                       )}
 
-                      {/* Cover Image */}
-                      {item.imageUrl && (
+                      {/* Cover Image - ONLY rendered if an actual real image exists (never empty boxes or unsplash/placeholder) */}
+                      {item.imageUrl && typeof item.imageUrl === 'string' && item.imageUrl.trim().length > 5 && !item.imageUrl.includes('unsplash.com') && !item.imageUrl.includes('placeholder') && item.imageUrl !== 'none' && (
                         <div style={{ width: 92, height: 92, borderRadius: 12, flexShrink: 0, overflow: 'hidden', position: 'relative', background: isLight ? '#F1F5F9' : '#000' }}>
                           <img 
                             src={item.imageUrl} 
                             alt={itemName} 
-                            onError={(e) => { e.target.onerror=null; e.target.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop' }} 
+                            onError={(e) => { 
+                              e.currentTarget.style.display = 'none'; 
+                              if (e.currentTarget.parentElement) e.currentTarget.parentElement.style.display = 'none'; 
+                            }} 
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                           />
                         </div>
@@ -810,7 +831,7 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
                           )}
                         </div>
 
-                        {!editorMode && (
+                        {!editorMode && isCartEnabled && (
                           <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
                             <button
                               onClick={(e) => {
@@ -904,7 +925,8 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
             <button
               onClick={() => { setCallType('waiter'); setShowCallModal(true) }}
               style={{
-                padding: '10px 12px',
+                flex: isCartEnabled ? '0 0 auto' : 1,
+                padding: '10px 14px',
                 borderRadius: 12,
                 background: 'rgba(239, 68, 68, 0.15)',
                 border: '1px solid rgba(239, 68, 68, 0.4)',
@@ -914,54 +936,57 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: 6,
-                whiteSpace: 'nowrap',
-                flexShrink: 0
+                whiteSpace: 'nowrap'
               }}
             >
               <Bell size={15} color="#EF4444" />
               <span>{lang === 'de' ? 'Kellner rufen' : 'Call Waiter'}</span>
             </button>
 
-            {/* 2. Middle: Bestellung (Order Cart) */}
-            <button
-              onClick={() => setShowCartModal(true)}
-              style={{
-                flex: 1,
-                padding: '10px 14px',
-                borderRadius: 14,
-                background: cart.length > 0 ? 'linear-gradient(135deg, #10B981 0%, #059669 100%)' : 'rgba(255,255,255,0.08)',
-                border: cart.length > 0 ? 'none' : '1px solid rgba(255,255,255,0.15)',
-                color: '#FFF',
-                fontSize: 13,
-                fontWeight: 900,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                boxShadow: cart.length > 0 ? '0 4px 20px rgba(16,185,129,0.4)' : 'none'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <ShoppingCart size={17} />
-                <span>{lang === 'de' ? 'Bestellung' : 'Order'}</span>
-                {cart.length > 0 && (
-                  <span style={{ padding: '2px 7px', borderRadius: 10, background: '#FFF', color: '#059669', fontSize: 11, fontWeight: 900 }}>
-                    {cart.reduce((a, b) => a + b.qty, 0)}
-                  </span>
-                )}
-              </div>
+            {/* 2. Middle: Bestellung (Order Cart) - only when cart is enabled */}
+            {isCartEnabled && (
+              <button
+                onClick={() => setShowCartModal(true)}
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  borderRadius: 14,
+                  background: cart.length > 0 ? 'linear-gradient(135deg, #10B981 0%, #059669 100%)' : 'rgba(255,255,255,0.08)',
+                  border: cart.length > 0 ? 'none' : '1px solid rgba(255,255,255,0.15)',
+                  color: '#FFF',
+                  fontSize: 13,
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  boxShadow: cart.length > 0 ? '0 4px 20px rgba(16,185,129,0.4)' : 'none'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <ShoppingCart size={17} />
+                  <span>{lang === 'de' ? 'Bestellung' : 'Order'}</span>
+                  {cart.length > 0 && (
+                    <span style={{ padding: '2px 7px', borderRadius: 10, background: '#FFF', color: '#059669', fontSize: 11, fontWeight: 900 }}>
+                      {cart.reduce((a, b) => a + b.qty, 0)}
+                    </span>
+                  )}
+                </div>
 
-              <span style={{ fontSize: 13, fontWeight: 900 }}>
-                {cart.length > 0 ? getCartTotalFormatted() : (lang === 'de' ? 'Leer' : 'Empty')}
-              </span>
-            </button>
+                <span style={{ fontSize: 13, fontWeight: 900 }}>
+                  {cart.length > 0 ? getCartTotalFormatted() : (lang === 'de' ? 'Leer' : 'Empty')}
+                </span>
+              </button>
+            )}
 
             {/* 3. Right: Rechnung */}
             <button
               onClick={() => { setCallType('bill'); setShowCallModal(true) }}
               style={{
-                padding: '10px 12px',
+                flex: isCartEnabled ? '0 0 auto' : 1,
+                padding: '10px 14px',
                 borderRadius: 12,
                 background: 'rgba(245, 158, 11, 0.15)',
                 border: '1px solid rgba(245, 158, 11, 0.4)',
@@ -971,9 +996,9 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: 6,
-                whiteSpace: 'nowrap',
-                flexShrink: 0
+                whiteSpace: 'nowrap'
               }}
             >
               <Receipt size={15} color="#F59E0B" />
@@ -1228,20 +1253,20 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
       {/* DISH DETAIL MODAL (Bericht & Ausführliche Ansicht mit Allergenen am Ende) */}
       {activeDetailItem && (() => {
         const item = activeDetailItem
-        const itemName = typeof item.name === 'object' ? (item.name[lang] || item.name.de || item.name.en || Object.values(item.name)[0]) : (item.name || 'Gericht')
-        const itemDesc = typeof item.description === 'object' ? (item.description[lang] || item.description.de || item.description.en || Object.values(item.description)[0]) : (item.description || '')
+        const itemName = getLocalized(item.name, lang) || (lang === 'en' ? 'Item' : 'Gericht')
+        const itemDesc = getLocalized(item.description, lang)
         const itemAllergens = item.allergens || []
 
         return (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(10px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setActiveDetailItem(null)}>
             <div style={{ background: isLight ? '#FFFFFF' : '#14141E', color: currentText, border: `1px solid ${isLight ? '#E2E8F0' : 'rgba(255,255,255,0.12)'}`, borderRadius: 24, maxWidth: 520, width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 60px rgba(0,0,0,0.35)', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
-              {/* Cover Photo */}
-              {item.imageUrl && (
+              {/* Cover Photo - ONLY if an actual real image exists */}
+              {item.imageUrl && typeof item.imageUrl === 'string' && item.imageUrl.trim().length > 5 && !item.imageUrl.includes('unsplash.com') && !item.imageUrl.includes('placeholder') && item.imageUrl !== 'none' ? (
                 <div style={{ width: '100%', height: 210, position: 'relative', overflow: 'hidden', borderRadius: '24px 24px 0 0', background: isLight ? '#F1F5F9' : '#000' }}>
                   <img 
                     src={item.imageUrl} 
                     alt={itemName} 
-                    onError={(e) => { e.target.onerror=null; e.target.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop' }} 
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }} 
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                   />
                   <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.6) 100%)' }} />
@@ -1254,16 +1279,15 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
                     <X size={17} />
                   </button>
                 </div>
+              ) : (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 20px 0' }}>
+                  <button onClick={() => setActiveDetailItem(null)} style={{ width: 32, height: 32, borderRadius: '50%', background: isLight ? '#F1F5F9' : 'rgba(255,255,255,0.1)', border: 'none', color: currentText, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <X size={16} />
+                  </button>
+                </div>
               )}
 
               <div style={{ padding: '22px 24px 26px' }}>
-                {!item.imageUrl && (
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-                    <button onClick={() => setActiveDetailItem(null)} style={{ width: 32, height: 32, borderRadius: '50%', background: isLight ? '#F1F5F9' : 'rgba(255,255,255,0.1)', border: 'none', color: currentText, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <X size={16} />
-                    </button>
-                  </div>
-                )}
 
                 {/* Title & Price */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
@@ -1358,33 +1382,36 @@ Data is embedded as window.MENU_DATA at the top of index.html for quick edits.`)
 
                 {/* Action Buttons */}
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button
-                    onClick={() => {
-                      addToCart(item)
-                      setActiveDetailItem(null)
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: '13px',
-                      borderRadius: 14,
-                      background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
-                      color: '#FFF',
-                      border: 'none',
-                      fontSize: 13.5,
-                      fontWeight: 900,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                      boxShadow: `0 8px 24px ${primaryColor}44`
-                    }}
-                  >
-                    <Plus size={16} /> {lang === 'de' ? 'In Tisch-Bestellung legen' : 'Add to Order'}
-                  </button>
+                  {isCartEnabled && (
+                    <button
+                      onClick={() => {
+                        addToCart(item)
+                        setActiveDetailItem(null)
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '13px',
+                        borderRadius: 14,
+                        background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+                        color: '#FFF',
+                        border: 'none',
+                        fontSize: 13.5,
+                        fontWeight: 900,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        boxShadow: `0 8px 24px ${primaryColor}44`
+                      }}
+                    >
+                      <Plus size={16} /> {lang === 'de' ? 'In Tisch-Bestellung legen' : 'Add to Order'}
+                    </button>
+                  )}
                   <button
                     onClick={() => setActiveDetailItem(null)}
                     style={{
+                      flex: isCartEnabled ? undefined : 1,
                       padding: '13px 20px',
                       borderRadius: 14,
                       background: isLight ? '#F1F5F9' : 'rgba(255,255,255,0.1)',
@@ -1574,13 +1601,23 @@ function generateStandaloneHTML(menu) {
   const primaryColor = branding.primaryColor || '#7C3AED'
   const secondaryColor = branding.secondaryColor || '#FF2D8D'
   const initialTheme = branding.theme === 'dark' ? 'dark' : 'light'
+  const primaryLang = branding.primaryLanguage || 'en'
+
+  const getHtmlLocalized = (val) => {
+    if (!val) return ''
+    if (typeof val === 'string') return val
+    if (typeof val === 'object') {
+      return val[primaryLang] || (primaryLang === 'en' ? (val.en || val.de) : (val.de || val.en)) || Object.values(val)[0] || ''
+    }
+    return String(val)
+  }
 
   return `<!DOCTYPE html>
-<html lang="de" data-theme="${initialTheme}">
+<html lang="${primaryLang}" data-theme="${initialTheme}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${branding.name || 'Digital Menu'} — Speisekarte</title>
+  <title>${branding.name || 'Digital Menu'} — ${primaryLang === 'en' ? 'Menu' : 'Speisekarte'}</title>
   
   <!-- Embedded Editable Menu Data -->
   <script>
@@ -1990,7 +2027,7 @@ function generateStandaloneHTML(menu) {
   <nav class="cat-nav" id="catNav">
     ${categories.map((c, i) => `
       <button class="cat-tab ${i === 0 ? 'active' : ''}" data-cat="${c.id}" onclick="scrollToCat('${c.id}')">
-        ${c.icon || '🍴'} ${typeof c.name === 'object' ? (c.name.de || c.name.en) : c.name}
+        ${c.icon || '🍴'} ${getHtmlLocalized(c.name)}
       </button>
     `).join('')}
   </nav>
@@ -2001,18 +2038,18 @@ function generateStandaloneHTML(menu) {
       <section id="${cat.id}" class="category-section">
         <h2 class="category-title">
           <span>${cat.icon || '🍴'}</span>
-          <span>${typeof cat.name === 'object' ? (cat.name.de || cat.name.en) : cat.name}</span>
+          <span>${getHtmlLocalized(cat.name)}</span>
         </h2>
         
         <div class="dish-grid">
           ${(cat.items || []).map((item) => {
-            const name = typeof item.name === 'object' ? (item.name.de || item.name.en) : item.name
-            const desc = typeof item.description === 'object' ? (item.description.de || item.description.en) : item.description
+            const name = getHtmlLocalized(item.name) || (primaryLang === 'en' ? 'Item' : 'Artikel')
+            const desc = getHtmlLocalized(item.description)
             const allergensStr = (item.allergens || []).join(',')
             
             return `
               <article class="dish-card ${item.highlight ? 'highlight' : ''}" style="cursor:pointer;" onclick="openDishModal(this)" data-name="${encodeURIComponent(name)}" data-desc="${encodeURIComponent(desc || '')}" data-price="${encodeURIComponent(item.price || '')}" data-img="${encodeURIComponent(item.imageUrl || '')}" data-allergens="${allergensStr}" data-search="${(name + ' ' + desc + ' ' + (item.price || '')).toLowerCase()}">
-                ${item.imageUrl ? `<img src="${item.imageUrl}" class="dish-img" alt="${name}" loading="lazy">` : ''}
+                ${item.imageUrl ? `<img src="${item.imageUrl}" class="dish-img" alt="${name}" loading="lazy" onerror="this.style.display='none';">` : ''}
                 <div class="dish-details">
                   <div>
                     <div class="dish-header">
@@ -2026,7 +2063,7 @@ function generateStandaloneHTML(menu) {
                   ${item.variants && item.variants.length > 0 ? `
                     <div class="variants-box">
                       ${item.variants.map(v => {
-                        const vName = typeof v.name === 'object' ? (v.name.de || v.name.en) : v.name
+                        const vName = getHtmlLocalized(v.name)
                         return `<span class="variant-pill">${vName}: <strong>${v.price}</strong></span>`
                       }).join('')}
                     </div>
@@ -2034,10 +2071,10 @@ function generateStandaloneHTML(menu) {
 
                   <!-- Dietary & Allergen Badges -->
                   <div class="badge-group">
-                    ${item.highlight ? `<span class="badge badge-highlight">⭐ Empfehlung</span>` : ''}
+                    ${item.highlight ? `<span class="badge badge-highlight">⭐ ${primaryLang === 'en' ? 'Recommended' : 'Empfehlung'}</span>` : ''}
                     ${(item.diet || []).map(d => `
                       <span class="badge ${d === 'vegan' ? 'badge-vegan' : d === 'vegetarian' ? 'badge-veggie' : 'badge-gf'}">
-                        ${d === 'vegan' ? '🌱 Vegan' : d === 'vegetarian' ? '🧀 Veggie' : d === 'glutenfree' ? '🌾 Glutenfrei' : '🌙 Halal'}
+                        ${d === 'vegan' ? '🌱 Vegan' : d === 'vegetarian' ? '🧀 Veggie' : d === 'glutenfree' ? '🌾 Glutenfree' : '🌙 Halal'}
                       </span>
                     `).join('')}
                     ${(item.allergens || []).map(a => `

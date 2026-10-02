@@ -16,7 +16,8 @@ import {
 import { AppLauncherBar } from '@/components/AppLauncherBar'
 import { launchSubdomainModule } from '@/lib/sso'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import { Home, Film, MapPin, BarChart2, Sparkles, Settings, Menu, QrCode, Eye, MousePointer, Video, Plus, Trash2, RefreshCw, Copy, LogOut, Upload, Link, X, Image, ExternalLink, CreditCard as Edit2, Download, Globe, Save, Mail, Shield, Library, Building2, Phone, Utensils, Tv, ConciergeBell, Layers, Sun, Moon, ChevronDown, ChevronRight, HelpCircle, Calendar, Zap, FileText, CheckCircle, Palette, Users, FileSpreadsheet } from 'lucide-react'
+import { Home, Film, MapPin, BarChart2, Sparkles, Settings, Menu, QrCode, Eye, MousePointer, Video, Plus, Trash2, RefreshCw, Copy, LogOut, Upload, Link, X, Image, ExternalLink, CreditCard as Edit2, Download, Globe, Save, Mail, Shield, Library, Building2, Phone, Utensils, Tv, ConciergeBell, Layers, Sun, Moon, ChevronDown, ChevronRight, HelpCircle, Calendar, Zap, FileText, CheckCircle, Palette, Users, FileSpreadsheet, Smartphone } from 'lucide-react'
+import { isMobileOrTabletDevice, setPreferredViewMode } from '@/lib/deviceDetection'
 import MenuGenerator from '@/pages/MenuGenerator'
 import OrderManagementDashboard from '@/pages/OrderManagementDashboard'
 import HostDashboard from '@/pages/HostDashboard'
@@ -398,6 +399,7 @@ function ReelModal({ reel, locs, tenantId, onClose, onSave, notify, mediaItems }
 
 // ── Sidebar ───────────────────────────────────────────────
 function Sidebar({ page, setPage, moduleTab, setModuleTab, open, setOpen, t, user, logout, tenant, themeMode, setThemeMode }) {
+  const nav = useNavigate()
   const [hoveredItem, setHoveredItem] = useState(null)
 
   // 1. HAUPTBEREICH (Overview & Analytics)
@@ -792,7 +794,7 @@ function Sidebar({ page, setPage, moduleTab, setModuleTab, open, setOpen, t, use
         </div>
       </nav>
 
-      {/* Bottom Footer Actions: Theme Toggle & Sidebar Collapse */}
+      {/* Bottom Footer Actions: Mobile App, Theme Toggle & Sidebar Collapse */}
       <div style={{ 
         padding: open ? '10px 12px' : '10px 8px', 
         borderTop: `1px solid ${C.border}`, 
@@ -802,6 +804,76 @@ function Sidebar({ page, setPage, moduleTab, setModuleTab, open, setOpen, t, use
         flexDirection: 'column', 
         gap: 8 
       }}>
+        {/* Mobile App Switcher Button */}
+        {open ? (
+          <button
+            onClick={() => {
+              setPreferredViewMode('mobile')
+              nav('/app')
+            }}
+            title="Zur mobilen Mandanten-App (/app) wechseln"
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              borderRadius: 9,
+              border: '1px solid rgba(139, 92, 246, 0.4)',
+              background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%)',
+              color: '#FFF',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontFamily: 'inherit',
+              fontSize: 11.5,
+              fontWeight: 700,
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.borderColor = C.purple}
+            onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.4)'}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Smartphone size={15} color="#A78BFA" />
+              <span>Mobile App</span>
+            </span>
+            <span style={{
+              fontSize: 9,
+              padding: '2px 7px',
+              borderRadius: 5,
+              background: 'rgba(124, 58, 237, 0.35)',
+              color: '#DDD6FE',
+              fontWeight: 800
+            }}>
+              /APP
+            </span>
+          </button>
+        ) : (
+          <button
+            onClick={() => {
+              setPreferredViewMode('mobile')
+              nav('/app')
+            }}
+            title="Zur mobilen Mandanten-App (/app) wechseln"
+            style={{
+              width: '100%',
+              height: 38,
+              borderRadius: 9,
+              border: '1px solid rgba(139, 92, 246, 0.4)',
+              background: 'rgba(124, 58, 237, 0.2)',
+              color: '#A78BFA',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontFamily: 'inherit',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.borderColor = C.purple}
+            onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.4)'}
+          >
+            <Smartphone size={16} color="#A78BFA" />
+          </button>
+        )}
+
         {/* Theme Switcher Button */}
         {open ? (
           <button
@@ -3029,6 +3101,66 @@ export default function Dashboard() {
     <div style={{display:'flex',flexDirection:'column',height:'100vh',background:C.bg,fontFamily:"'Inter',sans-serif",color:C.white}}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}} @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}} @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}} @keyframes slideIn{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:none}}`}</style>
 
+      {/* Mobile Device Switch Suggestion Banner */}
+      {isMobileOrTabletDevice() && !localStorage.getItem('scenvy_dismiss_mobile_prompt') && (
+        <div style={{
+          background: 'linear-gradient(90deg, #1E1B4B 0%, #312E81 100%)',
+          borderBottom: '1px solid rgba(139, 92, 246, 0.4)',
+          padding: '8px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontSize: 12.5,
+          fontWeight: 600,
+          color: '#EDE9FE',
+          zIndex: 999,
+          flexShrink: 0
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Smartphone size={16} color="#A78BFA" />
+            <span>Smartphone / Tablet erkannt: Wechsle zur optimierten Touch-App.</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              onClick={() => {
+                setPreferredViewMode('mobile')
+                nav('/app')
+              }}
+              style={{
+                background: '#7C3AED',
+                border: 'none',
+                color: '#FFF',
+                padding: '4px 12px',
+                borderRadius: 7,
+                cursor: 'pointer',
+                fontWeight: 700,
+                fontSize: 12
+              }}
+            >
+              Mobile App öffnen (/app) →
+            </button>
+            <button
+              onClick={() => {
+                try { localStorage.setItem('scenvy_dismiss_mobile_prompt', 'true') } catch (e) {}
+                setPreferredViewMode('desktop')
+                // force re-render by navigating to current
+                nav('/dashboard')
+              }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#A5B4FC',
+                cursor: 'pointer',
+                padding: 4
+              }}
+              title="Schließen"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {user?.isImpersonating && (
         <div style={{
           background: 'linear-gradient(90deg, #7C3AED 0%, #FF2D8D 100%)',
@@ -3105,8 +3237,37 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Right: Theme switcher, Language, domain, user avatar & Logout Button */}
+          {/* Right: Mobile App Switcher, Theme switcher, Language, domain, user avatar & Logout Button */}
           <div style={{display:'flex',alignItems:'center',gap:10}}>
+            {/* Quick Switch to Mobile App */}
+            <button
+              onClick={() => {
+                setPreferredViewMode('mobile')
+                nav('/app')
+              }}
+              title="Zur mobilen Mandanten-App (/app) wechseln"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 12px',
+                borderRadius: 8,
+                background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.25) 0%, rgba(236, 72, 153, 0.25) 100%)',
+                border: '1px solid rgba(139, 92, 246, 0.4)',
+                color: '#FFF',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                fontSize: 12,
+                fontWeight: 700,
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.borderColor = C.purple}
+              onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.4)'}
+            >
+              <Smartphone size={14} color="#C084FC" />
+              <span>Mobile App (/app)</span>
+            </button>
+
             {/* Quick Theme Switcher */}
             <button
               onClick={() => setThemeMode(m => m === 'dark' ? 'light' : 'dark')}

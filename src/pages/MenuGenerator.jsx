@@ -66,6 +66,7 @@ export default function MenuGenerator({ embedded = false, initialTab, notify: pr
   const [style, setStyle] = useState('fine_dining')
   const [theme, setTheme] = useState('light')
   const [backgroundColor, setBackgroundColor] = useState('#FAF9F6')
+  const [primaryLanguage, setPrimaryLanguage] = useState('en')
   const [primaryColor, setPrimaryColor] = useState('#7C3AED')
   const [secondaryColor, setSecondaryColor] = useState('#FF2D8D')
   const [logoUrl, setLogoUrl] = useState('')
@@ -77,6 +78,8 @@ export default function MenuGenerator({ embedded = false, initialTab, notify: pr
   const [whatsapp, setWhatsapp] = useState('')
   const [instagram, setInstagram] = useState('')
   const [address, setAddress] = useState('')
+  const [cartEnabled, setCartEnabled] = useState(false)
+  const [menuToDelete, setMenuToDelete] = useState(null) // { id, title, branding }
 
   // Preview & Editor state
   const [currentMenu, setCurrentMenu] = useState(null)
@@ -307,7 +310,6 @@ export default function MenuGenerator({ embedded = false, initialTab, notify: pr
   }
 
   const deleteRecipeCard = (id) => {
-    if (!window.confirm('Soll diese Rezeptkarte wirklich gelöscht werden?')) return
     const updated = recipeCards.filter(r => r.id !== id)
     setRecipeCards(updated)
     try {
@@ -641,7 +643,6 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
   }
 
   const deleteCollectionMenu = (id) => {
-    if (!window.confirm('Möchtest du dieses Sammlungsmenü wirklich löschen?')) return
     const updated = collectionMenus.filter(c => c.id !== id)
     setCollectionMenus(updated)
     try {
@@ -834,7 +835,6 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
 
   const deleteCategoryFromMenu = (catId) => {
     if (!currentMenu || !currentMenu.categories) return
-    if (!window.confirm('Soll diese Kategorie samt allen enthaltenen Artikeln gelöscht werden?')) return
     const updatedCategories = currentMenu.categories.filter(cat => cat.id !== catId)
     const newMenu = { ...currentMenu, categories: updatedCategories }
     setCurrentMenu(newMenu)
@@ -891,6 +891,14 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
       if (data.branding.whatsapp) setWhatsapp(data.branding.whatsapp)
       if (data.branding.instagram) setInstagram(data.branding.instagram)
       if (data.branding.address) setAddress(data.branding.address)
+      if (data.branding.primaryLanguage) setPrimaryLanguage(data.branding.primaryLanguage)
+      if (data.branding.theme) setTheme(data.branding.theme)
+      if (data.branding.backgroundColor) setBackgroundColor(data.branding.backgroundColor)
+    }
+    if (data.cartEnabled !== undefined) {
+      setCartEnabled(data.cartEnabled)
+    } else if (data.branding?.cartEnabled !== undefined) {
+      setCartEnabled(data.branding.cartEnabled)
     }
     setActiveTab('articles')
     notify(`📊 Artikelstamm für "${data.branding?.name || m.title || 'Digital Menu'}" geladen!`)
@@ -1111,7 +1119,6 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
   }
 
   const handleDeleteLocation = async (id) => {
-    if (!window.confirm('Möchtest du diesen Standort wirklich löschen?')) return
     try {
       await deleteLocation.mutateAsync({ id, tenantId })
       notify('🗑️ Standort gelöscht.')
@@ -1370,6 +1377,8 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
           style,
           theme,
           backgroundColor,
+          primaryLanguage,
+          cartEnabled,
           primaryColor,
           secondaryColor,
           phone,
@@ -1383,6 +1392,11 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
       let parsedMenu = null
       if (res.ok) {
         parsedMenu = await res.json()
+        if (parsedMenu) {
+          parsedMenu.cartEnabled = cartEnabled
+          if (!parsedMenu.branding) parsedMenu.branding = {}
+          parsedMenu.branding.cartEnabled = cartEnabled
+        }
       } else {
         const errData = await res.json().catch(() => ({}))
         console.error('Menu parsing API error:', errData)
@@ -1429,6 +1443,7 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
         if (b.style) setStyle(b.style)
         if (b.theme) setTheme(b.theme)
         if (b.backgroundColor) setBackgroundColor(b.backgroundColor)
+        if (b.primaryLanguage) setPrimaryLanguage(b.primaryLanguage)
         if (b.logoUrl) {
           setLogoUrl(b.logoUrl)
           setUploadedImage(b.logoUrl)
@@ -1446,6 +1461,7 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
           logoUrl: b.logoUrl,
           primaryColor: b.primaryColor,
           secondaryColor: b.secondaryColor,
+          primaryLanguage: b.primaryLanguage || 'en',
           style: b.style,
           theme: b.theme,
           backgroundColor: b.backgroundColor,
@@ -1544,12 +1560,27 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Soll diese digitale Speisekarte gelöscht werden?')) return
-    await deleteMenuReel.mutateAsync({ id, tenantId })
-    notify('🗑️ Speisekarte gelöscht')
-    if (currentMenu?.id === id) setCurrentMenu(null)
-    if (selectedMenuForView?.id === id) setSelectedMenuForView(null)
+  const confirmDeleteMenu = async (id) => {
+    try {
+      await deleteMenuReel.mutateAsync({ id, tenantId })
+      notify('🗑️ Speisekarte erfolgreich gelöscht')
+      if (currentMenu?.id === id) setCurrentMenu(null)
+      if (selectedMenuForView?.id === id) setSelectedMenuForView(null)
+      setMenuToDelete(null)
+    } catch (err) {
+      console.error('Delete menu error:', err)
+      notify('⚠️ Fehler beim Löschen der Speisekarte')
+      setMenuToDelete(null)
+    }
+  }
+
+  const handleDelete = (m) => {
+    if (typeof m === 'object' && m !== null) {
+      setMenuToDelete(m)
+    } else {
+      const found = menuReels.find(x => x.id === m)
+      setMenuToDelete(found || { id: m, title: 'Speisekarte' })
+    }
   }
 
   if (!isFeatureEnabled) {
@@ -1834,6 +1865,38 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
                           </div>
                         </div>
 
+                        {/* Language & Allergen info row */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#D1D5DB' }}>
+                            <Globe size={14} color={primaryColor} />
+                            <span><strong>Erkannte Sprache:</strong> {primaryLanguage === 'en' ? '🇬🇧 Englisch (Original)' : primaryLanguage === 'de' ? '🇩🇪 Deutsch' : primaryLanguage.toUpperCase()}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 10, color: C.muted, fontWeight: 700 }}>Primäre Sprache:</span>
+                            <select
+                              value={primaryLanguage}
+                              onChange={(e) => {
+                                const val = e.target.value
+                                setPrimaryLanguage(val)
+                                if (currentMenu) {
+                                  setCurrentMenu({
+                                    ...currentMenu,
+                                    branding: { ...(currentMenu.branding || {}), primaryLanguage: val }
+                                  })
+                                }
+                                notify(`🌐 Menü-Standardsprache auf ${val === 'en' ? 'Englisch' : val === 'de' ? 'Deutsch' : val} festgelegt.`)
+                              }}
+                              style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.white, borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 700, outline: 'none', cursor: 'pointer' }}
+                            >
+                              <option value="en">🇬🇧 Englisch (EN)</option>
+                              <option value="de">🇩🇪 Deutsch (DE)</option>
+                              <option value="fr">🇫🇷 Französisch (FR)</option>
+                              <option value="it">🇮🇹 Italienisch (IT)</option>
+                              <option value="es">🇪🇸 Spanisch (ES)</option>
+                            </select>
+                          </div>
+                        </div>
+
                         {/* Allergen info banner */}
                         <div style={{ fontSize: 11, color: '#D1D5DB', background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
                           <ShieldAlert size={15} color={secondaryColor} style={{ flexShrink: 0 }} />
@@ -1930,21 +1993,44 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
                       </div>
                     </div>
 
-                    {/* Restaurant Name */}
-                    <div>
-                      <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6 }}>RESTAURANT NAME</label>
-                      <input
-                        value={venue}
-                        onChange={(e) => {
-                          setVenue(e.target.value)
-                          if (currentMenu) {
-                            const updated = { ...currentMenu, branding: { ...(currentMenu.branding || {}), name: e.target.value } }
-                            setCurrentMenu(updated)
-                          }
-                        }}
-                        placeholder="z. B. Ristorante Bellavista"
-                        style={{ width: '100%', padding: 10, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }}
-                      />
+                    {/* Restaurant Name & Language */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 12 }}>
+                      <div>
+                        <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6 }}>RESTAURANT NAME</label>
+                        <input
+                          value={venue}
+                          onChange={(e) => {
+                            setVenue(e.target.value)
+                            if (currentMenu) {
+                              const updated = { ...currentMenu, branding: { ...(currentMenu.branding || {}), name: e.target.value } }
+                              setCurrentMenu(updated)
+                            }
+                          }}
+                          placeholder="z. B. Ristorante Bellavista"
+                          style={{ width: '100%', padding: 10, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6 }}>PRIMÄRE MENÜ-SPRACHE</label>
+                        <select
+                          value={primaryLanguage}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setPrimaryLanguage(val)
+                            if (currentMenu) {
+                              const updated = { ...currentMenu, branding: { ...(currentMenu.branding || {}), primaryLanguage: val } }
+                              setCurrentMenu(updated)
+                            }
+                          }}
+                          style={{ width: '100%', padding: 10, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }}
+                        >
+                          <option value="en">🇬🇧 Englisch (Standard)</option>
+                          <option value="de">🇩🇪 Deutsch</option>
+                          <option value="fr">🇫🇷 Französisch</option>
+                          <option value="it">🇮🇹 Italienisch</option>
+                          <option value="es">🇪🇸 Spanisch</option>
+                        </select>
+                      </div>
                     </div>
 
                     {/* Colors */}
@@ -2086,6 +2172,91 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
                     </div>
                   </div>
                 )}
+
+                {/* WARENKORB-MODUS AUSWAHL (Vor KI-Start) */}
+                <div style={{ marginTop: 20, background: 'rgba(255, 255, 255, 0.03)', border: `1px solid ${C.border}`, borderRadius: 14, padding: 16 }}>
+                  <div style={{ fontSize: 11, color: C.muted, fontWeight: 800, marginBottom: 10, letterSpacing: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>BESTELL- & WARENKORB-MODUS FÜR GÄSTE</span>
+                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, background: !cartEnabled ? `${C.purple}22` : `${C.green}22`, color: !cartEnabled ? C.purple : C.green, fontWeight: 800 }}>
+                      {!cartEnabled ? 'OHNE WARENKORB AKTIV' : 'MIT WARENKORB AKTIV'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCartEnabled(false)
+                        if (currentMenu) {
+                          setCurrentMenu({
+                            ...currentMenu,
+                            cartEnabled: false,
+                            branding: { ...(currentMenu.branding || {}), cartEnabled: false }
+                          })
+                        }
+                      }}
+                      style={{
+                        padding: '12px 14px',
+                        borderRadius: 12,
+                        background: !cartEnabled ? 'rgba(124, 58, 237, 0.16)' : 'rgba(255, 255, 255, 0.02)',
+                        border: `1.5px solid ${!cartEnabled ? C.purple : C.border}`,
+                        color: C.white,
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 5,
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          📖 Ohne Warenkorb
+                        </span>
+                        {!cartEnabled && <Check size={16} color={C.purple} />}
+                      </div>
+                      <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.4 }}>
+                        Reine digitale Speisekarte zum Stöbern. Klick auf Gerichte öffnet Allergene & Detailinfos (kein Warenkorb).
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCartEnabled(true)
+                        if (currentMenu) {
+                          setCurrentMenu({
+                            ...currentMenu,
+                            cartEnabled: true,
+                            branding: { ...(currentMenu.branding || {}), cartEnabled: true }
+                          })
+                        }
+                      }}
+                      style={{
+                        padding: '12px 14px',
+                        borderRadius: 12,
+                        background: cartEnabled ? 'rgba(16, 185, 129, 0.16)' : 'rgba(255, 255, 255, 0.02)',
+                        border: `1.5px solid ${cartEnabled ? C.green : C.border}`,
+                        color: C.white,
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 5,
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          🛒 Mit Warenkorb
+                        </span>
+                        {cartEnabled && <Check size={16} color={C.green} />}
+                      </div>
+                      <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.4 }}>
+                        Interaktives Bestellen: Gäste können Speisen/Getränke sammeln, Mengen anpassen & bestellen.
+                      </div>
+                    </button>
+                  </div>
+                </div>
 
                 {/* Generate Button */}
                 <button onClick={handleGenerate} disabled={isGenerating} style={{ width: '100%', padding: '14px 0', borderRadius: 12, border: 'none', background: grad(C.purple, C.pink), color: C.white, fontSize: 15, fontWeight: 800, cursor: isGenerating ? 'not-allowed' : 'pointer', marginTop: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: `0 10px 25px ${C.purple}44` }}>
@@ -2801,6 +2972,61 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
                   </div>
 
                   <div>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6 }}>PRIMÄRE MENÜ-SPRACHE (BEVORZUGTE ANZEIGE)</label>
+                    <select 
+                      value={primaryLanguage} 
+                      onChange={(e) => {
+                        const val = e.target.value
+                        setPrimaryLanguage(val)
+                        if (currentMenu) {
+                          setCurrentMenu({
+                            ...currentMenu,
+                            branding: { ...(currentMenu.branding || {}), primaryLanguage: val }
+                          })
+                        }
+                      }} 
+                      style={{ width: '100%', padding: 10, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }}
+                    >
+                      <option value="en">🇬🇧 Englisch (English - Original)</option>
+                      <option value="de">🇩🇪 Deutsch (German)</option>
+                      <option value="fr">🇫🇷 Französisch (Français)</option>
+                      <option value="it">🇮🇹 Italienisch (Italiano)</option>
+                      <option value="es">🇪🇸 Spanisch (Español)</option>
+                    </select>
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
+                      💡 Die primäre Sprache bestimmt, in welcher Sprache Kategorien, Gerichte und Getränke standardmäßig für Gäste geladen werden.
+                    </div>
+                  </div>
+
+                  {/* Cart Mode Setting */}
+                  <div>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6 }}>
+                      WARENKORB- & BESTELLFUNKTION (FÜR GÄSTE)
+                    </label>
+                    <select
+                      value={cartEnabled ? 'with_cart' : 'no_cart'}
+                      onChange={(e) => {
+                        const enabled = e.target.value === 'with_cart'
+                        setCartEnabled(enabled)
+                        if (currentMenu) {
+                          setCurrentMenu({
+                            ...currentMenu,
+                            cartEnabled: enabled,
+                            branding: { ...(currentMenu.branding || {}), cartEnabled: enabled }
+                          })
+                        }
+                      }}
+                      style={{ width: '100%', padding: 10, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }}
+                    >
+                      <option value="no_cart">📖 Ohne Warenkorb (Reine Speisekarte zum Betrachten, Klick öffnet Details)</option>
+                      <option value="with_cart">🛒 Mit Warenkorb-Funktion (Gäste können Speisen/Getränke sammeln & bestellen)</option>
+                    </select>
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
+                      {cartEnabled ? '🛒 Warenkorb aktiv: Gäste sehen "+" Buttons und können Bestellungen zusammenstellen.' : '📖 Ohne Warenkorb aktiv: Clean und puristisch, ideal als reine Informationskarte.'}
+                    </div>
+                  </div>
+
+                  <div>
                     <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 6 }}>STIL / DESIGN THEME</label>
                     <select value={style} onChange={(e) => setStyle(e.target.value)} style={{ width: '100%', padding: 10, borderRadius: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, outline: 'none' }}>
                       <option value="fine_dining">🍷 Fine Dining & Elegance</option>
@@ -2826,6 +3052,7 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
                       if (currentMenu) {
                         const updated = {
                           ...currentMenu,
+                          cartEnabled,
                           branding: {
                             ...(currentMenu.branding || {}),
                             name: venue,
@@ -2833,6 +3060,8 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
                             backgroundColor,
                             primaryColor,
                             secondaryColor,
+                            primaryLanguage,
+                            cartEnabled,
                             style,
                             logoUrl,
                             phone,
@@ -2841,12 +3070,15 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
                           }
                         }
                         setCurrentMenu(updated)
+                        try {
+                          localStorage.setItem('scenvy_cached_menu', JSON.stringify(updated))
+                        } catch (e) {}
                       }
-                      notify('✅ Branding- & Hintergrund-Einstellungen gespeichert!')
+                      notify('✅ Branding-, Theme-, Sprach- & Warenkorb-Einstellungen gespeichert!')
                     }} 
                     style={{ padding: '12px 20px', borderRadius: 10, background: C.purple, color: C.white, border: 'none', fontWeight: 700, cursor: 'pointer', marginTop: 10 }}
                   >
-                    Branding & Theme Einstellungen Speichern
+                    Branding, Theme & Sprache Speichern
                   </button>
                 </div>
               </div>
@@ -3505,7 +3737,7 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
                         <button onClick={() => downloadHTML(m)} style={{ padding: '8px 12px', borderRadius: 8, background: C.card2, border: `1px solid ${C.border}`, color: C.white, cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }} title="HTML Herunterladen">
                           <Download size={14} /> HTML
                         </button>
-                        <button onClick={() => handleDelete(m.id)} style={{ padding: '8px 12px', borderRadius: 8, background: `${C.pink}11`, border: `1px solid ${C.pink}33`, color: C.pink, cursor: 'pointer', fontSize: 12, fontWeight: 600 }} title="Löschen">
+                        <button onClick={() => handleDelete(m)} style={{ padding: '8px 12px', borderRadius: 8, background: `${C.pink}11`, border: `1px solid ${C.pink}33`, color: C.pink, cursor: 'pointer', fontSize: 12, fontWeight: 600 }} title="Löschen">
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -4285,6 +4517,39 @@ Getränke;Signature Aperol Spritz;Aperol, Prosecco, Soda & Frische Bio-Orange;8,
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal for Menus */}
+      {menuToDelete && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: C.card, border: `1px solid ${C.pink}55`, borderRadius: 24, width: '100%', maxWidth: 460, padding: 28, boxShadow: '0 25px 60px rgba(0,0,0,0.8)', textAlign: 'center' }}>
+            <div style={{ width: 56, height: 56, borderRadius: '50%', background: `${C.pink}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: C.pink }}>
+              <Trash2 size={28} />
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: C.white, marginBottom: 8 }}>
+              Digitale Speisekarte löschen?
+            </div>
+            <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5, marginBottom: 24 }}>
+              Möchtest du die Speisekarte <strong style={{ color: C.white }}>"{menuToDelete.branding?.name || menuToDelete.title || 'Digital Menu'}"</strong> wirklich unwiderruflich löschen? Alle Artikel und Links werden entfernt.
+            </div>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setMenuToDelete(null)}
+                style={{ flex: 1, padding: '12px 18px', borderRadius: 12, background: C.card2, border: `1px solid ${C.border}`, color: C.white, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmDeleteMenu(menuToDelete.id)}
+                style={{ flex: 1, padding: '12px 18px', borderRadius: 12, background: 'linear-gradient(135deg, #EF4444, #DC2626)', color: '#FFF', border: 'none', fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 6px 20px rgba(239, 68, 68, 0.4)' }}
+              >
+                <Trash2 size={16} /> Endgültig löschen
+              </button>
+            </div>
           </div>
         </div>
       )}

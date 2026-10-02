@@ -1048,11 +1048,52 @@ export function useDeleteMenuReel() {
       }
 
       const finalTenantId = await resolveTenantId(tenantId)
-      const stored = JSON.parse(localStorage.getItem(`demo_menu_reels_${finalTenantId}`) || '[]')
-      localStorage.setItem(`demo_menu_reels_${finalTenantId}`, JSON.stringify(stored.filter(x => x.id !== id)))
-      return tenantId
+      const targetKeys = [
+        `demo_menu_reels_${finalTenantId}`,
+        `demo_menu_reels_${tenantId}`,
+        'demo_menu_reels_tenant_default',
+        'demo_menu_reels_undefined'
+      ]
+
+      targetKeys.forEach((key) => {
+        try {
+          const stored = JSON.parse(localStorage.getItem(key) || '[]')
+          if (Array.isArray(stored)) {
+            localStorage.setItem(key, JSON.stringify(stored.filter(x => x.id !== id)))
+          }
+        } catch (e) {}
+      })
+
+      // Also clean up any other demo_menu_reels_* key in localStorage
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && (key.startsWith('demo_menu_reels_') || key === 'scenvy_cached_menu')) {
+            if (key === 'scenvy_cached_menu') {
+              const cached = JSON.parse(localStorage.getItem(key) || 'null')
+              if (cached && (cached.id === id || cached.menu?.id === id)) {
+                localStorage.removeItem(key)
+              }
+            } else {
+              const items = JSON.parse(localStorage.getItem(key) || '[]')
+              if (Array.isArray(items) && items.some(x => x.id === id)) {
+                localStorage.setItem(key, JSON.stringify(items.filter(x => x.id !== id)))
+              }
+            }
+          }
+        }
+      } catch (e) {}
+
+      return { id, tenantId }
     },
-    onSuccess: (tenantId) => qc.invalidateQueries({ queryKey: ['menu_reels', tenantId] })
+    onSuccess: ({ id, tenantId }) => {
+      qc.invalidateQueries({ queryKey: ['menu_reels'] })
+      if (tenantId) qc.invalidateQueries({ queryKey: ['menu_reels', tenantId] })
+      qc.setQueriesData({ queryKey: ['menu_reels'] }, (old) => {
+        if (Array.isArray(old)) return old.filter(x => x.id !== id)
+        return old
+      })
+    }
   })
 }
 

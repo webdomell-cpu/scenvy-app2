@@ -20,6 +20,8 @@ import PublicCustomPage from './pages/PublicCustomPage.jsx'
 import OrderManagementDashboard from './pages/OrderManagementDashboard.jsx'
 import GuestHostView from './pages/GuestHostView.jsx'
 import HostDashboard from './pages/HostDashboard.jsx'
+import TenantMobileApp from './pages/TenantMobileApp.jsx'
+import { isMobileOrTabletDevice } from '@/lib/deviceDetection.js'
 
 // ─── Route guards ────────────────────────────────────────
 function Protected({ children, adminOnly = false }) {
@@ -40,7 +42,9 @@ function PublicOnly({ children }) {
   if (user) {
     const userEmail = (user.email || '').toLowerCase()
     const isAdmin = user.role === 'admin' || user.role === 'superadmin' || userEmail === 'admin@scenvy.de' || userEmail === 'web.domell@gmail.com'
-    return <Navigate to={isAdmin ? '/admin' : '/dashboard'} replace />
+    if (isAdmin) return <Navigate to="/admin" replace />
+    const target = isMobileOrTabletDevice() ? '/app' : '/dashboard'
+    return <Navigate to={target} replace />
   }
   return children
 }
@@ -91,6 +95,8 @@ function AppRoutes() {
       <Route path="/website-studio" element={<Protected><WebsiteStudio /></Protected>} />
       <Route path="/menu-generator" element={<Protected><MenuGenerator /></Protected>} />
       <Route path="/admin"         element={<Protected adminOnly><Admin /></Protected>} />
+      <Route path="/app"           element={<Protected><TenantMobileApp /></Protected>} />
+      <Route path="/mobile"        element={<Protected><TenantMobileApp /></Protected>} />
       <Route path="*"              element={<Navigate to="/" replace />} />
     </Routes>
   )

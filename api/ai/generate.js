@@ -19,10 +19,11 @@ export default async function handler(req, res) {
     return res.status(guard.status).json({ error: guard.error })
   }
 
-  const { venue, offer, type, tone, isVideo, userImage, duration = 5, motionEffect = 'zoom' } = req.body || {}
-  if (!offer && !userImage) return res.status(400).json({ error: 'offer or userImage is required' })
+  const { venue, offer, type, tone, isVideo, userImage, referenceImage, templateUseMode = 'both', duration = 5, motionEffect = 'zoom' } = req.body || {}
+  const activeTemplate = referenceImage || userImage || null
+  if (!offer && !activeTemplate) return res.status(400).json({ error: 'offer or template upload is required' })
 
-  const sanitizedOffer = offer || 'Exklusives Special'
+  const sanitizedOffer = offer || (activeTemplate ? 'Highlight aus Vorlage' : 'Exklusives Special')
   const textPrompt = `You are the creative director for SCENVY, a premier TikTok-style vertical reel and hospitality video story platform.
 
 Create an engaging vertical reel / story package for:
@@ -45,18 +46,34 @@ Respond ONLY with valid, compact JSON:
   "videoConcept": "Description of the 5-second dynamic motion story"
 }`
 
-  // 1. Generate text package with Gemini AI (fallback-safe)
+  // 1. Generate text package with Gemini AI (multimodal if template image is provided)
   let parsed = null
   try {
     parsed = await executeAiTask(async (ai) => {
       let textRes = null
       const modelsToTry = ['gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-3.7-flash', 'gemini-3.8-flash']
       
+      const contentsParts = []
+      if (activeTemplate && typeof activeTemplate === 'string' && activeTemplate.startsWith('data:image/')) {
+        const mimeMatch = activeTemplate.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,(.+)$/)
+        if (mimeMatch) {
+          contentsParts.push({
+            inlineData: {
+              mimeType: mimeMatch[1],
+              data: mimeMatch[2]
+            }
+          })
+        }
+      }
+
+      const promptWithTemplateNote = textPrompt + (activeTemplate ? `\n\n[IMPORTANT - USER UPLOADED TEMPLATE]: The user provided an uploaded photo/media file as a visual template/inspiration for this reel. Examine what culinary item, drink, ingredient, garnish, or ambiance is shown. Seamlessly reflect the exact dish/drink and visual essence in the hook, headline, subtext, colorMood, and hashtags!` : '')
+      contentsParts.push({ text: promptWithTemplateNote })
+
       for (const m of modelsToTry) {
         try {
           textRes = await ai.models.generateContent({
             model: m,
-            contents: textPrompt,
+            contents: contentsParts.length > 1 ? contentsParts : promptWithTemplateNote,
             config: {
               responseMimeType: 'application/json'
             }
@@ -216,12 +233,18 @@ Respond ONLY with valid, compact JSON:
   }
 
   // 4. Media Resolution (Image or 5s Video)
-  let generatedMediaUrl = userImage || null
+  let generatedMediaUrl = null
   const isVideoMode = Boolean(isVideo)
+  const isTemplateVideo = Boolean(activeTemplate && typeof activeTemplate === 'string' && (activeTemplate.includes('.mp4') || activeTemplate.includes('video/')))
+
+  // If user provided a template and wants to use it directly or as combined media
+  if (activeTemplate && templateUseMode !== 'inspiration_only') {
+    generatedMediaUrl = activeTemplate
+  }
 
   if (!generatedMediaUrl) {
     if (isVideoMode) {
-      // Return 5-second vertical HD motion video clip matching the prompt
+      // Return 5-second vertical HD motion video clip matching the prompt / template
       generatedMediaUrl = getSmartVideoForPrompt(sanitizedOffer + ' ' + (parsed.imagePrompt || ''))
     } else {
       // Image Generation Workflow:
@@ -282,9 +305,10 @@ Respond ONLY with valid, compact JSON:
     colorMood: parsed.colorMood || 'purple',
     imageUrl: generatedMediaUrl,
     mediaUrl: generatedMediaUrl,
-    mediaType: isVideoMode ? 'video' : 'image',
+    mediaType: isTemplateVideo ? 'video' : (isVideoMode ? 'video' : 'image'),
     duration: Number(duration) || 5,
     motionEffect: motionEffect || 'zoom',
-    videoConcept: parsed.videoConcept || '5-Sekunden Video Story'
+    videoConcept: parsed.videoConcept || '5-Sekunden Video Story',
+    templateAnalyzed: Boolean(activeTemplate)
   })
 }

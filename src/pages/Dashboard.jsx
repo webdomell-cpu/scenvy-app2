@@ -1426,6 +1426,12 @@ function AIGenerator({ tenantId, locs, notify }) {
   const [loading,     setLoading]     = useState(false)
   const [uploading,   setUploading]   = useState(false)
 
+  // Upload as Template / Reference for AI generation
+  const [templateMediaUrl,  setTemplateMediaUrl]  = useState(null)
+  const [templateMediaType, setTemplateMediaType] = useState('image')
+  const [templateUseMode,   setTemplateUseMode]   = useState('both') // 'both' | 'inspiration_only' | 'direct_media'
+  const templateFileRef = useRef()
+
   // Status and scheduling choice for AI generated reel
   const [saveStatus,   setSaveStatus]   = useState('live')
   const [scheduledAt,  setScheduledAt]  = useState('')
@@ -1434,6 +1440,7 @@ function AIGenerator({ tenantId, locs, notify }) {
   const saveReel = useSaveReel()
   const { data: mediaItems = [] } = useMedia(tenantId)
   const [showMediathek, setShowMediathek] = useState(false)
+  const [mediathekTarget, setMediathekTarget] = useState('direct') // 'direct' | 'template'
 
   const PRESET_VIDEO_CLIPS = [
     { label: '🍸 Cocktail Shaken & Eingießen', text: '50% auf alle Signature Cocktails von 18 bis 20 Uhr mit Live-DJ', type: 'offer', url: 'https://assets.mixkit.co/videos/preview/mixkit-barman-preparing-a-cocktail-in-a-glass-42867-large.mp4' },
@@ -1468,10 +1475,34 @@ function AIGenerator({ tenantId, locs, notify }) {
     setUploading(false)
   }
 
+  const handleTemplateUpload = async (e) => {
+    const f = e.target.files?.[0]
+    if (!f) return
+    setUploading(true)
+    try {
+      const reader = new FileReader()
+      reader.onload = async (ev) => {
+        const base64 = ev.target.result
+        setTemplateMediaUrl(base64)
+        const isVid = f.type?.includes('video') || f.name?.endsWith('.mp4') || f.name?.endsWith('.mov')
+        setTemplateMediaType(isVid ? 'video' : 'image')
+        notify('✅ Vorlage hochgeladen & für KI bereit')
+        try {
+          const uploadedUrl = await uploadMedia(f, tenantId)
+          if (uploadedUrl) setTemplateMediaUrl(uploadedUrl)
+        } catch (e) {}
+      }
+      reader.readAsDataURL(f)
+    } catch {
+      notify('❌ Upload fehlgeschlagen')
+    }
+    setUploading(false)
+  }
+
   const generate = async (overrideParams = {}) => {
     const offerText = overrideParams.offer || (genMode === 'upload' ? (imgDesc || 'Exklusives Highlight') : form.offer)
-    if (!offerText.trim() && genMode !== 'upload') {
-      notify('Bitte Beschreibung oder Prompt eingeben')
+    if (!offerText.trim() && genMode !== 'upload' && !templateMediaUrl) {
+      notify('Bitte Beschreibung, Prompt oder Vorlage angeben')
       return
     }
 
@@ -1482,6 +1513,7 @@ function AIGenerator({ tenantId, locs, notify }) {
     setResult(null)
 
     try {
+      const activeUserMedia = overrideParams.url || (genMode === 'upload' ? mediaUrl : (templateUseMode !== 'inspiration_only' ? templateMediaUrl : null))
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1492,7 +1524,9 @@ function AIGenerator({ tenantId, locs, notify }) {
           tone: form.tone,
           isVideo: isVideo,
           duration: Number(duration) || 5,
-          userImage: overrideParams.url || (genMode === 'upload' ? mediaUrl : null)
+          userImage: activeUserMedia,
+          referenceImage: templateMediaUrl || null,
+          templateUseMode: templateUseMode
         })
       })
 
@@ -1714,6 +1748,138 @@ function AIGenerator({ tenantId, locs, notify }) {
               placeholder={genMode === 'video' ? 'z.B. Erfrischender Aperol Spritz wird auf Eis serviert mit Orangenscheibe und prickelnder Kohlensäure...' : 'z.B. Saftiges Wagyu Burger Special mit geschmolzenem Cheddar und knusprigen Pommes im Kerzenschein...'}
               style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, background: C.bg, color: C.white, fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
             />
+          </div>
+
+          {/* Vorlage / Referenz Upload zusätzlich zum Text */}
+          <div style={{ marginBottom: 16, background: 'rgba(124, 58, 237, 0.08)', border: '1px solid rgba(139, 92, 246, 0.3)', borderRadius: 14, padding: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <label style={{ fontSize: 11, color: '#C084FC', fontWeight: 800, letterSpacing: 0.8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Upload size={13} color="#C084FC" /> UPLOAD ALS VORLAGE (OPTIONAL ZUSÄTZLICH ZUM TEXT)
+              </label>
+              {templateMediaUrl && (
+                <button
+                  type="button"
+                  onClick={() => setTemplateMediaUrl(null)}
+                  style={{ fontSize: 11, color: '#EF4444', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 700 }}
+                >
+                  ✕ Vorlage entfernen
+                </button>
+              )}
+            </div>
+
+            {templateMediaUrl ? (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: C.bg, borderRadius: 10, padding: 8, border: `1px solid ${C.border}` }}>
+                  <div style={{ width: 64, height: 64, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: '#000' }}>
+                    {templateMediaType === 'video' ? (
+                      <video src={templateMediaUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} autoPlay muted loop playsInline />
+                    ) : (
+                      <img src={templateMediaUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Vorlage" />
+                    )}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: C.white, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>✨ Als KI-Vorlage aktiv</span>
+                      <span style={{ fontSize: 9.5, padding: '1px 6px', borderRadius: 4, background: 'rgba(124, 58, 237, 0.3)', color: '#D8B4FE', fontWeight: 800 }}>
+                        {templateMediaType.toUpperCase()}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                      Die KI analysiert diese Vorlage multimodal und passt Text, Farben, Gericht und Visuals optimal an.
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setTemplateUseMode('both')}
+                    style={{
+                      flex: 1,
+                      padding: '6px 8px',
+                      borderRadius: 7,
+                      fontSize: 10.5,
+                      fontWeight: templateUseMode === 'both' ? 800 : 500,
+                      background: templateUseMode === 'both' ? `${C.purple}25` : 'transparent',
+                      border: `1px solid ${templateUseMode === 'both' ? C.purple : C.border}`,
+                      color: templateUseMode === 'both' ? C.white : C.muted,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🎯 Inspiration & Reel-Medium
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTemplateUseMode('inspiration_only')}
+                    style={{
+                      flex: 1,
+                      padding: '6px 8px',
+                      borderRadius: 7,
+                      fontSize: 10.5,
+                      fontWeight: templateUseMode === 'inspiration_only' ? 800 : 500,
+                      background: templateUseMode === 'inspiration_only' ? `${C.purple}25` : 'transparent',
+                      border: `1px solid ${templateUseMode === 'inspiration_only' ? C.purple : C.border}`,
+                      color: templateUseMode === 'inspiration_only' ? C.white : C.muted,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    💡 Nur als Stil-Inspiration
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div
+                  onClick={() => templateFileRef.current?.click()}
+                  style={{
+                    border: `1px dashed ${C.purple}66`,
+                    borderRadius: 10,
+                    padding: '12px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 10,
+                    cursor: 'pointer',
+                    background: 'rgba(124, 58, 237, 0.04)',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <Upload size={16} color={C.purple} />
+                  <span style={{ fontSize: 12, color: C.white, fontWeight: 600 }}>Foto oder Video als Vorlage hochladen</span>
+                  <span style={{ fontSize: 10, color: C.dim }}>JPG, PNG, MP4 bis 30MB</span>
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => { setMediathekTarget('template'); setShowMediathek(true) }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 8,
+                      border: `1px solid ${C.purple}55`,
+                      background: 'rgba(124, 58, 237, 0.1)',
+                      color: '#C084FC',
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6
+                    }}
+                  >
+                    🖼️ Vorlage aus Mediathek wählen
+                  </button>
+                </div>
+                <input
+                  ref={templateFileRef}
+                  type="file"
+                  accept="image/*,video/*"
+                  onChange={handleTemplateUpload}
+                  style={{ display: 'none' }}
+                />
+              </div>
+            )}
           </div>
 
           {/* Presets Library */}
@@ -1978,10 +2144,17 @@ function AIGenerator({ tenantId, locs, notify }) {
                     <div
                       key={m.id}
                       onClick={() => {
-                        setMediaUrl(m.url)
-                        setMediaType(m.type === 'video' ? 'video' : 'image')
-                        setShowMediathek(false)
-                        notify('✅ Medium aus Mediathek übernommen!')
+                        if (mediathekTarget === 'template') {
+                          setTemplateMediaUrl(m.url)
+                          setTemplateMediaType(m.type === 'video' ? 'video' : 'image')
+                          setShowMediathek(false)
+                          notify('✅ Medium als KI-Vorlage übernommen!')
+                        } else {
+                          setMediaUrl(m.url)
+                          setMediaType(m.type === 'video' ? 'video' : 'image')
+                          setShowMediathek(false)
+                          notify('✅ Medium aus Mediathek übernommen!')
+                        }
                       }}
                       style={{ cursor: 'pointer', borderRadius: 12, overflow: 'hidden', border: `2px solid transparent`, background: C.card2, position: 'relative' }}
                     >

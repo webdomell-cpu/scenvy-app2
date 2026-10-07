@@ -8,6 +8,12 @@ import {
   useMenuReels,
   useSaveMenuReel,
   useDeleteMenuReel,
+  useReels,
+  useSaveReel,
+  useDeleteReel,
+  useDisplays,
+  useSaveDisplay,
+  usePlaylists,
   useLocations,
   useOrders,
   useUpdateOrderStatus,
@@ -16,6 +22,7 @@ import {
   useSubmitServiceCall,
   useSubmitOrder,
   useAnalyticsSummary,
+  uploadMedia,
   formatDateTime
 } from '@/lib/db'
 import { copyToClipboard, downloadQR, qrImageUrl } from '@/storage'
@@ -56,8 +63,17 @@ import {
   Flame,
   Globe,
   Search,
-  CheckSquare
+  CheckSquare,
+  Film,
+  Tv,
+  Play,
+  Pause,
+  Layers,
+  Video,
+  Image
 } from 'lucide-react'
+import MobileFlowTab from '@/components/mobile/MobileFlowTab'
+import MobileBoardTab from '@/components/mobile/MobileBoardTab'
 
 // Web Audio chime for restaurant service calls
 function playServiceChime() {
@@ -103,6 +119,9 @@ export default function TenantMobileApp() {
   // Data queries
   const { data: tenant, isLoading: loadingTenant } = useTenant(tenantId)
   const { data: menuReels = [], isLoading: loadingMenus, refetch: refetchMenus } = useMenuReels(tenantId)
+  const { data: reels = [], isLoading: loadingReels } = useReels(tenantId)
+  const { data: displays = [], isLoading: loadingDisplays } = useDisplays(tenantId)
+  const { data: playlists = [] } = usePlaylists(tenantId)
   const { data: locations = [], isLoading: loadingLocations } = useLocations(tenantId)
   const { data: serviceCalls = [], isLoading: loadingCalls, refetch: refetchCalls } = useServiceCalls(tenantId)
   const { data: orders = [], isLoading: loadingOrders, refetch: refetchOrders } = useOrders(tenantId)
@@ -111,17 +130,48 @@ export default function TenantMobileApp() {
   // Mutations
   const saveMenuReel = useSaveMenuReel()
   const deleteMenuReel = useDeleteMenuReel()
+  const saveReel = useSaveReel()
+  const deleteReel = useDeleteReel()
+  const saveDisplay = useSaveDisplay()
   const updateServiceCallStatus = useUpdateServiceCallStatus()
   const updateOrderStatus = useUpdateOrderStatus()
   const submitServiceCall = useSubmitServiceCall()
   const submitOrder = useSubmitOrder()
 
-  // App State
-  const [activeTab, setActiveTab] = useState('home') // 'home' | 'menus' | 'service' | 'qrcodes' | 'settings'
+  // App State: 'home' (Hub) | 'flow' (SCENVY FLOW) | 'menu' (SCENVY MENU) | 'host' (SCENVY HOST) | 'board' (SCENVY BOARD)
+  const [activeTab, setActiveTab] = useState('home')
   const [selectedLocId, setSelectedLocId] = useState('all')
   const [toast, setToast] = useState(null)
   const [audioEnabled, setAudioEnabled] = useState(true)
   const [lastCallCount, setLastCallCount] = useState(0)
+
+  // SCENVY FLOW: Reel creation & AI Generator with Vorlage Upload
+  const [showFlowModal, setShowFlowModal] = useState(false)
+  const [flowGenMode, setFlowGenMode] = useState('video') // 'video' | 'image'
+  const [flowOfferText, setFlowOfferText] = useState('')
+  const [flowType, setFlowType] = useState('offer')
+  const [flowTemplateMedia, setFlowTemplateMedia] = useState(null)
+  const [flowTemplateType, setFlowTemplateType] = useState('image')
+  const [flowTemplateUseMode, setFlowTemplateUseMode] = useState('both') // 'both' | 'inspiration_only' | 'direct_media'
+  const [flowUploadingTemplate, setFlowUploadingTemplate] = useState(false)
+  const [flowGenerating, setFlowGenerating] = useState(false)
+  const [activePreviewReel, setActivePreviewReel] = useState(null)
+  const [reelToDelete, setReelToDelete] = useState(null)
+  const flowCameraInputRef = useRef(null)
+  const flowFileInputRef = useRef(null)
+
+  // SCENVY HOST: Sub-tabs 'live' (Rufe & Bestellungen) | 'tables' (Tische & QR)
+  const [hostSubTab, setHostSubTab] = useState('live')
+
+  // SCENVY BOARD: Signage Mode & Display Fleet (im Ansatz)
+  const [boardPlayMode, setBoardPlayMode] = useState('reels') // 'reels' | 'menu' | 'splitscreen'
+  const [showAddDisplayModal, setShowAddDisplayModal] = useState(false)
+  const [newDisplayName, setNewDisplayName] = useState('')
+  const [newDisplayLoc, setNewDisplayLoc] = useState('')
+  const [showTvPairingModal, setShowTvPairingModal] = useState(false)
+
+  // Settings Modal (Top Right)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
 
   // PWA Install State
   const [deferredPrompt, setDeferredPrompt] = useState(null)
@@ -378,6 +428,136 @@ export default function TenantMobileApp() {
     }
   }
 
+  // SCENVY FLOW Handlers
+  const handleFlowTemplateSelected = (e) => {
+    const f = e.target.files?.[0]
+    if (!f) return
+    setFlowUploadingTemplate(true)
+    const isVid = f.type?.includes('video') || f.name?.endsWith('.mp4') || f.name?.endsWith('.mov')
+    setFlowTemplateType(isVid ? 'video' : 'image')
+    const reader = new FileReader()
+    reader.onload = async (ev) => {
+      const base64 = ev.target.result
+      setFlowTemplateMedia(base64)
+      setFlowUploadingTemplate(false)
+      notify('✅ Vorlage hochgeladen & für KI-Analyse bereit!')
+      try {
+        const uploadedUrl = await uploadMedia(f, tenantId)
+        if (uploadedUrl) setFlowTemplateMedia(uploadedUrl)
+      } catch (err) {}
+    }
+    reader.readAsDataURL(f)
+  }
+
+  const runFlowAiGeneration = async () => {
+    if (!flowOfferText.trim() && !flowTemplateMedia) {
+      notify('⚠️ Bitte gib eine Beschreibung oder lade eine Vorlage hoch.')
+      return
+    }
+
+    setFlowGenerating(true)
+    try {
+      const isVideo = flowGenMode === 'video'
+      const res = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          venue: tenant?.name || 'Unser Restaurant',
+          offer: flowOfferText || 'Highlight aus Vorlage',
+          type: flowType,
+          tone: 'exciting',
+          isVideo,
+          duration: 5,
+          userImage: flowTemplateUseMode !== 'inspiration_only' ? flowTemplateMedia : null,
+          referenceImage: flowTemplateMedia || null,
+          templateUseMode: flowTemplateUseMode
+        })
+      })
+
+      if (!res.ok) throw new Error('Generierung fehlgeschlagen')
+      const data = await res.json()
+
+      const newReel = {
+        tenant_id: tenantId,
+        title: data.headline || flowOfferText || 'SCENVY Highlight',
+        type: flowType,
+        status: 'live',
+        imageUrl: data.imageUrl || data.mediaUrl || flowTemplateMedia,
+        mediaUrl: data.mediaUrl || data.imageUrl || flowTemplateMedia,
+        mediaType: data.mediaType || (isVideo ? 'video' : 'image'),
+        hook: data.hook || 'JETZT ERLEBEN 🔥',
+        subtext: data.subtext || `Exklusiv bei ${tenant?.name || 'uns'}`,
+        ctaText: data.cta || 'Jetzt ansehen',
+        ctaUrl: '',
+        duration: data.duration || 5,
+        hashtags: data.hashtags || ['scenvy', flowType],
+        emoji: data.emoji || (isVideo ? '🎥' : '✨'),
+        urgency: data.urgency || '',
+        colorMood: data.colorMood || 'purple',
+        location_id: 'ALL'
+      }
+
+      await saveReel.mutateAsync({ reel: newReel, tenantId })
+      setFlowGenerating(false)
+      setShowFlowModal(false)
+      setFlowOfferText('')
+      setFlowTemplateMedia(null)
+      notify('✨ Neues Reel erfolgreich mit KI erstellt & live geschaltet!')
+      setActiveTab('flow')
+    } catch (err) {
+      console.error('Flow AI Gen Error:', err)
+      setFlowGenerating(false)
+      notify('⚠️ Fehler bei der Reel-Generierung')
+    }
+  }
+
+  const handleToggleReelStatus = async (reel) => {
+    try {
+      const nextStatus = reel.status === 'live' ? 'paused' : 'live'
+      await saveReel.mutateAsync({
+        reel: { ...reel, status: nextStatus },
+        tenantId
+      })
+      notify(nextStatus === 'live' ? '🟢 Reel jetzt LIVE geschaltet' : '⚪ Reel pausiert')
+    } catch (e) {
+      notify('⚠️ Fehler beim Aktualisieren')
+    }
+  }
+
+  const handleConfirmDeleteReel = async (id) => {
+    try {
+      await deleteReel.mutateAsync({ id, tenantId })
+      notify('🗑️ Reel gelöscht')
+      setReelToDelete(null)
+    } catch (e) {
+      notify('⚠️ Fehler beim Löschen')
+      setReelToDelete(null)
+    }
+  }
+
+  // SCENVY BOARD Handlers
+  const handleAddDisplaySubmit = async (e) => {
+    e?.preventDefault()
+    if (!newDisplayName.trim()) return
+    try {
+      await saveDisplay.mutateAsync({
+        tenantId,
+        display: {
+          name: newDisplayName.trim(),
+          location: newDisplayLoc.trim() || 'Gastraum',
+          status: 'online',
+          playlistId: playlists[0]?.id || 'pl_default'
+        }
+      })
+      setNewDisplayName('')
+      setNewDisplayLoc('')
+      setShowAddDisplayModal(false)
+      notify('📺 Neues Display erfolgreich registriert!')
+    } catch (e) {
+      notify('⚠️ Fehler beim Hinzufügen des Displays')
+    }
+  }
+
   // Install PWA trigger
   const handleTriggerPwaInstall = async () => {
     if (deferredPrompt) {
@@ -513,6 +693,25 @@ export default function TenantMobileApp() {
             <Eye size={13} color="#EC4899" />
             <span>Gästekarte</span>
           </a>
+
+          <button
+            onClick={() => setActiveTab('settings')}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              background: activeTab === 'settings' ? 'rgba(124, 58, 237, 0.25)' : 'rgba(255, 255, 255, 0.06)',
+              border: `1px solid ${activeTab === 'settings' ? 'rgba(124, 58, 237, 0.5)' : 'rgba(255, 255, 255, 0.12)'}`,
+              color: activeTab === 'settings' ? '#A78BFA' : '#FFF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer'
+            }}
+            title="Einstellungen & Profil"
+          >
+            <Settings size={16} />
+          </button>
         </div>
       </header>
 
@@ -713,6 +912,156 @@ export default function TenantMobileApp() {
               </div>
             </div>
 
+            {/* SCENVY Apps Suite Overview */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                  SCENVY Apps Suite
+                </span>
+                <span style={{ fontSize: 11, color: '#A78BFA', fontWeight: 700 }}>
+                  Alle Module integriert
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {/* 1. SCENVY FLOW */}
+                <div
+                  onClick={() => setActiveTab('flow')}
+                  style={{
+                    background: '#111622',
+                    border: '1px solid rgba(139, 92, 246, 0.25)',
+                    borderRadius: 16,
+                    padding: '14px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF' }}>
+                      <Film size={20} />
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 14, fontWeight: 900, color: '#FFF' }}>SCENVY FLOW</span>
+                        <span style={{ fontSize: 9.5, padding: '2px 6px', borderRadius: 6, background: 'rgba(139, 92, 246, 0.25)', color: '#D8B4FE', fontWeight: 800 }}>
+                          KI REELS & STORIES
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11.5, color: '#94A3B8', marginTop: 2 }}>
+                        {reels.length} Story-Reels • KI-Generator mit Vorlagen-Upload
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} color="#64748B" />
+                </div>
+
+                {/* 2. SCENVY MENU */}
+                <div
+                  onClick={() => setActiveTab('menu')}
+                  style={{
+                    background: '#111622',
+                    border: '1px solid rgba(249, 115, 22, 0.25)',
+                    borderRadius: 16,
+                    padding: '14px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg, #F97316 0%, #EAB308 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF' }}>
+                      <Utensils size={20} />
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 14, fontWeight: 900, color: '#FFF' }}>SCENVY MENU</span>
+                        <span style={{ fontSize: 9.5, padding: '2px 6px', borderRadius: 6, background: 'rgba(249, 115, 22, 0.25)', color: '#FED7AA', fontWeight: 800 }}>
+                          DIGITALE KARTEN
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11.5, color: '#94A3B8', marginTop: 2 }}>
+                        {menuReels.length} Menüs • Snap AI Foto-Erfassung & Ausverkauft-Schalter
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} color="#64748B" />
+                </div>
+
+                {/* 3. SCENVY HOST */}
+                <div
+                  onClick={() => setActiveTab('host')}
+                  style={{
+                    background: '#111622',
+                    border: '1px solid rgba(16, 185, 129, 0.25)',
+                    borderRadius: 16,
+                    padding: '14px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF' }}>
+                      <Bell size={20} />
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 14, fontWeight: 900, color: '#FFF' }}>SCENVY HOST</span>
+                        <span style={{ fontSize: 9.5, padding: '2px 6px', borderRadius: 6, background: totalUrgentCount > 0 ? 'rgba(239, 68, 68, 0.25)' : 'rgba(16, 185, 129, 0.25)', color: totalUrgentCount > 0 ? '#FCA5A5' : '#A7F3D0', fontWeight: 800 }}>
+                          {totalUrgentCount > 0 ? `${totalUrgentCount} OFFEN` : 'SERVICE & KDS'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11.5, color: '#94A3B8', marginTop: 2 }}>
+                        Live Kellnerrufe, KDS-Bestellungen & Tisch-QR-Codes
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} color="#64748B" />
+                </div>
+
+                {/* 4. SCENVY BOARD (nur im Ansatz) */}
+                <div
+                  onClick={() => setActiveTab('board')}
+                  style={{
+                    background: '#111622',
+                    border: '1px solid rgba(59, 130, 246, 0.25)',
+                    borderRadius: 16,
+                    padding: '14px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF' }}>
+                      <Tv size={20} />
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 14, fontWeight: 900, color: '#FFF' }}>SCENVY BOARD</span>
+                        <span style={{ fontSize: 9.5, padding: '2px 6px', borderRadius: 6, background: 'rgba(59, 130, 246, 0.2)', color: '#93C5FD', fontWeight: 800 }}>
+                          TV SIGNAGE (BASIS)
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11.5, color: '#94A3B8', marginTop: 2 }}>
+                        {displays.length > 0 ? `${displays.length} TV-Screens` : '2 Displays bereit'} • Live-Vorschau & Pairing
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} color="#64748B" />
+                </div>
+              </div>
+            </div>
+
             {/* Active Digital Menu Card */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -853,9 +1202,23 @@ export default function TenantMobileApp() {
         )}
 
         {/* ════════════════════════════════════════════════
-            TAB 2: SPEISEKARTEN & SNAP AI
+            TAB: SCENVY FLOW (VIDEO REELS & STORIES)
             ════════════════════════════════════════════════ */}
-        {activeTab === 'menus' && (
+        {activeTab === 'flow' && (
+          <MobileFlowTab
+            reels={reels}
+            tenantId={tenantId}
+            tenant={tenant}
+            saveReel={saveReel}
+            deleteReel={deleteReel}
+            notify={notify}
+          />
+        )}
+
+        {/* ════════════════════════════════════════════════
+            TAB: SCENVY MENU (SPEISEKARTEN & SNAP AI)
+            ════════════════════════════════════════════════ */}
+        {(activeTab === 'menu' || activeTab === 'menus') && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* Top Action Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1029,15 +1392,18 @@ export default function TenantMobileApp() {
         )}
 
         {/* ════════════════════════════════════════════════
-            TAB 3: SERVICE-TERMINAL & LIVE KDS
+            TAB: SCENVY HOST (BESTELLZENTRALE & TISCHE)
             ════════════════════════════════════════════════ */}
-        {activeTab === 'service' && (
+        {(activeTab === 'host' || activeTab === 'service' || activeTab === 'qrcodes') && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* Header with Simulate Button */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: 20, fontWeight: 900, color: '#FFF' }}>Service-Terminal</div>
-                <div style={{ fontSize: 12, color: '#94A3B8' }}>Tisch-Rufe & Live-Bestellungen</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: '#FFF', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Bell size={20} color="#10B981" />
+                  <span>SCENVY HOST</span>
+                </div>
+                <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>Tisch-Rufe, Live-KDS & Tisch-QR-Codes</div>
               </div>
 
               <div style={{ display: 'flex', gap: 6 }}>
@@ -1072,6 +1438,55 @@ export default function TenantMobileApp() {
                 </button>
               </div>
             </div>
+
+            {/* Segmented Sub-Tab Switcher */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, background: '#111622', padding: 4, borderRadius: 12 }}>
+              <button
+                type="button"
+                onClick={() => setHostSubTab('live')}
+                style={{
+                  padding: '9px',
+                  borderRadius: 9,
+                  border: 'none',
+                  background: hostSubTab === 'live' ? '#7C3AED' : 'transparent',
+                  color: hostSubTab === 'live' ? '#FFF' : '#94A3B8',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6
+                }}
+              >
+                <Bell size={14} />
+                <span>Live Rufe & KDS ({totalUrgentCount})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setHostSubTab('tables')}
+                style={{
+                  padding: '9px',
+                  borderRadius: 9,
+                  border: 'none',
+                  background: hostSubTab === 'tables' ? '#7C3AED' : 'transparent',
+                  color: hostSubTab === 'tables' ? '#FFF' : '#94A3B8',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6
+                }}
+              >
+                <QrCode size={14} />
+                <span>Tische & QR ({locations.length || 12})</span>
+              </button>
+            </div>
+
+            {hostSubTab === 'live' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
             {/* Section 1: Active Waiter Calls */}
             <div>
@@ -1248,15 +1663,13 @@ export default function TenantMobileApp() {
           </div>
         )}
 
-        {/* ════════════════════════════════════════════════
-            TAB 4: TISCH-QR-CODES & STANDORTE
-            ════════════════════════════════════════════════ */}
-        {activeTab === 'qrcodes' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div>
-              <div style={{ fontSize: 20, fontWeight: 900, color: '#FFF' }}>Tisch-QR-Codes</div>
-              <div style={{ fontSize: 12, color: '#94A3B8' }}>QR-Codes sofort am Handy vorzeigen oder downloaden</div>
-            </div>
+            {/* ── Sub-Section 2: Tisch-QR-Codes & Standorte ── */}
+            {hostSubTab === 'tables' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: '#FFF' }}>Tisch-QR-Codes</div>
+                  <div style={{ fontSize: 12, color: '#94A3B8' }}>QR-Codes sofort am Handy vorzeigen oder downloaden</div>
+                </div>
 
             {/* Table Number Selector Pills */}
             <div>
@@ -1369,6 +1782,23 @@ export default function TenantMobileApp() {
               </div>
             </div>
           </div>
+          )}
+        </div>
+        )}
+
+        {/* ════════════════════════════════════════════════
+            TAB: SCENVY BOARD (DIGITAL SIGNAGE IM ANSATZ)
+            ════════════════════════════════════════════════ */}
+        {activeTab === 'board' && (
+          <MobileBoardTab
+            displays={displays}
+            reels={reels}
+            menuReels={menuReels}
+            tenant={tenant}
+            tenantId={tenantId}
+            saveDisplay={saveDisplay}
+            notify={notify}
+          />
         )}
 
         {/* ════════════════════════════════════════════════
@@ -1505,7 +1935,7 @@ export default function TenantMobileApp() {
         )}
       </main>
 
-      {/* ── Fixed Native Mobile Bottom Navigation Bar ── */}
+      {/* ── Fixed Native Mobile Bottom Navigation Bar (ALL SCENVY APPS) ── */}
       <nav style={{
         position: 'fixed',
         bottom: 0,
@@ -1518,9 +1948,9 @@ export default function TenantMobileApp() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-around',
-        padding: '8px 6px calc(8px + env(safe-area-inset-bottom, 0px))'
+        padding: '8px 4px calc(8px + env(safe-area-inset-bottom, 0px))'
       }}>
-        {/* 1. Home */}
+        {/* 1. Hub (Home) */}
         <button
           type="button"
           onClick={() => setActiveTab('home')}
@@ -1537,63 +1967,19 @@ export default function TenantMobileApp() {
             padding: '6px 0'
           }}
         >
-          <Home size={20} color={activeTab === 'home' ? '#7C3AED' : '#64748B'} />
-          <span style={{ fontSize: 10.5, fontWeight: activeTab === 'home' ? 800 : 600 }}>Home</span>
+          <Home size={19} color={activeTab === 'home' ? '#7C3AED' : '#64748B'} />
+          <span style={{ fontSize: 10, fontWeight: activeTab === 'home' ? 800 : 600 }}>Hub</span>
         </button>
 
-        {/* 2. Menus */}
+        {/* 2. SCENVY FLOW */}
         <button
           type="button"
-          onClick={() => setActiveTab('menus')}
+          onClick={() => setActiveTab('flow')}
           style={{
             flex: 1,
             background: 'none',
             border: 'none',
-            color: activeTab === 'menus' ? '#A78BFA' : '#64748B',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 4,
-            cursor: 'pointer',
-            padding: '6px 0'
-          }}
-        >
-          <Utensils size={20} color={activeTab === 'menus' ? '#7C3AED' : '#64748B'} />
-          <span style={{ fontSize: 10.5, fontWeight: activeTab === 'menus' ? 800 : 600 }}>Karten</span>
-        </button>
-
-        {/* 3. Center Camera Snap Floating Button */}
-        <button
-          type="button"
-          onClick={() => setShowSnapModal(true)}
-          style={{
-            width: 52,
-            height: 52,
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg, #7C3AED 0%, #EC4899 100%)',
-            border: '3px solid #09090E',
-            color: '#FFF',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            transform: 'translateY(-12px)',
-            boxShadow: '0 6px 20px rgba(124, 58, 237, 0.5)'
-          }}
-          title="Karte per Handykamera scannen"
-        >
-          <Camera size={24} />
-        </button>
-
-        {/* 4. Live Service / KDS */}
-        <button
-          type="button"
-          onClick={() => setActiveTab('service')}
-          style={{
-            flex: 1,
-            background: 'none',
-            border: 'none',
-            color: activeTab === 'service' ? '#A78BFA' : '#64748B',
+            color: activeTab === 'flow' ? '#A78BFA' : '#64748B',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -1604,15 +1990,95 @@ export default function TenantMobileApp() {
           }}
         >
           <div style={{ position: 'relative' }}>
-            <Bell size={20} color={activeTab === 'service' ? '#7C3AED' : (totalUrgentCount > 0 ? '#EF4444' : '#64748B')} />
+            <Film size={19} color={activeTab === 'flow' ? '#8B5CF6' : '#64748B'} />
+            {reels.length > 0 && (
+              <span style={{
+                position: 'absolute',
+                top: -4,
+                right: -7,
+                background: 'rgba(139, 92, 246, 0.85)',
+                color: '#FFF',
+                fontSize: 8.5,
+                fontWeight: 900,
+                padding: '1px 4px',
+                borderRadius: 8,
+                lineHeight: 1
+              }}>
+                {reels.length}
+              </span>
+            )}
+          </div>
+          <span style={{ fontSize: 10, fontWeight: activeTab === 'flow' ? 800 : 600 }}>Flow</span>
+        </button>
+
+        {/* 3. SCENVY MENU */}
+        <button
+          type="button"
+          onClick={() => setActiveTab('menu')}
+          style={{
+            flex: 1,
+            background: 'none',
+            border: 'none',
+            color: (activeTab === 'menu' || activeTab === 'menus') ? '#A78BFA' : '#64748B',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 4,
+            cursor: 'pointer',
+            padding: '6px 0',
+            position: 'relative'
+          }}
+        >
+          <div style={{ position: 'relative' }}>
+            <Utensils size={19} color={(activeTab === 'menu' || activeTab === 'menus') ? '#F97316' : '#64748B'} />
+            {menuReels.length > 0 && (
+              <span style={{
+                position: 'absolute',
+                top: -4,
+                right: -7,
+                background: 'rgba(249, 115, 22, 0.85)',
+                color: '#FFF',
+                fontSize: 8.5,
+                fontWeight: 900,
+                padding: '1px 4px',
+                borderRadius: 8,
+                lineHeight: 1
+              }}>
+                {menuReels.length}
+              </span>
+            )}
+          </div>
+          <span style={{ fontSize: 10, fontWeight: (activeTab === 'menu' || activeTab === 'menus') ? 800 : 600 }}>Menu</span>
+        </button>
+
+        {/* 4. SCENVY HOST */}
+        <button
+          type="button"
+          onClick={() => setActiveTab('host')}
+          style={{
+            flex: 1,
+            background: 'none',
+            border: 'none',
+            color: (activeTab === 'host' || activeTab === 'service' || activeTab === 'qrcodes') ? '#A78BFA' : '#64748B',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 4,
+            cursor: 'pointer',
+            padding: '6px 0',
+            position: 'relative'
+          }}
+        >
+          <div style={{ position: 'relative' }}>
+            <Bell size={19} color={(activeTab === 'host' || activeTab === 'service' || activeTab === 'qrcodes') ? '#10B981' : (totalUrgentCount > 0 ? '#EF4444' : '#64748B')} />
             {totalUrgentCount > 0 && (
               <span style={{
                 position: 'absolute',
                 top: -4,
-                right: -6,
+                right: -7,
                 background: '#EF4444',
                 color: '#FFF',
-                fontSize: 9,
+                fontSize: 8.5,
                 fontWeight: 900,
                 padding: '1px 4px',
                 borderRadius: 8,
@@ -1622,18 +2088,18 @@ export default function TenantMobileApp() {
               </span>
             )}
           </div>
-          <span style={{ fontSize: 10.5, fontWeight: activeTab === 'service' ? 800 : 600 }}>Service</span>
+          <span style={{ fontSize: 10, fontWeight: (activeTab === 'host' || activeTab === 'service' || activeTab === 'qrcodes') ? 800 : 600 }}>Host</span>
         </button>
 
-        {/* 5. QR Codes */}
+        {/* 5. SCENVY BOARD (im Ansatz) */}
         <button
           type="button"
-          onClick={() => setActiveTab('qrcodes')}
+          onClick={() => setActiveTab('board')}
           style={{
             flex: 1,
             background: 'none',
             border: 'none',
-            color: activeTab === 'qrcodes' ? '#A78BFA' : '#64748B',
+            color: activeTab === 'board' ? '#A78BFA' : '#64748B',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -1642,29 +2108,8 @@ export default function TenantMobileApp() {
             padding: '6px 0'
           }}
         >
-          <QrCode size={20} color={activeTab === 'qrcodes' ? '#7C3AED' : '#64748B'} />
-          <span style={{ fontSize: 10.5, fontWeight: activeTab === 'qrcodes' ? 800 : 600 }}>Tische</span>
-        </button>
-
-        {/* 6. Settings */}
-        <button
-          type="button"
-          onClick={() => setActiveTab('settings')}
-          style={{
-            flex: 1,
-            background: 'none',
-            border: 'none',
-            color: activeTab === 'settings' ? '#A78BFA' : '#64748B',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 4,
-            cursor: 'pointer',
-            padding: '6px 0'
-          }}
-        >
-          <Settings size={20} color={activeTab === 'settings' ? '#7C3AED' : '#64748B'} />
-          <span style={{ fontSize: 10.5, fontWeight: activeTab === 'settings' ? 800 : 600 }}>Profil</span>
+          <Tv size={19} color={activeTab === 'board' ? '#3B82F6' : '#64748B'} />
+          <span style={{ fontSize: 10, fontWeight: activeTab === 'board' ? 800 : 600 }}>Board</span>
         </button>
       </nav>
 
